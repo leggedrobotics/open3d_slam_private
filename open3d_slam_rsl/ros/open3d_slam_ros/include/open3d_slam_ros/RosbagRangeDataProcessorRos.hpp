@@ -1,0 +1,163 @@
+/*
+ * RosbagRangeDataProcessorRos.hpp
+ *
+ *  Created on: Apr 21, 2022
+ *      Author: jelavice
+ */
+
+#pragma once
+#include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
+#include <rosgraph_msgs/Clock.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <ros/ros.h>
+#include <rosbag/bag.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+#include <memory>
+#include <deque>
+#include <string>
+#include <vector>
+
+#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/Marker.h>
+
+#include "open3d_slam/SlamWrapper.hpp"
+
+#include <std_srvs/Empty.h>
+
+#include "open3d_slam_ros/DataProcessorRos.hpp"
+
+namespace o3d_slam {
+
+struct SlamInputs {
+  sensor_msgs::PointCloud2::ConstPtr pointCloud_;
+  geometry_msgs::PoseStamped::ConstPtr odometryPose_;
+
+  SlamInputs() = default;
+
+  SlamInputs(sensor_msgs::PointCloud2::ConstPtr pointCloud, geometry_msgs::PoseStamped::ConstPtr odometryPose)
+      : pointCloud_(pointCloud), odometryPose_(odometryPose) {}
+};
+
+class RosbagRangeDataProcessorRos : public DataProcessorRos {
+  using BASE = DataProcessorRos;
+  using SlamInputsBuffer = std::deque<std::unique_ptr<SlamInputs>>;
+
+ public:
+  RosbagRangeDataProcessorRos(ros::NodeHandlePtr nh);
+  ~RosbagRangeDataProcessorRos() override = default;
+
+  void initialize() override;
+  void startProcessing() override;
+  void processMeasurement(const PointCloud& cloud, const Time& timestamp) override;
+
+  void poseStampedCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+
+  /**
+   * @brief Processes a buffer of SLAM inputs stored in memory.
+   *
+   * @param buffer  Buffer of SLAM inputs, FIFO.
+   */
+  bool processBuffers(SlamInputsBuffer& buffer);
+
+  /**
+   * @brief Validates that essential topics required to run sequential evaluation are present in the bag file.
+   *
+   * @param bag               ROS bag file to analyze.
+   * @param mandatoryTopics   List of mandatory topics.
+   * @return true             If all mandatory topics are present in the data, false otherwise.
+   */
+  bool validateTopicsInRosbag(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics);
+
+  bool readCalibrationIfNeeded();
+
+  /*!
+   * @brief Run sequential SLAM.
+   * @return true If successful, false otherwise.
+   */
+  bool run();
+
+  std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> usePairForRegistration();
+
+
+ private:
+  void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
+  void processRosbag();
+
+  std::string rosbagFilename_;
+
+  //! Parameters.
+  Parameters parameters_;
+
+  nav_msgs::Path trackedPath_;
+  nav_msgs::Path bestGuessPath_;
+  std::ofstream poseFile_;
+  std::ofstream imuFile_;
+  std::string asyncOdometryFrame_;
+
+  std::string buildUpLogFilename(const std::string& typeSuffix);
+  bool createOutputDirectory();
+  visualization_msgs::MarkerArray convertPathToMarkerArray(const nav_msgs::Path& path);
+  visualization_msgs::Marker createLineStripMarker();
+
+  o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array,
+                                                                                    const int num_samples);
+
+  void calculateSurfaceNormals(o3d_slam::PointCloud& cloud);
+
+  void processRosbagForIMU();
+
+  void exportIMUData();
+
+  //! Publishers.
+  ros::Publisher clockPublisher_;
+  ros::Publisher inputPointCloudPublisher_;
+
+  ros::Publisher odometryPosePublisher_;
+  ros::Publisher registeredPosePublisher_;
+
+  ros::ServiceServer sleepServer_;
+
+  sensor_msgs::PointCloud2 registeredCloud_;
+
+  //! Tf2.
+  tf2_ros::TransformBroadcaster transformBroadcaster_;
+  tf2_ros::StaticTransformBroadcaster staticTransformBroadcaster_;
+
+  std::deque<geometry_msgs::PoseStamped> registeredPoses_;
+
+  ros::Time tracker;
+
+  //! Maximum processing rate.
+  double maxProcessingRate_{-0.1};
+
+  //! Tf topic name.
+  std::string tfTopic_{"/tf"};
+
+  //! Static Tf topic name.
+  std::string tfStaticTopic_{"/tf_static"};
+
+  //! ROS clock topic name.
+  std::string clockTopic_{"/clock"};
+
+  bool isFirstMessage_ = true;
+  bool isStaticTransformFound_ = false;
+
+  ros::Duration timeDiff_;
+
+  geometry_msgs::TransformStamped baseToLidarTransform_;
+  std::string odometryHeader_{"/bestHeaderThereis"};
+  std::vector<geometry_msgs::TransformStamped> staticTransforms_;
+
+  std::unique_ptr<tf2_ros::Buffer> tfBuffer_;
+  std::unique_ptr<tf2_ros::TransformListener> tfListener_;
+
+  bool isBagReadyToPlay_ = false;
+
+};
+
+}  // namespace o3d_slam

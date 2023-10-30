@@ -1,0 +1,425 @@
+/*
+ * Mapper.cpp
+ *
+ *  Created on: Sep 26, 2021
+ *      Author: jelavice
+ */
+
+#include "open3d_slam/Mapper.hpp"
+#include "open3d_slam/ScanToMapRegistration.hpp"
+#include "open3d_slam/Voxel.hpp"
+#include "open3d_slam/assert.hpp"
+#include "open3d_slam/helpers.hpp"
+#include "open3d_slam/math.hpp"
+#include "open3d_slam/output.hpp"
+#include "open3d_slam/time.hpp"
+
+#include <open3d/Open3D.h>
+#include <open3d/pipelines/registration/Registration.h>
+#include "open3d/utility/Eigen.h"
+#include "open3d/utility/Helper.h"
+
+#include <pointmatcher/PointMatcher.h>
+#include "open3d_conversions/open3d_conversions.h"
+
+namespace o3d_slam {
+
+namespace {
+namespace registration = open3d::pipelines::registration;
+const bool isCheckTransformChainingAndPrintResult = false;
+}  // namespace
+
+Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std::shared_ptr<SubmapCollection> submaps)
+    : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
+  // `updates` with default parameters
+  update(params_);
+  activeSubmapPm_ = std::make_shared<open3d_conversions::PmStampedPointCloud>();
+  pmPointCloudFilter_ = std::make_shared<open3d_conversions::PmPointCloudFilters>();
+
+  {
+    auto RemoveNaNDataPointsFilter =
+        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("RemoveNaNDataPointsFilter");
+    pmPointCloudFilter_->emplace_back(std::move(RemoveNaNDataPointsFilter));
+
+    auto surfaceNormalsFilter =
+        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("SurfaceNormalDataPointsFilter", {{"knn", PointMatcherSupport::toParam(10)},
+                                                                                     {"epsilon", PointMatcherSupport::toParam(0.03)},
+                                                                                     {"keepNormals", PointMatcherSupport::toParam(1)},
+                                                                                     {"keepDensities", PointMatcherSupport::toParam(1)},
+                                                                                     {"keepEigenValues", PointMatcherSupport::toParam(0)},
+                                                                                     {"keepEigenVectors", PointMatcherSupport::toParam(0)},
+                                                                                     {"keepMatchedIds", PointMatcherSupport::toParam(0)}});
+    pmPointCloudFilter_->emplace_back(std::move(surfaceNormalsFilter));
+
+    auto ObservationDirectionDataPointsFilter =
+        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("ObservationDirectionDataPointsFilter");
+    pmPointCloudFilter_->emplace_back(std::move(ObservationDirectionDataPointsFilter));
+
+    auto OrientNormalsDataPointsFilter =
+        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("OrientNormalsDataPointsFilter", {{"towardCenter", PointMatcherSupport::toParam(true)}});
+    pmPointCloudFilter_->emplace_back(std::move(OrientNormalsDataPointsFilter));
+
+    auto maxDensityFilter =
+        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("MaxDensityDataPointsFilter", {{"maxDensity", PointMatcherSupport::toParam(8000)}});
+    pmPointCloudFilter_->emplace_back(std::move(maxDensityFilter));
+
+  }
+
+  Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(0.0, 0.0, 0.0) * Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
+  calibration_ = calibrationIsometry.matrix();
+}
+
+void Mapper::setParameters(const MapperParameters& p) {
+  params_ = p;
+  update(p);
+}
+
+MapperParameters* Mapper::getParametersPtr() {
+  return &params_;
+}
+
+void Mapper::loopClosureUpdate(const Transform& loopClosureCorrection) {
+  mapToRangeSensor_ = loopClosureCorrection * mapToRangeSensor_;
+  mapToRangeSensorPrev_ = loopClosureCorrection * mapToRangeSensorPrev_;
+}
+
+bool Mapper::hasProcessedMeasurements() const {
+  return !mapToRangeSensorBuffer_.empty();
+}
+
+void Mapper::update(const MapperParameters& p) {
+  scan2MapReg_ = scanToMapRegistrationFactory(p);
+  submaps_->setParameters(p);
+}
+
+Transform Mapper::getMapToOdom(const Time& timestamp) const {
+  const Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_);
+  const Transform mapToRangeSensor = getTransform(timestamp, mapToRangeSensorBuffer_);
+  return mapToRangeSensor * odomToRangeSensor.inverse();
+  //	return getTransform(timestamp, mapToOdomBuffer_);
+}
+
+Transform Mapper::getMapToRangeSensor(const Time& timestamp) const {
+  return getTransform(timestamp, mapToRangeSensorBuffer_);
+}
+
+bool Mapper::isRegistrationBestGuessBufferEmpty() const{
+  return bestGuessBuffer_.empty();
+}
+
+Transform Mapper::getRegistrationBestGuess(const Time& timestamp) const {
+
+  //if (bestGuessBuffer_.empty()){
+  //  return Transform::Identity();
+  //}
+
+  return getTransform(timestamp, bestGuessBuffer_);
+}
+
+const SubmapCollection& Mapper::getSubmaps() const {
+  return *submaps_;
+}
+
+const Submap& Mapper::getActiveSubmap() const {
+  return submaps_->getActiveSubmap();
+}
+
+const TransformInterpolationBuffer& Mapper::getMapToRangeSensorBuffer() const {
+  return mapToRangeSensorBuffer_;
+}
+
+SubmapCollection* Mapper::getSubmapsPtr() {
+  return submaps_.get();
+}
+
+void Mapper::setMapToRangeSensor(const Transform& t) {
+  mapToRangeSensor_ = t;
+}
+void Mapper::setMapToRangeSensorInitial(const Transform& t) {
+  
+  if (isNewInitialValueSet_)
+  {
+    return;
+  }
+  
+  mapToRangeSensorPrev_ = t;
+  mapToRangeSensor_ = t;
+  isNewInitialValueSet_ = true;
+}
+
+const PointCloud& Mapper::getPreprocessedScan() const {
+  return preProcessedScan_;
+}
+
+const ScanToMapRegistration& Mapper::getScanToMapRegistration() const {
+  return *scan2MapReg_;
+}
+
+// Entry point to scan2map registration
+bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& timestamp) {
+  submaps_->setMapToRangeSensor(mapToRangeSensor_);
+
+  // insert first scan
+  if (submaps_->getActiveSubmap().isEmpty()) {
+    if (params_.isUseInitialMap_) {
+      assert_true(scan2MapReg_->isMergeScanValid(rawScan), "Init map invalid!!!!");
+      submaps_->insertScan(rawScan, rawScan, Transform::Identity(), timestamp);
+    } else {
+      const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
+      // TODO(TT) the init of submap is changed from identity to mapToRangeSensor_. This allows nice start of the mapping.
+      // Depending more on the initial transform.
+      submaps_->insertScan(rawScan, *processed.merge_, mapToRangeSensor_, timestamp);
+      mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
+    }
+    return true;
+  }
+
+  if (timestamp < lastMeasurementTimestamp_) {
+    std::cerr << "\n\n !!!!! MAPER WARNING: Measurements came out of order!!!! \n\n";
+    return false;
+  }
+
+  bool isOdomOkay = odomToRangeSensorBuffer_.has(timestamp);
+  if (!isOdomOkay) {
+    std::cerr << "WARNING: odomToRangeSensorBuffer_ DOES NOT HAVE THE DESIRED TRANSFORM! \n";
+    std::cerr << "  going to attempt the scan to map refinement anyway \n";
+  }
+
+  checkTransformChainingAndPrintResult(isCheckTransformChainingAndPrintResult);
+
+  Transform mapToRangeSensorEstimate = mapToRangeSensorPrev_;
+
+  // This is where we prepare the scan2map initial guess.
+  if (isOdomOkay && !isNewInitialValueSet_ && !isIgnoreOdometryPrediction_) {
+
+    // Get the pose at the current timestamp of the PC we are operating with.
+    const Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_) * calibration_.inverse();
+
+    // Get the pose at the previous PC timestamp we already calculated the scan2map refinement for.
+    const Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+
+    // Calculate the motion between the two poses. This immediately allows us get rid of `drift` in the odometry.
+    Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
+
+    // Apply the calculated odometry motion to the previous scan2map refined pose.
+    mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
+  }
+
+  isIgnoreOdometryPrediction_ = false;
+
+  // Start auxilary time measurement.
+  auxilaryTimer_.startStopwatch();
+
+
+  // Reduced such that there is no surface normal calculation by o3d
+  /*ProcessedScans processed; 
+  
+  // The uncropped but voxelized and randomDownSampled cloud.
+  processed.merge_ = scan2MapReg_->reducedProcessForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
+
+  // Create empty pointmatcher cloud from o3d cloud. 
+  auto pointmatcherCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.merge_->points_.size());
+
+  // Convert to pointmatcher type. This is not so cool. Need to convert always.
+  // If you set the 3rd arg false, it doesnt copy normals.
+  open3d_conversions::open3dToPointmatcher(*processed.merge_, *pointmatcherCloud, false);
+
+  // Calculate the normals using libpointmatcher filter.
+  pmPointCloudFilter_->apply(pointmatcherCloud->dataPoints_);
+
+  // I need to assign the normals to the o3d cloud.
+  open3d_conversions::pointmatcherToOpen3d(*pointmatcherCloud, *processed.merge_);
+
+  // Crop the cloud around the robot.
+  processed.match_ = scan2MapReg_->getCroppedCloud(processed.merge_);
+  auto croppedCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.match_->points_.size());
+  open3d_conversions::open3dToPointmatcher(*processed.match_, *croppedCloud, true);
+  */
+  
+  /// WORKING OLD CODE
+  const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
+  auto croppedCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.match_->points_.size());
+  open3d_conversions::open3dToPointmatcher(*processed.match_, *croppedCloud);
+  
+
+  const double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
+  auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
+  std::cout << " Auxilary time: " << "\033[92m" << auxilarytimeElapsed << " msec \n" << "\033[0m";
+
+  //mapToRangeSensorEstimate.rotation().normalized();
+  // Convert the initial guess to pointmatcher
+  pointmatcher_ros::PmTfParameters transformReadingToReferenceInitialGuess;
+  transformReadingToReferenceInitialGuess.matrix()= mapToRangeSensorEstimate.matrix().cast<float>();
+
+  //std::cout << "Number of points in submap: " << submaps_->getActiveSubmap().getNbPoints() << std::endl;
+
+  // Crop the submap around the robot.
+  const PointCloudPtr mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_);
+
+  //const PointCloud& mapPatch = submaps_->getActiveSubmap().getMapPointCloud();
+
+  // Initialize the registered pose.
+  pointmatcher_ros::PmTfParameters correctedTransform;
+  
+  try {
+    //std::cout << "activeSubmap: " << activeSubmap->dataPoints_.features.cols() << " x " << activeSubmap->dataPoints_.features.rows() << std::endl;
+    //std::cout << "activeSubmap datapoints x" << activeSubmap->dataPoints_.features.col(0).row(0) << std::endl;
+
+    double passedTime = std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
+    //std::cerr << "Passed Time: " << passedTime << std::endl;
+    
+    if (isNewInitialValueSet_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)){ 
+
+      // Create pointmatcher cloud
+      activeSubmapPm_ = open3d_conversions::createSimilarPointmatcherCloud(mapPatch->points_.size());
+
+      // Convert to pointmatcher. This is time consuming.
+      open3d_conversions::open3dToPointmatcher(*mapPatch, *activeSubmapPm_);
+
+      referenceInitTimer_.startStopwatch();
+
+      lastReferenceInitializationTimestamp_ = timestamp;
+      icp_.initReference(activeSubmapPm_->dataPoints_);
+
+      const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
+      referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
+
+      std::cout << " Reference Cloud Re-init time: " << "\033[92m" << referenceInittimeElapsed << " msec \n" << "\033[0m";
+    }else{
+      referenceInitTimer_.reset();
+    }
+
+    testmapperOnlyTimer_.startStopwatch();
+
+    if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols()){
+      correctedTransform = icp_.compute(croppedCloud->dataPoints_, activeSubmapPm_->dataPoints_,
+                                                          transformReadingToReferenceInitialGuess, false);
+
+    const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
+    testmapperOnlyTimer_.addMeasurementMsec(timeElapsed);
+
+    std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
+
+    }else{
+      std::cerr << "Submap dont have enough points to register to."<< std::endl;
+      correctedTransform = transformReadingToReferenceInitialGuess;
+    }
+  
+  } catch (const std::runtime_error& error) {
+    std::cout << "Experienced a runtime error while running libpointmatcher ICP: " << error.what() << std::endl;
+  }
+
+  // TODO(TT) Add a failsafe checker for health?
+  /*
+  std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
+  std::cout << "postIcp O3D: " << asString(Transform(result.transformation_)) << "\n\n";
+  std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
+
+  if (!params_.isIgnoreMinRefinementFitness_ && result.fitness_ < params_.scanMatcher_.minRefinementFitness_) {
+    std::cout << "Skipping the refinement step, fitness: " << result.fitness_ << std::endl;
+    std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
+    std::cout << "postIcp: " << asString(Transform(result.transformation_)) << "\n\n";
+    return false;
+  }
+  */
+
+  // Pass the calculated transform to o3d transform.
+  Transform correctedTransform_o3d;
+  correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
+  
+  if (isNewInitialValueSet_) {
+    std::cout << "\033[92m" << "Setting initial value for the map to range sensor transform. ONLY expected at the start-up." << "\033[0m" << "\n";
+    mapToRangeSensorPrev_ = mapToRangeSensor_;
+    mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
+    isNewInitialValueSet_ = false;
+    isIgnoreOdometryPrediction_ = true;
+    return true;
+  }
+
+  // Pass to placeholders variables
+  preProcessedScan_ = *processed.match_;
+  mapToRangeSensor_.matrix() = correctedTransform_o3d.matrix();
+  mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
+  bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
+  submaps_->setMapToRangeSensor(mapToRangeSensor_);
+
+  // This is commented since currently we are using libpointmatcher.
+  //mapToRangeSensor_.matrix() = result.transformation_;
+
+  if (params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) {
+    lastMeasurementTimestamp_ = timestamp;
+    mapToRangeSensorPrev_ = mapToRangeSensor_;
+    return true;
+  }
+
+  scanInsertionTimer_.startStopwatch();
+  // Concatenate registered cloud into map
+  const Transform sensorMotion = mapToRangeSensorLastScanInsertion_.inverse() * mapToRangeSensor_;
+  const bool isMovedTooLittle = sensorMotion.translation().norm() < params_.minMovementBetweenMappingSteps_;
+  if (!isMovedTooLittle) {
+    // Timer t("scan_insertion_and_bookeeping");
+    submaps_->insertScan(rawScan, *processed.merge_, mapToRangeSensor_, timestamp);
+    mapToRangeSensorLastScanInsertion_ = mapToRangeSensor_;
+  }
+
+  lastMeasurementTimestamp_ = timestamp;
+  mapToRangeSensorPrev_ = mapToRangeSensor_;
+
+  const double insertiontimeElapsed = scanInsertionTimer_.elapsedMsecSinceStopwatchStart();
+  scanInsertionTimer_.addMeasurementMsec(insertiontimeElapsed);
+
+  std::cout << "Scan Insertion: " << "\033[92m" << insertiontimeElapsed << " msec \n " << "\033[0m";
+
+  return true;
+}
+
+Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {
+  const int nPoints = submaps_->getTotalNumPoints();
+
+  if (nPoints == 0){
+    std::cerr << "No points in the assembled map. Returning empty cloud." << std::endl;
+    return PointCloud();
+  }
+
+  PointCloud cloud;
+  const Submap& activeSubmap = getActiveSubmap();
+  cloud.points_.reserve(nPoints);
+  if (activeSubmap.getMapPointCloud().HasColors()) {
+    cloud.colors_.reserve(nPoints);
+  }
+  if (activeSubmap.getMapPointCloud().HasNormals()) {
+    cloud.normals_.reserve(nPoints);
+  }
+
+  for (size_t j = 0; j < submaps_->getNumSubmaps(); ++j) {
+    const PointCloud submap = submaps_->getSubmap(j).getMapPointCloudCopy();
+    for (size_t i = 0; i < submap.points_.size(); ++i) {
+      cloud.points_.push_back(submap.points_.at(i));
+      if (submap.HasColors()) {
+        cloud.colors_.push_back(submap.colors_.at(i));
+      }
+      if (submap.HasNormals()) {
+        cloud.normals_.push_back(submap.normals_.at(i));
+      }
+    }
+  }
+
+  return cloud;
+}
+
+void Mapper::checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const {
+  if (isCheckTransformChainingAndPrintResult && odomToRangeSensorBuffer_.size() > 70 && mapToRangeSensorBuffer_.size() > 70) {
+    const auto odom1 = odomToRangeSensorBuffer_.latest_measurement(60).transform_;
+    const auto odom2 = odomToRangeSensorBuffer_.latest_measurement(20).transform_;
+    const auto start = mapToRangeSensorBuffer_.latest_measurement(60).transform_;
+    const auto gt = mapToRangeSensorBuffer_.latest_measurement(20).transform_;
+    const Transform mapMotion = start.inverse() * gt;
+    const Transform odomMotion = odom1.inverse() * odom2;
+    std::cout << "start      :  " << asString(start) << "\n";
+    std::cout << "gt         :  " << asString(gt) << "\n";
+    std::cout << "gt computed:  " << asString(start * mapMotion) << "\n";
+    std::cout << "est        : " << asString(start * odomMotion) << "\n\n";
+  }
+}
+
+} /* namespace o3d_slam */
