@@ -21,7 +21,7 @@
 #include <pointmatcher/PointMatcher.h>
 #include <pointmatcher_ros/PmTf.h>
 #include <pointmatcher_ros/usings.h>
-
+#include <nav_msgs/Path.h>
 
 namespace o3d_slam {
 
@@ -60,6 +60,9 @@ class Mapper {
 
   Transform calibration_ = Transform::Identity();
 
+  nav_msgs::Path trackedPath_;
+  nav_msgs::Path bestGuessPath_;
+
  private:
   void update(const MapperParameters& p);
   void checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const;
@@ -89,7 +92,7 @@ class Mapper {
   
   std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
   std::shared_ptr<open3d_conversions::PmStampedPointCloud> activeSubmapPm_;
-  
+
 };
 
 } /* namespace o3d_slam */

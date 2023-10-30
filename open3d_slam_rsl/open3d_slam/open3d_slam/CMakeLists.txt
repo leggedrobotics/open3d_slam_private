@@ -36,6 +36,8 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   pointmatcher_ros
   open3d_conversions
   eigen_conversions
+  nav_msgs
+  geometry_msgs
   )
 
 

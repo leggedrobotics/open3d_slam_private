@@ -102,6 +102,14 @@ size_t SlamWrapper::getMappingBufferSizeLimit() const {
   return mappingBuffer_.size_limit();
 }
 
+void SlamWrapper::appendPoseToTrackedPath(geometry_msgs::PoseStamped transform){
+  mapper_->trackedPath_.poses.push_back(transform);
+}
+
+void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform){
+  mapper_->bestGuessPath_.poses.push_back(transform);
+}
+
 bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time& timestamp) const {
   if (!(params_.odometry_.useOdometryTopic_) || odometry_->odomToRangeSensorBuffer_.has(timestamp)) {
     std::cout << "WARNING: you are trying to add an odometry pose to the buffer, but the buffer already has it! \n";

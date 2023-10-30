@@ -303,11 +303,11 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityDebug(const std::string& y
     else
     {
         // If not set correctly set none and return false.
-        MELO_ERROR("Debug mode is not set or False: '%s'", methodName.c_str());
+        MELO_WARN("Debug mode is to False: '%s'", methodName.c_str());
         localizabilityDetectionParameters.isDebugModeENabled_ = false;
     }
 
-    MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
+    //MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
 
     return true;
 }
@@ -333,7 +333,7 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityPrint(const std::string& y
     else
     {
         // If not set correctly set none and return false.
-        MELO_ERROR("Printing is not set or False: '%s'", methodName.c_str());
+        MELO_WARN("Debug Printing is to False: '%s'", methodName.c_str());
         localizabilityDetectionParameters.isPrintingEnabled_ = false;
     }
 
@@ -361,12 +361,12 @@ bool PointMatcher<T>::ICPChainBase::readCeresDegeneracyAnalysis(const std::strin
             if (PointMatcherSupport::lexical_cast<T>(params.at("isActive")) == T(0))
             {
                 degeneracySolverOptions_.isEnabled_ = false;
-                MELO_WARN("================ Ceres bases solvers are DISABLED ================");
+                //MELO_WARN("================ Ceres bases solvers are DISABLED ================");
                 return true;
             }
             else
             {
-                MELO_WARN("================ Ceres bases solvers are ENABLED ================");
+                //MELO_WARN("================ Ceres bases solvers are ENABLED ================");
                 degeneracySolverOptions_.isEnabled_ = true;
             }
         }

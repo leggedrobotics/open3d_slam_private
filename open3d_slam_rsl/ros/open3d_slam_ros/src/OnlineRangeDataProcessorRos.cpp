@@ -54,13 +54,54 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   // Re-publish the raw point cloud for visualization purposes.
   o3d_slam::publishCloud(cloud, slam_->frames_.rangeSensorFrame, toRos(timestamp), rawCloudPub_);
   
-  // TODO(TT) Is this the best place to do this?
+  // TODO(TT) Is this the best place to do this? (ofc its not)
   // Get the latest registered point cloud and publish it.
   std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
   const bool isCloudEmpty = std::get<0>(cloudTimePair).IsEmpty();
   if (isTimeValid(std::get<1>(cloudTimePair)) && !isCloudEmpty) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), registeredCloudPub_);
   }
+
+  std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
+
+  if ( (!isTimeValid(std::get<1>(cloudTimePair))) || (!isTimeValid(std::get<0>(bestGuessTimePair)))){
+    return;
+  }
+  
+
+  Transform calculatedTransform = std::get<2>(cloudTimePair);
+
+  geometry_msgs::PoseStamped poseStamped;
+  Eigen::Quaterniond rotation(calculatedTransform.rotation());
+
+  poseStamped.header.stamp = toRos(std::get<1>(cloudTimePair));
+  poseStamped.pose.position.x = calculatedTransform.translation().x();
+  poseStamped.pose.position.y = calculatedTransform.translation().y();
+  poseStamped.pose.position.z = calculatedTransform.translation().z();
+  poseStamped.pose.orientation.w = rotation.w();
+  poseStamped.pose.orientation.x = rotation.x();
+  poseStamped.pose.orientation.y = rotation.y();
+  poseStamped.pose.orientation.z = rotation.z();
+
+  slam_->appendPoseToTrackedPath(poseStamped);
+
+  // Best guess path
+
+  Transform bestGuessTransform = std::get<1>(bestGuessTimePair);
+
+  geometry_msgs::PoseStamped bestGuessPoseStamped;
+  Eigen::Quaterniond bestGuessRotation(bestGuessTransform.rotation());
+
+  bestGuessPoseStamped.header.stamp = toRos(std::get<0>(bestGuessTimePair));
+  bestGuessPoseStamped.pose.position.x = bestGuessTransform.translation().x();
+  bestGuessPoseStamped.pose.position.y = bestGuessTransform.translation().y();
+  bestGuessPoseStamped.pose.position.z = bestGuessTransform.translation().z();
+  bestGuessPoseStamped.pose.orientation.w = bestGuessRotation.w();
+  bestGuessPoseStamped.pose.orientation.x = bestGuessRotation.x();
+  bestGuessPoseStamped.pose.orientation.y = bestGuessRotation.y();
+  bestGuessPoseStamped.pose.orientation.z = bestGuessRotation.z();
+
+  slam_->appendPoseToBestGuessPath(bestGuessPoseStamped);
 
   return;
 }

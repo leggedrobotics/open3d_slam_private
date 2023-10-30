@@ -33,7 +33,7 @@
 namespace o3d_slam {
 
 namespace {
-//using namespace o3d_slam::frames;
+// Frames were used to included here.
 }
 
 SlamWrapperRos::SlamWrapperRos(ros::NodeHandlePtr nh) : BASE(), nh_(nh) {
@@ -134,7 +134,7 @@ void SlamWrapperRos::offlineTfWorker() {
 }
 
 void SlamWrapperRos::tfWorker() {
-  ros::WallRate r(20.0);
+  ros::WallRate r(75.0);
   while (ros::ok()) {
     const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
     const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScan_;
@@ -151,6 +151,19 @@ void SlamWrapperRos::tfWorker() {
     if (!isScanToMapAlreadyPublished && mapper_->hasProcessedMeasurements()) {
       publishMapToOdomTf(latestScanToMap);
       prevPublishedTimeScanToMap_ = latestScanToMap;
+
+      if (trackedPathPub_.getNumSubscribers() > 0u || trackedPathPub_.isLatched()) {
+        mapper_->trackedPath_.header.stamp = o3d_slam::toRos(latestScanToMap);
+        mapper_->trackedPath_.header.frame_id = frames_.mapFrame;
+        trackedPathPub_.publish(mapper_->trackedPath_);
+      }
+
+      if (bestGuessPathPub_.getNumSubscribers() > 0u || bestGuessPathPub_.isLatched()) {
+        mapper_->bestGuessPath_.header.stamp = o3d_slam::toRos(latestScanToMap);
+        mapper_->bestGuessPath_.header.frame_id = frames_.mapFrame;
+        bestGuessPathPub_.publish(mapper_->bestGuessPath_);
+      }
+
     }
 
     ros::spinOnce();
@@ -162,17 +175,6 @@ void SlamWrapperRos::offlineVisualizationWorker() {
   const Time scanToScanTimestamp = latestScanToScanRegistrationTimestamp_;
   ros::Time timestamp = toRos(scanToScanTimestamp);
   o3d_slam::publishSubmapCoordinateAxes(mapper_->getSubmaps(), frames_.mapFrame, timestamp, submapOriginsPub_);
-
-  /*if (odometryInputPub_.getNumSubscribers() > 0 && isTimeValid(scanToScanTimestamp)) {
-    const PointCloud odomInput = odometry_->getPreProcessedCloud();
-    o3d_slam::publishCloud(odomInput, frames_.rangeSensorFrame, toRos(scanToScanTimestamp), odometryInputPub_);
-  }
-
-  const Time scanToMapTimestamp = latestScanToMapRefinementTimestamp_;
-  if (isTimeValid(scanToMapTimestamp)) {
-    publishDenseMap(scanToMapTimestamp);
-    publishMaps(scanToMapTimestamp);
-  }*/
 
 }
 
@@ -204,7 +206,7 @@ bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
     return false;
   }
   mapper_->icp_.loadFromYaml(fileStream);
-  //success
+
   return true;
 }
 
@@ -225,8 +227,12 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   scan2mapTransformPublisher_ = nh_->advertise<geometry_msgs::TransformStamped>("scan2map_transform", 1, true);
   scan2mapOdomPublisher_ = nh_->advertise<nav_msgs::Odometry>("scan2map_odometry", 1, true);
 
+  trackedPathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path_live", 1, true);
+  bestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path_live", 1, true);
+
   //	auto &logger = open3d::utility::Logger::GetInstance();
   //	logger.SetVerbosityLevel(open3d::utility::VerbosityLevel::Debug);
+  const bool isOfflineReplay = o3d_slam::tryGetParam<bool>("is_read_from_rosbag", *nh_);
 
   folderPath_ = ros::package::getPath("open3d_slam_ros") + "/data/";
   mapSavingFolderPath_ = nh_->param<std::string>("map_saving_folder", folderPath_);
@@ -238,17 +244,16 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
 
   frames_.rangeSensorFrame = nh_->param<std::string>("tracked_sensor_frame", "default");
-  ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame << "\033[0m");
 
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
-  ROS_INFO_STREAM("\033[92m" << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-
-  ROS_INFO_STREAM( "Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
-
-  //	const std::string paramFile = nh_->param<std::string>("parameter_file_path", "");
-  //	setParameterFilePath(paramFile);
-  //	io_yaml::loadParameters(paramFile, &params_);
-  //
+  
+  if (isOfflineReplay){
+    ROS_INFO_STREAM("\033[92m" << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+    ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame << "\033[0m");
+    ROS_INFO_STREAM( "Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
+  }
+  
+  // Set and load the libpointmatcher config here.
   std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
   ROS_INFO_STREAM("libpointmatcherConfigPath: " << libpointmatcherConfigPath);
 
@@ -256,7 +261,6 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   const std::string paramFilename = nh_->param<std::string>("parameter_filename", "");
   SlamParameters params;
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
-
   BASE::loadParametersAndInitialize();
 
   if(!readLibpointmatcherConfig(libpointmatcherConfigPath)){
@@ -285,9 +289,7 @@ void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
   {
     auto latestMapToRangeMeasurement_ = mapper_->getMapToRangeSensorBuffer().latest_measurement();
 
-    if ((isTimeValid(latestMapToRangeMeasurement_.time_)))
-    {
-      //std::cout << "Publishing map to lidar transform" << std::endl;
+    if ((isTimeValid(latestMapToRangeMeasurement_.time_))){
       // Publish lidar to map transform.
       o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(), o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, frames_.mapFrame, tfBroadcaster_.get());
     }

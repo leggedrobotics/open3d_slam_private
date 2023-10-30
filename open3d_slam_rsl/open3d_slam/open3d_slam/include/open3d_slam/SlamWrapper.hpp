@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 #include <future>
 #include <thread>
+#include <geometry_msgs/PoseStamped.h>
 #include "open3d_slam/CircularBuffer.hpp"
 #include "open3d_slam/Constraint.hpp"
 #include "open3d_slam/Parameters.hpp"
@@ -98,6 +99,9 @@ class SlamWrapper {
   bool saveMap(const std::string& directory);
   bool saveDenseSubmaps(const std::string& directory);
   bool saveSubmaps(const std::string& directory, const bool& isDenseMap = false);
+
+  void appendPoseToTrackedPath(geometry_msgs::PoseStamped transform);
+  void appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform);
 
   // A simple worker call function for offlane replay package.
   void usePairForRegistration();
