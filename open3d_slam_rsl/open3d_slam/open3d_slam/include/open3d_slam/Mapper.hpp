@@ -58,10 +58,15 @@ class Mapper {
   bool hasProcessedMeasurements() const;
   bool addRangeMeasurement(const PointCloud& cloud, const Time& timestamp);
 
+  void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
+  bool isExternalOdometryFrameToCloudFrameCalibrationSet();
+
   Transform calibration_ = Transform::Identity();
+  bool isCalibrationSet_ = false;
 
   nav_msgs::Path trackedPath_;
   nav_msgs::Path bestGuessPath_;
+  bool isNewInitialValueSet_ = false;
 
  private:
   void update(const MapperParameters& p);
@@ -86,7 +91,7 @@ class Mapper {
   TransformInterpolationBuffer mapToRangeSensorBuffer_;
   TransformInterpolationBuffer bestGuessBuffer_;
   open3d::geometry::PointCloud preProcessedScan_;
-  bool isNewInitialValueSet_ = false;
+
   bool isIgnoreOdometryPrediction_ = false;
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
   

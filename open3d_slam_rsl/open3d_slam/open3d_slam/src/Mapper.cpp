@@ -78,6 +78,18 @@ MapperParameters* Mapper::getParametersPtr() {
   return &params_;
 }
 
+void Mapper::setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform) {
+  //Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(0, 0.364, -0.1422) * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ());
+  //Not thread safe?
+  calibration_ = transform.matrix();
+  isCalibrationSet_ = true;
+  return;
+}
+
+bool Mapper::isExternalOdometryFrameToCloudFrameCalibrationSet() {
+  return isCalibrationSet_;
+}
+
 void Mapper::loopClosureUpdate(const Transform& loopClosureCorrection) {
   mapToRangeSensor_ = loopClosureCorrection * mapToRangeSensor_;
   mapToRangeSensorPrev_ = loopClosureCorrection * mapToRangeSensorPrev_;
@@ -137,8 +149,7 @@ void Mapper::setMapToRangeSensor(const Transform& t) {
 }
 void Mapper::setMapToRangeSensorInitial(const Transform& t) {
   
-  if (isNewInitialValueSet_)
-  {
+  if (isNewInitialValueSet_){
     return;
   }
   
@@ -209,38 +220,11 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   // Start auxilary time measurement.
   auxilaryTimer_.startStopwatch();
-
-
-  // Reduced such that there is no surface normal calculation by o3d
-  /*ProcessedScans processed; 
-  
-  // The uncropped but voxelized and randomDownSampled cloud.
-  processed.merge_ = scan2MapReg_->reducedProcessForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
-
-  // Create empty pointmatcher cloud from o3d cloud. 
-  auto pointmatcherCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.merge_->points_.size());
-
-  // Convert to pointmatcher type. This is not so cool. Need to convert always.
-  // If you set the 3rd arg false, it doesnt copy normals.
-  open3d_conversions::open3dToPointmatcher(*processed.merge_, *pointmatcherCloud, false);
-
-  // Calculate the normals using libpointmatcher filter.
-  pmPointCloudFilter_->apply(pointmatcherCloud->dataPoints_);
-
-  // I need to assign the normals to the o3d cloud.
-  open3d_conversions::pointmatcherToOpen3d(*pointmatcherCloud, *processed.merge_);
-
-  // Crop the cloud around the robot.
-  processed.match_ = scan2MapReg_->getCroppedCloud(processed.merge_);
-  auto croppedCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.match_->points_.size());
-  open3d_conversions::open3dToPointmatcher(*processed.match_, *croppedCloud, true);
-  */
   
   /// WORKING OLD CODE
   const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
   auto croppedCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.match_->points_.size());
   open3d_conversions::open3dToPointmatcher(*processed.match_, *croppedCloud);
-  
 
   const double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
   auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
@@ -301,7 +285,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
 
     }else{
-      std::cerr << "Submap dont have enough points to register to."<< std::endl;
+      std::cerr << "Submap dont have enough points to register to. Skipping scan2map refinement."<< std::endl;
       correctedTransform = transformReadingToReferenceInitialGuess;
     }
   

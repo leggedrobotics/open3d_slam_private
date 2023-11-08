@@ -121,6 +121,10 @@ class SlamWrapper {
   // A simple getter function that check if odometry pose is available for a certain time. Used for replaying.
   bool doesOdometrybufferHasMeasurement(const Time& t);
 
+  bool isExternalOdometryFrameToCloudFrameCalibrationSet();
+
+  bool isInitialTransformSet();
+
   TimestampedTransform latestMapToRangeMeasurement_;
   TimestampedTransform getLatestMapToRangeMeasurement() const;
 

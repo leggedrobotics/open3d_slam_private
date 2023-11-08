@@ -8,6 +8,8 @@
 #include "open3d_slam_ros/OnlineRangeDataProcessorRos.hpp"
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <tf2/convert.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include "open3d_conversions/open3d_conversions.h"
 #include "open3d_slam/time.hpp"
 #include "open3d_slam_ros/SlamWrapperRos.hpp"
@@ -28,15 +30,15 @@ void OnlineRangeDataProcessorRos::initialize() {
 
 void OnlineRangeDataProcessorRos::startProcessing() {
   slam_->startWorkers();
-  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 10, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
+  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 1, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
   
   // Redundant listening of pose topics. It is really tiresome to the developer to keep the support for all types.
-  poseStampedSubscriber_ = nh_->subscribe(poseStampedTopic_, 400, &OnlineRangeDataProcessorRos::poseStampedCallback, this, ros::TransportHints().tcpNoDelay());
-  odometrySubscriber_ = nh_->subscribe(odometryTopic_, 400, &OnlineRangeDataProcessorRos::odometryCallback, this, ros::TransportHints().tcpNoDelay());
-  poseStampedCovarianceSubscriber_ = nh_->subscribe(poseStampedWithCovarianceTopic_, 400, &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this, ros::TransportHints().tcpNoDelay());
+  poseStampedSubscriber_ = nh_->subscribe(poseStampedTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedCallback, this, ros::TransportHints().tcpNoDelay());
+  odometrySubscriber_ = nh_->subscribe(odometryTopic_, 40, &OnlineRangeDataProcessorRos::odometryCallback, this, ros::TransportHints().tcpNoDelay());
+  poseStampedCovarianceSubscriber_ = nh_->subscribe(poseStampedWithCovarianceTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this, ros::TransportHints().tcpNoDelay());
   
   // Currently harcoded to ANYmal, additional support will follow.
-  imuSubscriber_ = nh_->subscribe<sensor_msgs::Imu>("/sensors/imu", 400, &OnlineRangeDataProcessorRos::imuCallback, this, ros::TransportHints().tcpNoDelay());
+  imuSubscriber_ = nh_->subscribe<sensor_msgs::Imu>("/sensors/imu", 40, &OnlineRangeDataProcessorRos::imuCallback, this, ros::TransportHints().tcpNoDelay());
 
   // Number of spinners should be equal to the number of active subscribers
   ros::MultiThreadedSpinner spinner(4);
@@ -60,14 +62,24 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   const bool isCloudEmpty = std::get<0>(cloudTimePair).IsEmpty();
   if (isTimeValid(std::get<1>(cloudTimePair)) && !isCloudEmpty) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), registeredCloudPub_);
-  }
-
-  std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
-
-  if ( (!isTimeValid(std::get<1>(cloudTimePair))) || (!isTimeValid(std::get<0>(bestGuessTimePair)))){
+  }else
+  {
+    std::cerr << "Registered Cloud will not be published. Either time is off or cloud empty." << std::endl;
     return;
   }
   
+  std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
+
+  if ( (!isTimeValid(std::get<1>(cloudTimePair))) ){
+    std::cout << "Transform Time is not valid" << std::endl;
+    return;
+  }
+
+  //TODO(TT) Identify why this is not valid.
+  /*if ((!isTimeValid(std::get<0>(bestGuessTimePair)))){
+    std::cout << "best guess Time is not valid" << std::endl;
+    return;
+  }*/
 
   Transform calculatedTransform = std::get<2>(cloudTimePair);
 
@@ -86,13 +98,13 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   slam_->appendPoseToTrackedPath(poseStamped);
 
   // Best guess path
-
   Transform bestGuessTransform = std::get<1>(bestGuessTimePair);
 
   geometry_msgs::PoseStamped bestGuessPoseStamped;
   Eigen::Quaterniond bestGuessRotation(bestGuessTransform.rotation());
 
-  bestGuessPoseStamped.header.stamp = toRos(std::get<0>(bestGuessTimePair));
+  // Until we identify the time issue with best guess use cloud time. These are supposed to be same since they are paired.
+  bestGuessPoseStamped.header.stamp = toRos(std::get<1>(cloudTimePair)); 
   bestGuessPoseStamped.pose.position.x = bestGuessTransform.translation().x();
   bestGuessPoseStamped.pose.position.y = bestGuessTransform.translation().y();
   bestGuessPoseStamped.pose.position.z = bestGuessTransform.translation().z();
@@ -102,7 +114,6 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   bestGuessPoseStamped.pose.orientation.z = bestGuessRotation.z();
 
   slam_->appendPoseToBestGuessPath(bestGuessPoseStamped);
-
   return;
 }
 
@@ -114,17 +125,39 @@ void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, co
   }
   
   if (!isAttitudeInitialized_){
-    ROS_WARN_STREAM_THROTTLE(0.2, "Attitude not initialized yet. Throttled 0.2s");
+    ROS_WARN_STREAM_THROTTLE(0.2, "Attitude not initialized yet, depends on IMU measurements. Throttled 0.2s");
     return;
   }
   
+  if (!slam_->isExternalOdometryFrameToCloudFrameCalibrationSet()){
+    ROS_WARN_STREAM_THROTTLE(0.2, "Calibration is not found yet. Throttled 0.2s");
+    return;
+  }
+
+  // Not sure if beneficiaal or not
+  if (test_)
+  {
+    slam_->setInitialTransform(transform.matrix());
+    ROS_ERROR_STREAM("Setting initial transform from odometry and mapping.");
+  }
+
+  // Add pose to buffer
   if (!slam_->addOdometryPoseToBuffer(transform, timestamp)){
     return;
   }
 
-}
+   test_ = false;
+
+} 
 
 void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
+
+  if (msg->header.frame_id != slam_->frames_.rangeSensorFrame){
+    ROS_ERROR_STREAM("You failed to provide the right frame id in the parameters and the cloud. Exiting.");
+    ROS_ERROR_STREAM("Frame from the msg: " << msg->header.frame_id << " Frame from the parameters: " << slam_->frames_.rangeSensorFrame);
+    return;
+  }
+
   open3d::geometry::PointCloud cloud;
   open3d_conversions::rosToOpen3d(msg, cloud, false);
   const Time timestamp = fromRos(msg->header.stamp);
@@ -132,8 +165,7 @@ void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2Co
 }
 
 void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_ptr) {
-  if (!slam_->isIMUattitudeInitializationEnabled())
-  {
+  if (!slam_->isIMUattitudeInitializationEnabled()){
     isAttitudeInitialized_ = true;
     return;
   }
@@ -197,7 +229,7 @@ void OnlineRangeDataProcessorRos::publishAddedImuMeas_(const Eigen::Matrix<doubl
 }
 
 void OnlineRangeDataProcessorRos::poseStampedCallback(const geometry_msgs::PoseStampedConstPtr& msg) {
-  
+
   if ((odometryCallBackEnabled_ || poseStampedWithCovarianceCallBackEnabled_)){
     return;
   }
@@ -210,12 +242,13 @@ void OnlineRangeDataProcessorRos::poseStampedCallback(const geometry_msgs::PoseS
 }
 
 void OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
+  // This is expected to be the default. So we dont return here.
 
-  if ((poseStampedCallBackEnabled_ || odometryCallBackEnabled_))
-  {
+  //if ((poseStampedCallBackEnabled_ || odometryCallBackEnabled_))
+  //{
     //std::cout << "Already an odometry measurement for this timestamp. Skipping poseStampedWithCovarianceCallback" << std::endl;
-    return;
-  }
+  //  return;
+  //}
 
   poseStampedWithCovarianceCallBackEnabled_ = true;
 
@@ -225,9 +258,7 @@ void OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback(const geomet
 
 void OnlineRangeDataProcessorRos::odometryCallback(const nav_msgs::OdometryConstPtr& msg){
   
-  //
-  if ((poseStampedCallBackEnabled_ || poseStampedWithCovarianceCallBackEnabled_))
-  {
+  if ((poseStampedCallBackEnabled_ || poseStampedWithCovarianceCallBackEnabled_)){
     //std::cout << "Already an odometry measurement for this timestamp. Skipping odometryCallback" << std::endl;
     return;
   }

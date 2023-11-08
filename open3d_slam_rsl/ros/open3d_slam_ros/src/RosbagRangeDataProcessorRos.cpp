@@ -31,6 +31,8 @@ void RosbagRangeDataProcessorRos::initialize() {
   slam_->loadParametersAndInitialize();
   rosbagFilename_ = nh_->param<std::string>("rosbag_filepath", "");
   ROS_INFO_STREAM("Reading from rosbag: " << rosbagFilename_);
+
+  // Initialize the calibration Transform.
   baseToLidarTransform_.transform.rotation.w = 1.0;
   baseToLidarTransform_.transform.rotation.z = 0.0;
   baseToLidarTransform_.transform.rotation.y = 0.0;
@@ -45,7 +47,6 @@ void RosbagRangeDataProcessorRos::initialize() {
   timeDiff_ = ros::Duration(0.0);
 
   // Provide questionare.
-
   ROS_INFO_STREAM( "\033[33m" << " Did you check the pointcloud topic frame? " << "\033[39m");
   ROS_INFO_STREAM( "\033[33m" << " Did you check the odometry topic frame? " << "\033[39m");
   ROS_INFO_STREAM( "\033[33m" << " Did you check the check if loopclosure enabled? " << "\033[39m");
@@ -155,7 +156,7 @@ void RosbagRangeDataProcessorRos::calculateSurfaceNormals(o3d_slam::PointCloud& 
     return;
   }
   
-  // Create a KD-Tree
+  // Create a KD-Tree and estimate surface normals.
   open3d::geometry::KDTreeSearchParamHybrid param(5, 20);
   cloud.EstimateNormals(param);
   cloud.NormalizeNormals();
@@ -163,7 +164,8 @@ void RosbagRangeDataProcessorRos::calculateSurfaceNormals(o3d_slam::PointCloud& 
 }
 
 void RosbagRangeDataProcessorRos::exportIMUData() {
-
+  
+  // An auxiliary function to save the IMU data, useful for offline operations.
   std::string IMUFilename_ = buildUpLogFilename("imu");
   std::remove(IMUFilename_.c_str());
 
@@ -399,12 +401,13 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
 }
 
 void RosbagRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
-  bool succ = slam_->addRangeScan(cloud, timestamp);
+  /*bool success = slam_->addRangeScan(cloud, timestamp);
   std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
   const bool isCloudEmpty = std::get<0>(cloudTimePair).IsEmpty();
   if (isTimeValid(std::get<1>(cloudTimePair)) && !isCloudEmpty) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), rawCloudPub_);
   }
+  */
 }
 
 bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
@@ -469,7 +472,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     auto timeTuple = usePairForRegistration();
     //const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
   }else{
-    std::cout << "RosbagReplayer:: Couldn't add range scan. Popping this measurement." << std::endl;
+    std::cout << "RosbagReplayer:: Couldn't add range scan. Popping this measurement from the buffer." << std::endl;
     buffer.pop_front();
     return false;
   }
@@ -563,7 +566,6 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
 
   // Mapping is processed, now checking loop closures,
   const ros::WallTime loopclosureProcessingStartTime{ros::WallTime::now()};
-
 
   slam_->callofflineLoopClosureWorker();
 
@@ -833,9 +835,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
     }else{
       // Async Msgs. Currently only supports geometry_msgs::PoseWithCovarianceStamped
        if (messageInstance.getTopic() == slam_->asyncOdometryTopic_) {
-
-        if (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped")
-        {
+        if (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped"){
           geometry_msgs::PoseWithCovarianceStamped::ConstPtr message = messageInstance.instantiate<geometry_msgs::PoseWithCovarianceStamped>();
           if (message != nullptr) {
             

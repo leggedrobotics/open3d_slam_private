@@ -35,6 +35,8 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
   void processMeasurement(const PointCloud& cloud, const Time& timestamp) override;
   void processOdometry(const Transform& cloud, const Time& timestamp) override;
 
+  bool test_ = true;
+
  private:
   void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
   void poseStampedCallback(const geometry_msgs::PoseStampedConstPtr& msg);

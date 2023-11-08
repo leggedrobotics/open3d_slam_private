@@ -106,6 +106,11 @@ void SlamWrapper::appendPoseToTrackedPath(geometry_msgs::PoseStamped transform){
   mapper_->trackedPath_.poses.push_back(transform);
 }
 
+bool SlamWrapper::isExternalOdometryFrameToCloudFrameCalibrationSet() {
+
+  return mapper_->isCalibrationSet_;
+}
+
 void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform){
   mapper_->bestGuessPath_.poses.push_back(transform);
 }
@@ -206,8 +211,7 @@ void SlamWrapper::setExternalOdometryFrameToCloudFrameCalibration(const Eigen::I
 
 TimestampedTransform SlamWrapper::getLatestMapToRangeMeasurement() const {
 
-  if (mapper_->getMapToRangeSensorBuffer().empty())
-  {
+  if (mapper_->getMapToRangeSensorBuffer().empty()){
     return TimestampedTransform();
   }
   
@@ -367,6 +371,15 @@ void SlamWrapper::setInitialTransform(const Eigen::Matrix4d initialTransform) {
   mapper_->setMapToRangeSensorInitial(Transform(initialTransform));
 }
 
+bool SlamWrapper::isInitialTransformSet() {
+
+  bool total = mapper_->isNewInitialValueSet_ && odometry_->isInitialTransformSet_;
+  std::cerr << "Mapper is set: " << mapper_->isNewInitialValueSet_<< " \n";
+  std::cerr << "Odometry is set: " << odometry_->isInitialTransformSet_ << " \n";
+
+  return total;
+}
+
 void SlamWrapper::callofflineOdometryWorker() {
 
   offlineOdometryWorker();
@@ -484,7 +497,7 @@ void SlamWrapper::odometryWorker() {
       continue;
     }
 
-    odometryStatisticsTimer_.startStopwatch();
+    //odometryStatisticsTimer_.startStopwatch();
     const TimestampedPointCloud measurement = odometryBuffer_.pop();
     auto undistortedCloud = motionCompensationOdom_->undistortInputPointCloud(measurement.cloud_, measurement.time_);
 
@@ -493,6 +506,7 @@ void SlamWrapper::odometryWorker() {
     // this ensures that the odom is always ahead of the mapping
     // so then we can look stuff up in the interpolation buffer
     mappingBuffer_.push(measurement);
+
     if (!isOdomOkay) {
       std::cerr << "WARNING: odometry has failed!!!! \n";
       continue;
@@ -502,13 +516,13 @@ void SlamWrapper::odometryWorker() {
     const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
     latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
 
-    const double timeMeasurement = odometryStatisticsTimer_.elapsedMsecSinceStopwatchStart();
+    /*const double timeMeasurement = odometryStatisticsTimer_.elapsedMsecSinceStopwatchStart();
     odometryStatisticsTimer_.addMeasurementMsec(timeMeasurement);
     if (params_.mapper_.isPrintTimingStatistics_ && odometryStatisticsTimer_.elapsedSec() > timingStatsEveryNsec) {
       std::cout << "Odometry timing stats: Avg execution time: " << odometryStatisticsTimer_.getAvgMeasurementMsec()
                 << " msec , frequency: " << 1e3 / odometryStatisticsTimer_.getAvgMeasurementMsec() << " Hz \n";
       odometryStatisticsTimer_.reset();
-    }
+    }*/
   }  // end while
 }
 
@@ -569,10 +583,7 @@ void SlamWrapper::offlineMappingWorker() {
     registeredCloudBuffer_.push(registeredCloud);
     latestScanToMapRefinementTimestamp_ = measurement.time_;
 
-    if ((!mapper_->isRegistrationBestGuessBufferEmpty()))
-    {
-      /* code */
-      
+    if ((!mapper_->isRegistrationBestGuessBufferEmpty())){
       ScanToMapRegistrationBestGuess bestGuess;
       bestGuess.time_ = measurement.time_;
       bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement.time_);
@@ -581,7 +592,6 @@ void SlamWrapper::offlineMappingWorker() {
       registrationBestGuessBuffer_.push(bestGuess);
 
     }
-
   }
 
   // Compute the loop closure features if needed.
@@ -683,6 +693,15 @@ void SlamWrapper::mappingWorker() {
       registeredCloud.targetFrame_ = frames_.mapFrame;
       registeredCloudBuffer_.push(registeredCloud);
       latestScanToMapRefinementTimestamp_ = measurement.time_;
+
+      if ((!mapper_->isRegistrationBestGuessBufferEmpty())){
+        ScanToMapRegistrationBestGuess bestGuess;
+        bestGuess.time_ = measurement.time_;
+        bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement.time_);
+        bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
+        bestGuess.targetFrame_ = frames_.mapFrame;
+        registrationBestGuessBuffer_.push(bestGuess);
+      }
     }
 
     if (params_.mapper_.isAttemptLoopClosures_) {

@@ -10,6 +10,7 @@
 #include <open3d/Open3D.h>
 #include <chrono>
 #include <fstream>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include "nav_msgs/Odometry.h"
 #include "open3d_conversions/open3d_conversions.h"
 #include "open3d_slam/Mapper.hpp"
@@ -38,8 +39,82 @@ namespace {
 
 SlamWrapperRos::SlamWrapperRos(ros::NodeHandlePtr nh) : BASE(), nh_(nh) {
   tfBroadcaster_.reset(new tf2_ros::TransformBroadcaster());
+
+  tfBuffer_ = std::make_unique<tf2_ros::Buffer>();
+  tfListener_ = std::make_unique<tf2_ros::TransformListener>(*tfBuffer_);
+
   prevPublishedTimeScanToScan_ = fromUniversal(0);
   prevPublishedTimeScanToMap_ = fromUniversal(0);
+
+  baseToLidarTransform_.transform.rotation.w = 1.0;
+  baseToLidarTransform_.transform.rotation.z = 0.0;
+  baseToLidarTransform_.transform.rotation.y = 0.0;
+  baseToLidarTransform_.transform.rotation.x = 0.0;
+
+  baseToLidarTransform_.transform.translation.z = 0.0;
+  baseToLidarTransform_.transform.translation.y = 0.0;
+  baseToLidarTransform_.transform.translation.x = 0.0;
+
+}
+
+bool SlamWrapperRos::readCalibrationIfNeeded(){
+
+  if (!isStaticTransformAttempted_ && (frames_.rangeSensorFrame != frames_.assumed_external_odometry_tracked_frame)){
+    try {
+      // Lookup duration is long because the transform is static.
+      tfBuffer_->canTransform(frames_.rangeSensorFrame, frames_.assumed_external_odometry_tracked_frame, ros::Time::now(), ros::Duration(5.0));
+      auto tfTransformation = tfBuffer_->lookupTransform(frames_.rangeSensorFrame, frames_.assumed_external_odometry_tracked_frame, ros::Time::now(), ros::Duration(0.1));
+      ROS_INFO_STREAM("\033[92m" << "Found the transform between " << frames_.rangeSensorFrame << " and " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+      ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << tfTransformation << "\033[0m");
+      
+      // Set the frame transformation between the external odometry frame and the range sensor frame.
+      mapper_->setExternalOdometryFrameToCloudFrameCalibration(tf2::transformToEigen(tfTransformation));
+
+      /*bool odometryFound = false;
+
+      while (!odometryFound)
+      {
+        geometry_msgs::PoseStamped odomPose_transformed;
+        const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
+        const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScanOdom_;
+        if (!isAlreadyPublished && odometry_->hasProcessedMeasurements()) {
+          const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
+
+          geometry_msgs::PoseStamped odomPose;
+
+          odomPose.pose =o3d_slam::getPose(T.matrix());
+
+          tf2::doTransform(odomPose, odomPose_transformed, tfTransformation);
+
+          geometry_msgs::PoseStamped initialPose = odomPose_transformed;
+
+          //initialPose.position=odomPose.position;
+          initialPose.pose.orientation.w=1.0;
+          initialPose.pose.orientation.z=0.0;
+          initialPose.pose.orientation.y=0.0;
+          initialPose.pose.orientation.x=0.0;
+          odometry_->setInitialTransform(o3d_slam::getTransform(initialPose.pose).matrix());
+          mapper_->setMapToRangeSensorInitial(Transform(o3d_slam::getTransform(initialPose.pose).matrix()));
+          odometryFound = true;
+
+
+        }else{
+          ROS_ERROR_STREAM("\033[92m" << "odometry no processed measurements\n " << "\033[0m");
+        }
+      }*/
+
+      isStaticTransformAttempted_ = true;
+    
+    } catch (const tf2::TransformException& exception) {
+      ROS_WARN_STREAM_THROTTLE(0.2,"Caught exception while looking for the transform. " << exception.what());
+      return false;
+    }
+    return true;
+
+  }else{
+    isStaticTransformAttempted_ = true; // hmm
+    return false;
+  }
 }
 
 SlamWrapperRos::~SlamWrapperRos() {
@@ -65,6 +140,15 @@ void SlamWrapperRos::startWorkers() {
   }
 
   BASE::startWorkers();
+
+  // Read the static calibration between the odometry frame and the range sensor frame.
+  // TODO(TT) this can be from a file or through tf. Make it available, people are lazy to get tf.
+  if (!isStaticTransformAttempted_){
+    if(!readCalibrationIfNeeded()){
+      ROS_ERROR("Can't find static transform. Exiting.");
+      return;
+    }
+  }
 }
 
 void SlamWrapperRos::odomPublisherWorker() {
@@ -163,7 +247,6 @@ void SlamWrapperRos::tfWorker() {
         mapper_->bestGuessPath_.header.frame_id = frames_.mapFrame;
         bestGuessPathPub_.publish(mapper_->bestGuessPath_);
       }
-
     }
 
     ros::spinOnce();

@@ -12,7 +12,15 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2/convert.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam_msgs/SaveMap.h"
@@ -36,6 +44,14 @@ class SlamWrapperRos : public SlamWrapper {
 
   void offlineTfWorker() override;
   void offlineVisualizationWorker() override;
+
+  bool readCalibrationIfNeeded();
+
+  geometry_msgs::TransformStamped baseToLidarTransform_;
+  std::unique_ptr<tf2_ros::Buffer> tfBuffer_;
+  std::unique_ptr<tf2_ros::TransformListener> tfListener_;
+
+  bool isStaticTransformAttempted_ = false;
 
  private:
   void tfWorker();

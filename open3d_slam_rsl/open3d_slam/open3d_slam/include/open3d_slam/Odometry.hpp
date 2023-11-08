@@ -34,6 +34,7 @@ class LidarOdometry {
 
   // The common odometry buffer. Accessible by the wrapper.
   TransformInterpolationBuffer odomToRangeSensorBuffer_;
+  bool isInitialTransformSet_ = false;
 
  private:
   PointCloudPtr preprocess(const PointCloud& in) const;
@@ -44,7 +45,6 @@ class LidarOdometry {
   std::shared_ptr<CroppingVolume> cropper_;
   Time lastMeasurementTimestamp_;
   Eigen::Matrix4d initialTransform_ = Eigen::Matrix4d::Identity();
-  bool isInitialTransformSet_ = false;
   std::shared_ptr<CloudRegistration> cloudRegistration_;
 };
 
