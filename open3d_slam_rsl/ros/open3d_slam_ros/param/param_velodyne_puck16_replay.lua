@@ -18,14 +18,14 @@ params.mapper_localizer.is_attempt_loop_closures = false
 params.mapper_localizer.is_use_map_initialization = false
 params.mapper_localizer.is_print_timing_information = false
 
-params.mapper_localizer.is_carving_enabled = false
+params.mapper_localizer.is_carving_enabled = true
 params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.075
 params.mapper_localizer.scan_to_map_registration.scan_processing.downsampling_ratio = 1.0
 params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_max = 100.0 --We don't want to crop the scans.
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 1.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.0
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
 
 --MAP_INITIALIZER
 params.map_initializer.pcd_file_path = ""
@@ -40,7 +40,7 @@ params.map_initializer.init_pose.yaw = 0.0
 params.submap.submap_size = 70.0 --meters
 params.submap.adjacency_based_revisiting_min_fitness = 0.5
 params.submap.min_seconds_between_feature_computation = 5.0
-params.submap.max_num_points = 450000
+params.submap.max_num_points = 550000
 
 --MAP_BUILDER
 params.map_builder.map_voxel_size = 0.075
