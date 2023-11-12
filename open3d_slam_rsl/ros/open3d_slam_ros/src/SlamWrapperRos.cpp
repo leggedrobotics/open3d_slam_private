@@ -210,8 +210,7 @@ void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const na
   line_list.color.b = 1.0;
   line_list.color.a = 1.0; // Alpha
 
-  for (size_t i = 0; i < path1.poses.size(); i++)
-  {
+  for (size_t i = 0; i < path1.poses.size(); i++){
       geometry_msgs::Point p_start;
       p_start.x = path1.poses[i].pose.position.x;
       p_start.y = path1.poses[i].pose.position.y;
@@ -260,7 +259,7 @@ bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
 
   std::ifstream fileStream(path.c_str());
   if (!fileStream.good()) {
-    ROS_ERROR("Cannot load ICP configuration from " << path.c_str() << " .");
+    ROS_ERROR_STREAM("Cannot load ICP configuration from " << path.c_str() << " .");
     return false;
   }
   mapper_->icp_.loadFromYaml(fileStream);

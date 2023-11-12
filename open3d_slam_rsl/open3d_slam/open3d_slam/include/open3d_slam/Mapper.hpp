@@ -66,6 +66,10 @@ class Mapper {
   nav_msgs::Path bestGuessPath_;
   bool isNewInitialValueSet_ = false;
 
+  // The pointmatcher registration object.
+  // The parameter loading dont have a slam_ API yet, thus object not private.
+  pointmatcher_ros::PmIcp icp_;
+
  private:
   void update(const MapperParameters& p);
   void checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const;
@@ -91,10 +95,8 @@ class Mapper {
   open3d::geometry::PointCloud preProcessedScan_;
 
   bool isIgnoreOdometryPrediction_ = false;
-  
+
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-    // The pointmatcher registration object.
-  pointmatcher_ros::PmIcp icp_;
 
   std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
   std::shared_ptr<open3d_conversions::PmStampedPointCloud> activeSubmapPm_;

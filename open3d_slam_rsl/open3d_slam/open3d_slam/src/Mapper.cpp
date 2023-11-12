@@ -215,13 +215,13 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
 
 
-    int64_t uts_timestamp = toUniversal(timestamp);
+    /*int64_t uts_timestamp = toUniversal(timestamp);
     int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
     std::cout << " Time: " << "\033[92m" << ns_since_unix_epoch << " \n" << "\033[0m";
     std::cout << " odometryMotion: " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
     std::cout << " mapToRangeSensorPrev_: " << "\033[92m" << asString(mapToRangeSensorPrev_) << " \n" << "\033[0m";
+    */
   }
-
 
   isIgnoreOdometryPrediction_ = false;
 
@@ -276,6 +276,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
 
       std::cout << " Reference Cloud Re-init time: " << "\033[92m" << referenceInittimeElapsed << " msec \n" << "\033[0m";
+
     }else{
       referenceInitTimer_.reset();
     }
@@ -313,9 +314,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   Transform correctedTransform_o3d;
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
   
-  std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
-  //std::cout << "postIcp O3D: " << asString(Transform(result.transformation_)) << "\n\n";
-  std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
+  //std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
+  //std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
   if (isNewInitialValueSet_) {
     std::cout << "\033[92m" << "Setting initial value for the map to range sensor transform. ONLY expected at the start-up." << "\033[0m" << "\n";

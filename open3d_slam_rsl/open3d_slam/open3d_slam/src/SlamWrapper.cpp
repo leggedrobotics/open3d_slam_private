@@ -408,8 +408,8 @@ void SlamWrapper::setInitialTransform(const Eigen::Matrix4d initialTransform) {
 bool SlamWrapper::isInitialTransformSet() {
 
   bool total = mapper_->isNewInitialValueSet_ && odometry_->isInitialTransformSet_;
-  std::cerr << "Mapper is set: " << mapper_->isNewInitialValueSet_<< " \n";
-  std::cerr << "Odometry is set: " << odometry_->isInitialTransformSet_ << " \n";
+  //std::cerr << "Mapper is set: " << mapper_->isNewInitialValueSet_<< " \n";
+  //std::cerr << "Odometry is set: " << odometry_->isInitialTransformSet_ << " \n";
 
   return total;
 }
@@ -446,10 +446,14 @@ void SlamWrapper::usePairForRegistration() {
 }
 
 void SlamWrapper::startWorkers() {
+  // This is single threaded.
   //unifiedWorker_ = std::thread([this]() { unifiedWorker(); });
+
+  // This is the new-multi threaded.
   unifiedWorkerOdom_ = std::thread([this]() { unifiedWorkerOdom(); });
   unifiedWorkerMap_ = std::thread([this]() { unifiedWorkerMap(); });
 
+  // Old threads for reference.
   //odometryWorker_ = std::thread([this]() { odometryWorker(); });
   //mappingWorker_ = std::thread([this]() { mappingWorker(); });
   if (params_.mapper_.isAttemptLoopClosures_) {
@@ -557,10 +561,7 @@ void SlamWrapper::unifiedWorkerOdom() {
 void SlamWrapper::unifiedWorkerMap() {
 
   while (isRunWorkers_) {
-    // Now replicating offline workers.
-    
     // Mapping worker start
-
     if (mappingBuffer_.empty()) {
       continue;
     }
@@ -599,7 +600,6 @@ void SlamWrapper::unifiedWorkerMap() {
         bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
         bestGuess.targetFrame_ = frames_.mapFrame;
         registrationBestGuessBuffer_.push(bestGuess);
-
       }
     }
   }
@@ -608,8 +608,6 @@ void SlamWrapper::unifiedWorkerMap() {
 void SlamWrapper::unifiedWorker() {
 
   while (isRunWorkers_) {
-    // Now replicating offline workers.
-
     if (!odometry_->getBuffer().empty()) {
       const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
       latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
@@ -637,7 +635,6 @@ void SlamWrapper::unifiedWorker() {
     latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
     
     // Mapping worker start
-
     if (mappingBuffer_.empty()) {
       continue;
     }
@@ -676,7 +673,6 @@ void SlamWrapper::unifiedWorker() {
         bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
         bestGuess.targetFrame_ = frames_.mapFrame;
         registrationBestGuessBuffer_.push(bestGuess);
-
       }
     }
   }
@@ -894,14 +890,12 @@ void SlamWrapper::mappingWorker() {
       registeredCloudBuffer_.push(registeredCloud);
       latestScanToMapRefinementTimestamp_ = measurement.time_;
 
-      //if ((!mapper_->isRegistrationBestGuessBufferEmpty())){
-        ScanToMapRegistrationBestGuess bestGuess;
-        bestGuess.time_ = measurement.time_;
-        bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement.time_);
-        bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
-        bestGuess.targetFrame_ = frames_.mapFrame;
-        registrationBestGuessBuffer_.push(bestGuess);
-      //}
+      ScanToMapRegistrationBestGuess bestGuess;
+      bestGuess.time_ = measurement.time_;
+      bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement.time_);
+      bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
+      bestGuess.targetFrame_ = frames_.mapFrame;
+      registrationBestGuessBuffer_.push(bestGuess);
     }
 
     if (params_.mapper_.isAttemptLoopClosures_) {

@@ -27,6 +27,8 @@ PointCloudPtr LidarOdometry::preprocess(const PointCloud& in) const {
 }
 
 bool LidarOdometry::addRangeScan(const open3d::geometry::PointCloud& cloud, const Time& timestamp) {
+  
+  // If the previous cloud is empty then this is the first measurement.
   if (cloudPrev_.IsEmpty()) {
     auto preProcessed = preprocess(cloud);
     cloudPrev_ = *preProcessed;
@@ -110,7 +112,7 @@ void LidarOdometry::setInitialTransform(const Eigen::Matrix4d& initialTransform)
   //  if I leave it like this it is always continuous, but starts always from the
   //  origin
   if(isInitialTransformSet_){
-    //std::cout << "Initial transform already set. Skipping" << std::endl;
+    std::cout << "\033[31m" << "Initial transform already set. Skipping." << "\033[0m" << std::endl;
     return;
   }
 

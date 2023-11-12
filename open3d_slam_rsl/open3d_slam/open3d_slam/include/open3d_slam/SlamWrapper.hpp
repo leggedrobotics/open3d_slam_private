@@ -94,6 +94,7 @@ class SlamWrapper {
   void setMapSavingDirectoryPath(const std::string& path);
   void setParameterFilePath(const std::string& path);
   void setInitialMap(const PointCloud& initialMap);
+  bool isInitialTransformSet();
   void setInitialTransform(const Eigen::Matrix4d initialTransform);
 
   bool saveMap(const std::string& directory);
@@ -121,18 +122,16 @@ class SlamWrapper {
   // A simple getter function that check if odometry pose is available for a certain time. Used for replaying.
   bool doesOdometrybufferHasMeasurement(const Time& t);
 
+  // Returns a boolean value whether the static transformation between the odometry and range sensor is set.
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
 
+  // Return the acquired the static transformation between the odometry and range sensor. If not available returns empty transform.
   Transform getExternalOdometryFrameToCloudFrameCalibration();
-
-  bool isInitialTransformSet();
-
-  TimestampedTransform latestMapToRangeMeasurement_;
   TimestampedTransform getLatestMapToRangeMeasurement() const;
   TimestampedTransform getLatestOdometryPoseMeasurement() const;
 
   std::string mapSavingFolderPath_{""};
-
+  TimestampedTransform latestMapToRangeMeasurement_;
   bool exportIMUdata_{false};
 
   // If set to true, expects odometry msgs in the replayed rosbag to be exactly synced with the pointclouds.
