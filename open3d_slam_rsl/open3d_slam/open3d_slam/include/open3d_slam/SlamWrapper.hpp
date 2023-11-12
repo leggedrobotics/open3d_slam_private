@@ -123,10 +123,13 @@ class SlamWrapper {
 
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
 
+  Transform getExternalOdometryFrameToCloudFrameCalibration();
+
   bool isInitialTransformSet();
 
   TimestampedTransform latestMapToRangeMeasurement_;
   TimestampedTransform getLatestMapToRangeMeasurement() const;
+  TimestampedTransform getLatestOdometryPoseMeasurement() const;
 
   std::string mapSavingFolderPath_{""};
 
@@ -148,6 +151,10 @@ class SlamWrapper {
  private:
   void checkIfOptimizedGraphAvailable();
   void odometryWorker();
+  void unifiedWorker();
+  void unifiedWorkerOdom();
+  void unifiedWorkerMap();
+  
   void mappingWorker();
   void offlineOdometryWorker();
   void offlineMappingWorker();
@@ -183,7 +190,7 @@ class SlamWrapper {
   std::shared_ptr<OptimizationProblem> optimizationProblem_;
 
   // multithreading
-  std::thread odometryWorker_, mappingWorker_, loopClosureWorker_, denseMapWorker_;
+  std::thread odometryWorker_, mappingWorker_, loopClosureWorker_, denseMapWorker_, unifiedWorker_, unifiedWorkerOdom_, unifiedWorkerMap_;
   std::future<void> computeFeaturesResult_;
 
   // timing

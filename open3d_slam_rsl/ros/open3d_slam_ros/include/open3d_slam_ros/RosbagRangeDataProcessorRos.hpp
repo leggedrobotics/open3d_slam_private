@@ -26,6 +26,7 @@
 #include <visualization_msgs/Marker.h>
 
 #include "open3d_slam/SlamWrapper.hpp"
+#include "open3d_slam/output.hpp"
 
 #include <std_srvs/Empty.h>
 
@@ -63,6 +64,8 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
    * @param buffer  Buffer of SLAM inputs, FIFO.
    */
   bool processBuffers(SlamInputsBuffer& buffer);
+
+  void drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp);
 
   /**
    * @brief Validates that essential topics required to run sequential evaluation are present in the bag file.

@@ -16,7 +16,7 @@
 #include "open3d_slam_ros/helpers_ros.hpp"
 namespace o3d_slam {
 
-OnlineRangeDataProcessorRos::OnlineRangeDataProcessorRos(ros::NodeHandlePtr nh) : BASE(nh){
+OnlineRangeDataProcessorRos::OnlineRangeDataProcessorRos(ros::NodeHandlePtr nh) : BASE(nh), tfListener_(tfBuffer_){
   //tfBroadcaster_.reset(new tf2_ros::TransformBroadcaster());
 }
 
@@ -28,17 +28,60 @@ void OnlineRangeDataProcessorRos::initialize() {
   slam_->loadParametersAndInitialize();
 }
 
+bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded(){
+  
+  // The frames are identical. This is often not the case since the odometry follows a certain frame like base but the point clouds arrive in the lidar frame.
+  if ((slam_->frames_.rangeSensorFrame == slam_->frames_.assumed_external_odometry_tracked_frame)){
+    slam_->setExternalOdometryFrameToCloudFrameCalibration(Eigen::Isometry3d::Identity());
+    return true;
+  }
+
+  if (!isStaticTransformFound_){
+    try {
+      // Waits for the transform to be available. After this we dont need to have timeout for the lookup itself
+      if (!tfBuffer_.canTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.assumed_external_odometry_tracked_frame, ros::Time(0.0), ros::Duration(0.2)))
+      {
+        ROS_WARN_STREAM("Transform not available: [" << slam_->frames_.rangeSensorFrame << "] to [" << slam_->frames_.assumed_external_odometry_tracked_frame << "].");
+        return false;
+      }
+
+      auto tfTransformation = tfBuffer_.lookupTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.assumed_external_odometry_tracked_frame, ros::Time(0.0), ros::Duration(0.0));
+
+      ROS_INFO_STREAM("\033[92m" << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and " << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+      ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << tfTransformation << "\033[0m");
+      
+      // Set the frame transformation between the external odometry frame and the range sensor frame.
+      slam_->setExternalOdometryFrameToCloudFrameCalibration(tf2::transformToEigen(tfTransformation));
+    
+    } catch (const tf2::TransformException& exception) {
+      ROS_WARN_STREAM("Caught exception while looking for the transform frame: " << slam_->frames_.rangeSensorFrame << " to " << slam_->frames_.assumed_external_odometry_tracked_frame << "." << exception.what());
+      return false;
+    }
+    return true;
+
+  }else{
+    ROS_WARN_STREAM("This is unexpected, something is off.");
+    return false;
+  }
+}
+
 void OnlineRangeDataProcessorRos::startProcessing() {
   slam_->startWorkers();
-  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 1, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
+
+  // The point cloud subscriber
+  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 2, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
   
   // Redundant listening of pose topics. It is really tiresome to the developer to keep the support for all types.
   poseStampedSubscriber_ = nh_->subscribe(poseStampedTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedCallback, this, ros::TransportHints().tcpNoDelay());
   odometrySubscriber_ = nh_->subscribe(odometryTopic_, 40, &OnlineRangeDataProcessorRos::odometryCallback, this, ros::TransportHints().tcpNoDelay());
   poseStampedCovarianceSubscriber_ = nh_->subscribe(poseStampedWithCovarianceTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this, ros::TransportHints().tcpNoDelay());
   
+  // TODO [TT] parametrize this.
   // Currently harcoded to ANYmal, additional support will follow.
   imuSubscriber_ = nh_->subscribe<sensor_msgs::Imu>("/sensors/imu", 40, &OnlineRangeDataProcessorRos::imuCallback, this, ros::TransportHints().tcpNoDelay());
+
+  // A timer to read the static calibration we between the provided tracked frame by odometry and the point cloud frame.
+  staticTfCallback_ = nh_->createTimer(ros::Duration(0.1), &OnlineRangeDataProcessorRos::staticTfCallback, this);
 
   // Number of spinners should be equal to the number of active subscribers
   ros::MultiThreadedSpinner spinner(4);
@@ -46,10 +89,61 @@ void OnlineRangeDataProcessorRos::startProcessing() {
   slam_->stopWorkers();
 }
 
+void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
+
+  //Transform tfQueriedLatestOdometry;
+  //bool succ= o3d_slam::lookupTransform("lidar", "imu_link", ros::Time(0.0), tfBuffer_, tfQueriedLatestOdometry);
+
+  if (readCalibrationIfNeeded()){
+    
+    // We conciously read from the object to ensure it is initialized.
+    // This casts isometry3d to affine3d.
+    Eigen::Affine3d eigenTransform = slam_->getExternalOdometryFrameToCloudFrameCalibration();
+    geometry_msgs::TransformStamped calibrationAsTransform =  tf2::eigenToTransform(eigenTransform);
+
+    geometry_msgs::PoseStamped odomPose_transformed;
+    geometry_msgs::PoseStamped odomPose;
+
+    const auto latestOdomMeasurement  = slam_->getLatestOdometryPoseMeasurement();
+    odomPose.pose = o3d_slam::getPose(latestOdomMeasurement.transform_.matrix());
+
+    // Actual transformation applied to the odometry measurement. Reads as pose of Lidar frame in the external odometry frame.
+    tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
+
+    //odomPose_transformed.position=odomPose.position;
+    //odomPose_transformed.pose.orientation.w=1.0;
+    //odomPose_transformed.pose.orientation.z=0.0;
+    //odomPose_transformed.pose.orientation.y=0.0;
+    //odomPose_transformed.pose.orientation.x=0.0;
+    ROS_INFO("Initial Transform is set. Nice.");
+
+    std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << " \n" << "\033[0m";
+    std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" << "\033[0m";
+
+    slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
+
+    ROS_INFO("Static TF reader callback is terminated after successfully reading the transform.");
+    staticTfCallback_.stop();
+  }
+}
+
 void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
+
+  if (slam_->isOdometryPoseBufferEmpty()){
+    ROS_WARN("Odometry Buffer is empty! But a point cloud has arrived and waiting to be processed. Skipping this cloud.");
+    return;
+  }
+
+  if(!slam_->doesOdometrybufferHasMeasurement(timestamp)){
+    ROS_WARN("Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Skipping the measurement.");
+
+    return;
+  }
 
   // Add the range scan to the pointcloud processing buffer. This is actually a buffer with size 1, so no queue.
   if (!slam_->addRangeScan(cloud, timestamp)){
+    ROS_WARN("Failed to add range scan. This is unexpected. Skipping the measurement.");
+
     return;
   }
 
@@ -59,28 +153,28 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   // TODO(TT) Is this the best place to do this? (ofc its not)
   // Get the latest registered point cloud and publish it.
   std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
+  std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
   const bool isCloudEmpty = std::get<0>(cloudTimePair).IsEmpty();
   if (isTimeValid(std::get<1>(cloudTimePair)) && !isCloudEmpty) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), registeredCloudPub_);
   }else
   {
-    std::cerr << "Registered Cloud will not be published. Either time is off or cloud empty." << std::endl;
+    ROS_WARN("Registered Cloud will not be published. Either time is off or cloud empty. Can happen at start-up.");
     return;
   }
-  
-  std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
+
+  if ( (!isTimeValid(std::get<0>(bestGuessTimePair))) ){
+    ROS_WARN("bestGuessTimePair Transform Time is not valid at processMeasurement level.");
+    return;
+  }
 
   if ( (!isTimeValid(std::get<1>(cloudTimePair))) ){
-    std::cout << "Transform Time is not valid" << std::endl;
+    ROS_WARN("Transform Time is not valid at processMeasurement level.");
     return;
   }
 
-  //TODO(TT) Identify why this is not valid.
-  /*if ((!isTimeValid(std::get<0>(bestGuessTimePair)))){
-    std::cout << "best guess Time is not valid" << std::endl;
-    return;
-  }*/
-
+  // TODO [TT]
+  // Functionize this stuff.
   Transform calculatedTransform = std::get<2>(cloudTimePair);
 
   geometry_msgs::PoseStamped poseStamped;
@@ -104,7 +198,7 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   Eigen::Quaterniond bestGuessRotation(bestGuessTransform.rotation());
 
   // Until we identify the time issue with best guess use cloud time. These are supposed to be same since they are paired.
-  bestGuessPoseStamped.header.stamp = toRos(std::get<1>(cloudTimePair)); 
+  bestGuessPoseStamped.header.stamp = toRos(std::get<0>(bestGuessTimePair)); 
   bestGuessPoseStamped.pose.position.x = bestGuessTransform.translation().x();
   bestGuessPoseStamped.pose.position.y = bestGuessTransform.translation().y();
   bestGuessPoseStamped.pose.position.z = bestGuessTransform.translation().z();
@@ -119,6 +213,12 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
 
 void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, const Time& timestamp) {
 
+  // Add pose to buffer
+  if (!slam_->addOdometryPoseToBuffer(transform, timestamp)){
+    ROS_ERROR_STREAM("Failed to add odometry pose to buffer. Exiting.");
+    return;
+  }
+
   // When there is no IMU msg available we need to bypass this condition.
   if (!slam_->isIMUattitudeInitializationEnabled()){
     isAttitudeInitialized_ = true;
@@ -128,30 +228,13 @@ void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, co
     ROS_WARN_STREAM_THROTTLE(0.2, "Attitude not initialized yet, depends on IMU measurements. Throttled 0.2s");
     return;
   }
-  
-  if (!slam_->isExternalOdometryFrameToCloudFrameCalibrationSet()){
-    ROS_WARN_STREAM_THROTTLE(0.2, "Calibration is not found yet. Throttled 0.2s");
-    return;
-  }
 
-  // Not sure if beneficiaal or not
-  if (test_)
-  {
-    slam_->setInitialTransform(transform.matrix());
-    ROS_ERROR_STREAM("Setting initial transform from odometry and mapping.");
-  }
-
-  // Add pose to buffer
-  if (!slam_->addOdometryPoseToBuffer(transform, timestamp)){
-    return;
-  }
-
-   test_ = false;
+  ROS_DEBUG_STREAM("Odometry is processed at time: " << toString(timestamp));
 
 } 
 
 void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
-
+  ROS_DEBUG_STREAM("A point cloud has arrived.");
   if (msg->header.frame_id != slam_->frames_.rangeSensorFrame){
     ROS_ERROR_STREAM("You failed to provide the right frame id in the parameters and the cloud. Exiting.");
     ROS_ERROR_STREAM("Frame from the msg: " << msg->header.frame_id << " Frame from the parameters: " << slam_->frames_.rangeSensorFrame);
@@ -173,7 +256,7 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
   // TODO(TT) Need to convert the calculated attitude to the sensor frame, I think...
   //Transform imuToLidar = Transform::Identity();
   //if(o3d_slam::lookupTransform("imu_link", "lidar", imu_ptr->header.stamp, tfBuffer_, imuToLidar)){
-    //o3d_slam::publishTfTransform(imuToLidar.matrix(), ros::Time::now(), "imu_link_o3d", slam_->frames_.rangeSensorFrame, tfBroadcaster_.get());
+    //o3d_slam::publishTfTransform(imuToLidar.matrix(), ros::Time::now(), "imu_link_o3d", slam_->frames_.rangeSensorFrame, tfBroadcaster2_.get());
   //}
 
   //Add to buffer
@@ -238,7 +321,7 @@ void OnlineRangeDataProcessorRos::poseStampedCallback(const geometry_msgs::PoseS
 
   geometry_msgs::Pose odomPose = msg->pose;
   processOdometryData(o3d_slam::getTransform(odomPose), fromRos(msg->header.stamp));
-
+  
 }
 
 void OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg){
@@ -254,6 +337,7 @@ void OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback(const geomet
 
   geometry_msgs::Pose odomPose = msg->pose.pose;
   processOdometryData(o3d_slam::getTransform(odomPose), fromRos(msg->header.stamp));
+  ROS_DEBUG_STREAM("Pose with covariance callback is called.");
 }
 
 void OnlineRangeDataProcessorRos::odometryCallback(const nav_msgs::OdometryConstPtr& msg){
@@ -269,6 +353,7 @@ void OnlineRangeDataProcessorRos::odometryCallback(const nav_msgs::OdometryConst
   odomPose.position = msg->pose.pose.position;
 
   processOdometryData(o3d_slam::getTransform(odomPose), fromRos(msg->header.stamp));
+  
 }
 
 }  // namespace o3d_slam

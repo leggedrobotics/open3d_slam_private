@@ -51,9 +51,6 @@ class Mapper {
   const PointCloud& getPreprocessedScan() const;
   const ScanToMapRegistration& getScanToMapRegistration() const;
 
-  // The pointmatcher registration object.
-  pointmatcher_ros::PmIcp icp_;
-
   void loopClosureUpdate(const Transform& loopClosureCorrection);
   bool hasProcessedMeasurements() const;
   bool addRangeMeasurement(const PointCloud& cloud, const Time& timestamp);
@@ -61,6 +58,7 @@ class Mapper {
   void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
 
+  // This is re-initialized in the constructor as well as by a setter.
   Transform calibration_ = Transform::Identity();
   bool isCalibrationSet_ = false;
 
@@ -93,8 +91,11 @@ class Mapper {
   open3d::geometry::PointCloud preProcessedScan_;
 
   bool isIgnoreOdometryPrediction_ = false;
-  std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
   
+  std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
+    // The pointmatcher registration object.
+  pointmatcher_ros::PmIcp icp_;
+
   std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
   std::shared_ptr<open3d_conversions::PmStampedPointCloud> activeSubmapPm_;
 

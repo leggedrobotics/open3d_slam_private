@@ -493,7 +493,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   geometry_msgs::PoseStamped bestGuessPoseStamped;
   Eigen::Quaterniond bestGuessRotation(bestGuessTransform.rotation());
 
-  bestGuessPoseStamped.header.stamp = toRos(std::get<1>(cloudTimePair));
+  bestGuessPoseStamped.header.stamp = toRos(std::get<0>(bestGuessTimePair));
   bestGuessPoseStamped.pose.position.x = bestGuessTransform.translation().x();
   bestGuessPoseStamped.pose.position.y = bestGuessTransform.translation().y();
   bestGuessPoseStamped.pose.position.z = bestGuessTransform.translation().z();
@@ -502,7 +502,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   bestGuessPoseStamped.pose.orientation.y = bestGuessRotation.y();
   bestGuessPoseStamped.pose.orientation.z = bestGuessRotation.z();
   bestGuessPath_.poses.push_back(bestGuessPoseStamped);
-  bestGuessPath_.header.stamp = pointCloud->header.stamp; // This guess supposed to be associated with the pose we give to it.
+  bestGuessPath_.header.stamp = toRos(std::get<0>(bestGuessTimePair)); // This guess supposed to be associated with the pose we give to it.
   bestGuessPath_.header.frame_id = slam_->frames_.mapFrame;
 
   if (offlineBestGuessPathPub_.getNumSubscribers() > 0u || offlineBestGuessPathPub_.isLatched()) {
@@ -527,12 +527,14 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   poseFile_ << calculatedTransform.translation().x() << " " << calculatedTransform.translation().y() << " " << calculatedTransform.translation().z() << " ";
   poseFile_ << rotation.x() << " " << rotation.y() << " " << rotation.z() << " " << rotation.w() << std::endl;
 
-  trackedPath_.header.stamp = pointCloud->header.stamp;
+  trackedPath_.header.stamp = toRos(std::get<1>(cloudTimePair));
   trackedPath_.header.frame_id = slam_->frames_.mapFrame;
 
   if (offlinePathPub_.getNumSubscribers() > 0u || offlinePathPub_.isLatched()) {
     offlinePathPub_.publish(trackedPath_);
   }
+
+  drawLinesBetweenPoses(trackedPath_, bestGuessPath_, toRos(std::get<1>(cloudTimePair)));
 
   if (isTimeValid(std::get<1>(cloudTimePair)) && !(std::get<0>(cloudTimePair).IsEmpty())) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), registeredCloudPub_);
@@ -546,6 +548,52 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   buffer.pop_front();
 
   return true;
+}
+
+void RosbagRangeDataProcessorRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp) {
+
+  if (!offlineDifferenceLinePub_.getNumSubscribers() > 0u && !offlineDifferenceLinePub_.isLatched()) {
+    return;
+  }
+
+  if (path1.poses.size() != path2.poses.size()) {
+    ROS_ERROR_STREAM("Path sizes are not equal. Skipping the line drawing.");
+    return;
+  }
+
+  visualization_msgs::Marker line_list;
+  line_list.header.frame_id = slam_->frames_.mapFrame; // Change the frame_id as per your requirement
+  line_list.header.stamp = stamp;
+  line_list.ns = "paths";
+  line_list.action = visualization_msgs::Marker::ADD;
+  line_list.pose.orientation.w = 1.0;
+  line_list.id = 0;
+  line_list.type = visualization_msgs::Marker::LINE_LIST;
+  line_list.scale.x = 0.008; // Line width
+
+  // Setting color for the lines (you can change color as needed)
+  line_list.color.r = 0.0;
+  line_list.color.g = 1.0;
+  line_list.color.b = 1.0;
+  line_list.color.a = 1.0; // Alpha
+
+  for (size_t i = 0; i < path1.poses.size(); i++)
+  {
+      geometry_msgs::Point p_start;
+      p_start.x = path1.poses[i].pose.position.x;
+      p_start.y = path1.poses[i].pose.position.y;
+      p_start.z = path1.poses[i].pose.position.z;
+      line_list.points.push_back(p_start);
+
+      geometry_msgs::Point p_end;
+      p_end.x = path2.poses[i].pose.position.x;
+      p_end.y = path2.poses[i].pose.position.y;
+      p_end.z = path2.poses[i].pose.position.z;
+      line_list.points.push_back(p_end);
+
+  }
+
+  offlineDifferenceLinePub_.publish(line_list);
 }
 
 std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeDataProcessorRos::usePairForRegistration() {
@@ -850,6 +898,10 @@ void RosbagRangeDataProcessorRos::processRosbag() {
 
             if (isFirstMessage_ && isStaticTransformFound_)
             {
+
+              std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(odomPose.pose)) << " \n" << "\033[0m";
+              std::cout << " Initial Transform time: " << "\033[92m" << toString(fromRos(message->header.stamp)) << " \n" << "\033[0m";
+
               geometry_msgs::PoseStamped initialPose = odomPose_transformed;
 
               //initialPose.position=odomPose.position;
@@ -858,6 +910,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
               initialPose.pose.orientation.y=0.0;
               initialPose.pose.orientation.x=0.0;
               ROS_INFO("Initial Transform is set. Nice.");
+              std::cout << " Initial Transform value: " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(initialPose.pose)) << " \n" << "\033[0m";
               slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose).matrix());
               isFirstMessage_ = false;
             }

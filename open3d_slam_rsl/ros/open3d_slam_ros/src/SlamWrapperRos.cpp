@@ -11,7 +11,7 @@
 #include <chrono>
 #include <fstream>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include "nav_msgs/Odometry.h"
+
 #include "open3d_conversions/open3d_conversions.h"
 #include "open3d_slam/Mapper.hpp"
 #include "open3d_slam/Odometry.hpp"
@@ -34,87 +34,15 @@
 namespace o3d_slam {
 
 namespace {
-// Frames were used to included here.
+// Frames were used to be included here.
 }
 
 SlamWrapperRos::SlamWrapperRos(ros::NodeHandlePtr nh) : BASE(), nh_(nh) {
   tfBroadcaster_.reset(new tf2_ros::TransformBroadcaster());
 
-  tfBuffer_ = std::make_unique<tf2_ros::Buffer>();
-  tfListener_ = std::make_unique<tf2_ros::TransformListener>(*tfBuffer_);
-
   prevPublishedTimeScanToScan_ = fromUniversal(0);
   prevPublishedTimeScanToMap_ = fromUniversal(0);
 
-  baseToLidarTransform_.transform.rotation.w = 1.0;
-  baseToLidarTransform_.transform.rotation.z = 0.0;
-  baseToLidarTransform_.transform.rotation.y = 0.0;
-  baseToLidarTransform_.transform.rotation.x = 0.0;
-
-  baseToLidarTransform_.transform.translation.z = 0.0;
-  baseToLidarTransform_.transform.translation.y = 0.0;
-  baseToLidarTransform_.transform.translation.x = 0.0;
-
-}
-
-bool SlamWrapperRos::readCalibrationIfNeeded(){
-
-  if (!isStaticTransformAttempted_ && (frames_.rangeSensorFrame != frames_.assumed_external_odometry_tracked_frame)){
-    try {
-      // Lookup duration is long because the transform is static.
-      tfBuffer_->canTransform(frames_.rangeSensorFrame, frames_.assumed_external_odometry_tracked_frame, ros::Time::now(), ros::Duration(5.0));
-      auto tfTransformation = tfBuffer_->lookupTransform(frames_.rangeSensorFrame, frames_.assumed_external_odometry_tracked_frame, ros::Time::now(), ros::Duration(0.1));
-      ROS_INFO_STREAM("\033[92m" << "Found the transform between " << frames_.rangeSensorFrame << " and " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-      ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << tfTransformation << "\033[0m");
-      
-      // Set the frame transformation between the external odometry frame and the range sensor frame.
-      mapper_->setExternalOdometryFrameToCloudFrameCalibration(tf2::transformToEigen(tfTransformation));
-
-      /*bool odometryFound = false;
-
-      while (!odometryFound)
-      {
-        geometry_msgs::PoseStamped odomPose_transformed;
-        const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
-        const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScanOdom_;
-        if (!isAlreadyPublished && odometry_->hasProcessedMeasurements()) {
-          const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
-
-          geometry_msgs::PoseStamped odomPose;
-
-          odomPose.pose =o3d_slam::getPose(T.matrix());
-
-          tf2::doTransform(odomPose, odomPose_transformed, tfTransformation);
-
-          geometry_msgs::PoseStamped initialPose = odomPose_transformed;
-
-          //initialPose.position=odomPose.position;
-          initialPose.pose.orientation.w=1.0;
-          initialPose.pose.orientation.z=0.0;
-          initialPose.pose.orientation.y=0.0;
-          initialPose.pose.orientation.x=0.0;
-          odometry_->setInitialTransform(o3d_slam::getTransform(initialPose.pose).matrix());
-          mapper_->setMapToRangeSensorInitial(Transform(o3d_slam::getTransform(initialPose.pose).matrix()));
-          odometryFound = true;
-
-
-        }else{
-          ROS_ERROR_STREAM("\033[92m" << "odometry no processed measurements\n " << "\033[0m");
-        }
-      }*/
-
-      isStaticTransformAttempted_ = true;
-    
-    } catch (const tf2::TransformException& exception) {
-      ROS_WARN_STREAM_THROTTLE(0.2,"Caught exception while looking for the transform. " << exception.what());
-      return false;
-    }
-    return true;
-
-  }else{
-    isStaticTransformAttempted_ = true; // hmm
-    return false;
-  }
 }
 
 SlamWrapperRos::~SlamWrapperRos() {
@@ -140,15 +68,6 @@ void SlamWrapperRos::startWorkers() {
   }
 
   BASE::startWorkers();
-
-  // Read the static calibration between the odometry frame and the range sensor frame.
-  // TODO(TT) this can be from a file or through tf. Make it available, people are lazy to get tf.
-  if (!isStaticTransformAttempted_){
-    if(!readCalibrationIfNeeded()){
-      ROS_ERROR("Can't find static transform. Exiting.");
-      return;
-    }
-  }
 }
 
 void SlamWrapperRos::odomPublisherWorker() {
@@ -225,12 +144,19 @@ void SlamWrapperRos::tfWorker() {
     if ((!isAlreadyPublished ) && (odometry_->hasProcessedMeasurements())) {
       const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
       ros::Time timestamp = toRos(latestScanToScan);
-      o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.odomFrame, frames_.rangeSensorFrame, tfBroadcaster_.get());
+      // This distinguish the lidar frame in regular anymal tf and the re-publish by o3d.
+      std::string appendedSensor = frames_.rangeSensorFrame + "_o3d";
+      o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.odomFrame, appendedSensor, tfBroadcaster_.get());
       o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.mapFrame, "raw_odom_o3d", tfBroadcaster_.get());
       prevPublishedTimeScanToScan_ = latestScanToScan;
     }
 
     const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
+
+    if (!isTimeValid(latestScanToMap)){
+      continue;
+    }
+
     const bool isScanToMapAlreadyPublished = latestScanToMap == prevPublishedTimeScanToMap_;
     if (!isScanToMapAlreadyPublished && mapper_->hasProcessedMeasurements()) {
       publishMapToOdomTf(latestScanToMap);
@@ -247,11 +173,60 @@ void SlamWrapperRos::tfWorker() {
         mapper_->bestGuessPath_.header.frame_id = frames_.mapFrame;
         bestGuessPathPub_.publish(mapper_->bestGuessPath_);
       }
+
+      // This function publishesh the lines that illustrate the corrections by the fine registration.
+      drawLinesBetweenPoses(mapper_->trackedPath_, mapper_->bestGuessPath_, toRos(latestScanToMap));
     }
 
     ros::spinOnce();
     r.sleep();
   }
+}
+
+void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp) {
+
+  if (!differenceLinePub_.getNumSubscribers() > 0u && !differenceLinePub_.isLatched()) {
+    return;
+  }
+
+  if (path1.poses.size() != path2.poses.size()) {
+    ROS_ERROR_STREAM("Path sizes are not equal. Skipping the line drawing.");
+    return;
+  }
+
+  visualization_msgs::Marker line_list;
+  line_list.header.frame_id = frames_.mapFrame; // Change the frame_id as per your requirement
+  line_list.header.stamp = stamp;
+  line_list.ns = "paths";
+  line_list.action = visualization_msgs::Marker::ADD;
+  line_list.pose.orientation.w = 1.0;
+  line_list.id = 0;
+  line_list.type = visualization_msgs::Marker::LINE_LIST;
+  line_list.scale.x = 0.006; // Line width
+
+  // Setting color for the lines (you can change color as needed)
+  line_list.color.r = 0.0;
+  line_list.color.g = 1.0;
+  line_list.color.b = 1.0;
+  line_list.color.a = 1.0; // Alpha
+
+  for (size_t i = 0; i < path1.poses.size(); i++)
+  {
+      geometry_msgs::Point p_start;
+      p_start.x = path1.poses[i].pose.position.x;
+      p_start.y = path1.poses[i].pose.position.y;
+      p_start.z = path1.poses[i].pose.position.z;
+      line_list.points.push_back(p_start);
+
+      geometry_msgs::Point p_end;
+      p_end.x = path2.poses[i].pose.position.x;
+      p_end.y = path2.poses[i].pose.position.y;
+      p_end.z = path2.poses[i].pose.position.z;
+      line_list.points.push_back(p_end);
+
+  }
+
+  differenceLinePub_.publish(line_list);
 }
 
 void SlamWrapperRos::offlineVisualizationWorker() {
@@ -285,7 +260,7 @@ bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
 
   std::ifstream fileStream(path.c_str());
   if (!fileStream.good()) {
-    std::cout<< "Cannot load ICP configuration from '" << path << "'.";
+    ROS_ERROR("Cannot load ICP configuration from " << path.c_str() << " .");
     return false;
   }
   mapper_->icp_.loadFromYaml(fileStream);
@@ -312,6 +287,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
 
   trackedPathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path_live", 1, true);
   bestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path_live", 1, true);
+  differenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", true);
 
   //	auto &logger = open3d::utility::Logger::GetInstance();
   //	logger.SetVerbosityLevel(open3d::utility::VerbosityLevel::Debug);
@@ -327,7 +303,6 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
 
   frames_.rangeSensorFrame = nh_->param<std::string>("tracked_sensor_frame", "default");
-
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
   
   if (isOfflineReplay){
@@ -357,6 +332,7 @@ bool SlamWrapperRos::saveMapCallback(open3d_slam_msgs::SaveMap::Request& req, op
   res.statusMessage = savingResult ? "Map saved to: " + mapSavingFolderPath_ : "Error while saving map";
   return true;
 }
+
 bool SlamWrapperRos::saveSubmapsCallback(open3d_slam_msgs::SaveSubmaps::Request& req, open3d_slam_msgs::SaveSubmaps::Response& res) {
   const bool savingResult = saveSubmaps(mapSavingFolderPath_);
   res.statusMessage = savingResult ? "Submaps saved to: " + mapSavingFolderPath_ : "Error while saving submaps";
@@ -365,7 +341,8 @@ bool SlamWrapperRos::saveSubmapsCallback(open3d_slam_msgs::SaveSubmaps::Request&
 
 void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
   const ros::Time timestamp = toRos(time);
-  o3d_slam::publishTfTransform(mapper_->getMapToOdom(time).matrix(), timestamp, frames_.mapFrame, frames_.odomFrame, tfBroadcaster_.get());
+  // This is commented out since the map and odonm frames published by the o3d are connected through the range sensor frame.
+  //o3d_slam::publishTfTransform(mapper_->getMapToOdom(time).matrix(), timestamp, frames_.mapFrame, frames_.odomFrame, tfBroadcaster_.get());
   o3d_slam::publishTfTransform(mapper_->getMapToRangeSensor(time).matrix(), timestamp, frames_.mapFrame, "raw_rs_o3d", tfBroadcaster_.get());
 
   if (!(mapper_->getMapToRangeSensorBuffer().empty()))
@@ -374,6 +351,7 @@ void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
 
     if ((isTimeValid(latestMapToRangeMeasurement_.time_))){
       // Publish lidar to map transform.
+      // Since base is the parent of lidar, we cant publish o3d_map as the parent of lidar. Hence we publish it as a child of lidar.
       o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(), o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, frames_.mapFrame, tfBroadcaster_.get());
     }
   }

@@ -37,6 +37,7 @@ class DataProcessorRos {
   ros::Publisher rawCloudPub_;
   ros::Publisher registeredCloudPub_;
   ros::Publisher offlinePathPub_;
+  ros::Publisher offlineDifferenceLinePub_;
   ros::Publisher offlineBestGuessPathPub_;
   ros::Publisher addedImuMeasPub_;
   std::string cloudTopic_{""};

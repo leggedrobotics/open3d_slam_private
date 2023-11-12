@@ -8,6 +8,7 @@
 #pragma once
 
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <ros/package.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -21,6 +22,9 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2/convert.h>
 #include <tf2_eigen/tf2_eigen.h>
+
+#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/Marker.h>
 
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam_msgs/SaveMap.h"
@@ -45,13 +49,10 @@ class SlamWrapperRos : public SlamWrapper {
   void offlineTfWorker() override;
   void offlineVisualizationWorker() override;
 
-  bool readCalibrationIfNeeded();
+  void drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp);
 
   geometry_msgs::TransformStamped baseToLidarTransform_;
-  std::unique_ptr<tf2_ros::Buffer> tfBuffer_;
-  std::unique_ptr<tf2_ros::TransformListener> tfListener_;
-
-  bool isStaticTransformAttempted_ = false;
+  bool isStaticTransformAttempted_ = true;
 
  private:
   void tfWorker();
@@ -64,6 +65,7 @@ class SlamWrapperRos : public SlamWrapper {
   ros::NodeHandlePtr nh_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
   ros::Publisher odometryInputPub_, mappingInputPub_, submapOriginsPub_, assembledMapPub_, denseMapPub_, submapsPub_, bestGuessPathPub_, trackedPathPub_;
+  ros::Publisher differenceLinePub_;
   ros::Publisher scan2scanTransformPublisher_, scan2scanOdomPublisher_, scan2mapTransformPublisher_, scan2mapOdomPublisher_;
   ros::ServiceServer saveMapSrv_, saveSubmapsSrv_;
   bool isVisualizationFirstTime_ = true;
