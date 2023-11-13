@@ -12,10 +12,10 @@ params.odometry.use_odometry_topic_instead_of_scan_to_scan = true --Uses Odometr
 params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to initialize gravity aligned attitude.
 
 --MAPPER_LOCALIZER
-params.mapper_localizer.is_merge_scans_into_map = false
+params.mapper_localizer.is_merge_scans_into_map = true
 params.mapper_localizer.is_build_dense_map = false
 params.mapper_localizer.is_attempt_loop_closures = false
-params.mapper_localizer.is_use_map_initialization = false
+params.mapper_localizer.is_use_map_initialization = true
 params.mapper_localizer.is_print_timing_information = false
 
 params.mapper_localizer.is_carving_enabled = true
@@ -32,11 +32,11 @@ params.map_initializer.pcd_file_package = "open3d_slam_ros"
 params.map_initializer.pcd_file_path = "/data/ETH_LEE_H_with_terrace.pcd"
 params.map_initializer.is_initialize_interactively = false
 params.map_initializer.init_pose.x = 0.0
-params.map_initializer.init_pose.y = 0.0
+params.map_initializer.init_pose.y = 2.0
 params.map_initializer.init_pose.z = 0.0
 params.map_initializer.init_pose.roll = 0.0
 params.map_initializer.init_pose.pitch = 0.0
-params.map_initializer.init_pose.yaw = 90.0
+params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
 params.submap.submap_size = 70.0 --meters

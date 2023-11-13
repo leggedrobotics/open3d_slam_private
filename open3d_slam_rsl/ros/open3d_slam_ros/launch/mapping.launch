@@ -8,8 +8,8 @@
   <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
    <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
-  <arg name="odometry_topic" default="/state_estimator/odometry1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
 

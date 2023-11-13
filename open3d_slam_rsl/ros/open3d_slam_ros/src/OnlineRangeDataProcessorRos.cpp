@@ -94,6 +94,9 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
   //Transform tfQueriedLatestOdometry;
   //bool succ= o3d_slam::lookupTransform("lidar", "imu_link", ros::Time(0.0), tfBuffer_, tfQueriedLatestOdometry);
 
+  if (slam_->isUsingOdometryTopic())
+  {
+
   if (readCalibrationIfNeeded()){
     
     // We conciously read from the object to ensure it is initialized.
@@ -125,26 +128,33 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
     ROS_INFO("Static TF reader callback is terminated after successfully reading the transform.");
     staticTfCallback_.stop();
   }
+  }else{
+    staticTfCallback_.stop();
+  }
+
 }
 
 void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
-
-  if (slam_->isOdometryPoseBufferEmpty()){
-    ROS_WARN("Odometry Buffer is empty! But a point cloud has arrived and waiting to be processed. Skipping this cloud.");
-    return;
-  }
-
-  if(!slam_->doesOdometrybufferHasMeasurement(timestamp)){
-    ROS_WARN("Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Skipping the measurement.");
-
-    return;
-  }
 
   // Add the range scan to the pointcloud processing buffer. This is actually a buffer with size 1, so no queue.
   if (!slam_->addRangeScan(cloud, timestamp)){
     ROS_WARN("Failed to add range scan. This is unexpected. Skipping the measurement.");
 
     return;
+  }
+
+  if (slam_->isOdometryPoseBufferEmpty()){
+    ROS_WARN("Odometry Buffer is empty! But a point cloud has arrived and waiting to be processed. Skipping this cloud.");
+    return;
+  }
+
+  if (slam_->isUsingOdometryTopic())
+  {
+    if(!slam_->doesOdometrybufferHasMeasurement(timestamp)){
+      ROS_WARN("Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Skipping the measurement.");
+
+      return;
+    }
   }
 
   // Re-publish the raw point cloud for visualization purposes.
@@ -213,11 +223,15 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
 
 void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, const Time& timestamp) {
 
+  if (slam_->isUsingOdometryTopic())
+  {
+
   // Add pose to buffer
   if (!slam_->addOdometryPoseToBuffer(transform, timestamp)){
     ROS_ERROR_STREAM("Failed to add odometry pose to buffer. Exiting.");
     return;
   }
+
 
   // When there is no IMU msg available we need to bypass this condition.
   if (!slam_->isIMUattitudeInitializationEnabled()){
@@ -230,6 +244,8 @@ void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, co
   }
 
   ROS_DEBUG_STREAM("Odometry is processed at time: " << toString(timestamp));
+
+  }
 
 } 
 

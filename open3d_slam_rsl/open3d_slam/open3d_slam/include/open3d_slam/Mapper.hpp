@@ -76,6 +76,7 @@ class Mapper {
 
   Time lastMeasurementTimestamp_;
   Time lastReferenceInitializationTimestamp_;
+  Time initTime_;
   Timer testmapperOnlyTimer_;
   Timer referenceInitTimer_;
   Timer auxilaryTimer_;

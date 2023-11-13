@@ -125,6 +125,8 @@ class SlamWrapper {
   // Returns a boolean value whether the static transformation between the odometry and range sensor is set.
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
 
+  bool isUsingOdometryTopic() const;
+
   // Return the acquired the static transformation between the odometry and range sensor. If not available returns empty transform.
   Transform getExternalOdometryFrameToCloudFrameCalibration();
   TimestampedTransform getLatestMapToRangeMeasurement() const;

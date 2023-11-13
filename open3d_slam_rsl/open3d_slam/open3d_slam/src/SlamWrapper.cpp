@@ -168,6 +168,11 @@ bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time
 
 }
 
+// this is a function that returns a boolean whether the use odometry topic or not using the parameters.
+bool SlamWrapper::isUsingOdometryTopic() const {
+  return params_.odometry_.useOdometryTopic_;
+}
+
 bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const Time timestamp) {
   // Set the time regardless of whats going to happen next.
   //updateFirstMeasurementTime(timestamp);

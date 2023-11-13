@@ -67,8 +67,8 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
   }
 
   // ANYmal-D base -> lidar
-  Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(-0.31, -0.0, -0.1585) * Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ());
-  calibration_ = calibrationIsometry.matrix();
+  //Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(-0.31, -0.0, -0.1585) * Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ());
+  //calibration_ = calibrationIsometry.matrix();
 }
 
 void Mapper::setParameters(const MapperParameters& p) {
@@ -172,7 +172,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   if (submaps_->getActiveSubmap().isEmpty()) {
     if (params_.isUseInitialMap_) {
       assert_true(scan2MapReg_->isMergeScanValid(rawScan), "Init map invalid!!!!");
-      submaps_->insertScan(rawScan, rawScan, Transform::Identity(), timestamp);
+      submaps_->insertScan(rawScan, rawScan, Transform::Identity(), timestamp);      
+      
     } else {
       const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
       // TODO(TT) the init of submap is changed from identity to mapToRangeSensor_. This allows nice start of the mapping.
@@ -267,7 +268,8 @@ if (mapPatch->IsEmpty()){
     //std::cerr << "Passed Time: " << passedTime << std::endl;
     
     if (isNewInitialValueSet_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)){ 
-      
+    
+
       {
         std::lock_guard<std::mutex> lck(mapManipulationMutex_);
         // Create pointmatcher cloud
@@ -338,6 +340,11 @@ if (mapPatch->IsEmpty()){
   //std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
   if (isNewInitialValueSet_) {
+    if (isTimeValid(timestamp))
+    {
+      initTime_ = timestamp;
+    }
+    
     std::cout << "\033[92m" << "Setting initial value for the map to range sensor transform. ONLY expected at the start-up." << "\033[0m" << "\n";
     mapToRangeSensorPrev_ = mapToRangeSensor_;
     mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
@@ -357,7 +364,10 @@ if (mapPatch->IsEmpty()){
   // This is commented since currently we are using libpointmatcher.
   //mapToRangeSensor_.matrix() = result.transformation_;
 
-  if (params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) {
+  // We don't want to add the mis-aligned first scans to the map. Hence giving the registration time to converge.
+  double timeSinceInit = toSecondsSinceFirstMeasurement(timestamp) - toSecondsSinceFirstMeasurement(initTime_);
+  if ((params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) || (timeSinceInit < 10.0 && params_.isMergeScansIntoMap_)) {
+    // Early return before inserting the scans.
     lastMeasurementTimestamp_ = timestamp;
     mapToRangeSensorPrev_ = mapToRangeSensor_;
     return true;

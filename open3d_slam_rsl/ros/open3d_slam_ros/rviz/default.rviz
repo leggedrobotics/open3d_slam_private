@@ -27,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: RegisteredCloud
+    SyncSource: AssembledMap
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -132,8 +132,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 24.09657096862793
-        Min Value: -17.500539779663086
+        Max Value: 26.58759880065918
+        Min Value: -10.967199325561523
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -141,7 +141,7 @@ Visualization Manager:
       Color: 239; 41; 41
       Color Transformer: AxisColor
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -156,7 +156,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -205,15 +205,15 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 14.789449691772461
-        Min Value: -2.4063239097595215
+        Max Value: 3.768765449523926
+        Min Value: -0.375703901052475
         Value: true
       Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 252; 233; 79
       Color Transformer: AxisColor
-      Decay Time: 1000
+      Decay Time: 0
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
@@ -453,7 +453,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.592838287353516
+      Distance: 27.146230697631836
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -461,17 +461,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -2.42315411567688
-        Y: 3.610649585723877
-        Z: -0.7202813029289246
+        X: -1.8465478420257568
+        Y: 1.1309309005737305
+        Z: -0.7189095616340637
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1197973489761353
+      Pitch: 1.5697963237762451
       Target Frame: base
-      Yaw: 0.8503991365432739
+      Yaw: 4.698578834533691
     Saved: ~
 Window Geometry:
   Displays:
