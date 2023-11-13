@@ -98,7 +98,7 @@ SPACE_CARVING_PARAMETERS = {
   voxel_size= 0.2,
   max_raytracing_length = 20.0,
   truncation_distance = 0.3,
-  carve_space_every_n_scans= 100000000.0,
+  carve_space_every_n_scans= 10.0,
 }
 
 MAP_BUILDER_PARAMETERS = {
@@ -113,7 +113,6 @@ SCAN_TO_MAP_REGISTRATION_PARAMETERS = {
   icp = deepcopy(ICP_PARAMETERS),
   scan_processing = deepcopy(SCAN_PROCESSING_PARAMETERS),
 }
-
 
 MAPPER_LOCALIZER_PARAMETERS = {
   is_print_timing_information = true,

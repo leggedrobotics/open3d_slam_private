@@ -235,7 +235,10 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   const double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
   auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
-  std::cout << " Auxilary time: " << "\033[92m" << auxilarytimeElapsed << " msec \n" << "\033[0m";
+
+  if (params_.isPrintTimingStatistics_){
+    std::cout << " Auxilary time: " << "\033[92m" << auxilarytimeElapsed << " msec \n" << "\033[0m";
+  }
 
   //mapToRangeSensorEstimate.rotation().normalized();
   // Convert the initial guess to pointmatcher
@@ -247,7 +250,11 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // Crop the submap around the robot.
   const PointCloudPtr mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_);
 
-  //const PointCloud& mapPatch = submaps_->getActiveSubmap().getMapPointCloud();
+if (mapPatch->IsEmpty()){
+    std::cout << "\033[92m" << " Map patch is empty impossible. Returning" << " \n" << "\033[0m";
+    return false;
+  }
+  
 
   // Initialize the registered pose.
   pointmatcher_ros::PmTfParameters correctedTransform;
@@ -260,22 +267,27 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     //std::cerr << "Passed Time: " << passedTime << std::endl;
     
     if (isNewInitialValueSet_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)){ 
+      
+      {
+        std::lock_guard<std::mutex> lck(mapManipulationMutex_);
+        // Create pointmatcher cloud
+        activeSubmapPm_ = open3d_conversions::createSimilarPointmatcherCloud(mapPatch->points_.size());
 
-      // Create pointmatcher cloud
-      activeSubmapPm_ = open3d_conversions::createSimilarPointmatcherCloud(mapPatch->points_.size());
+        // Convert to pointmatcher. This is time consuming.
+        open3d_conversions::open3dToPointmatcher(*mapPatch, *activeSubmapPm_);
 
-      // Convert to pointmatcher. This is time consuming.
-      open3d_conversions::open3dToPointmatcher(*mapPatch, *activeSubmapPm_);
+        referenceInitTimer_.startStopwatch();
 
-      referenceInitTimer_.startStopwatch();
+        lastReferenceInitializationTimestamp_ = timestamp;
+        icp_.initReference(activeSubmapPm_->dataPoints_);
 
-      lastReferenceInitializationTimestamp_ = timestamp;
-      icp_.initReference(activeSubmapPm_->dataPoints_);
+        const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
+        referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
 
-      const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
-      referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
-
-      std::cout << " Reference Cloud Re-init time: " << "\033[92m" << referenceInittimeElapsed << " msec \n" << "\033[0m";
+        if (params_.isPrintTimingStatistics_){
+          std::cout << " Reference Cloud Re-init time: " << "\033[92m" << referenceInittimeElapsed << " msec \n" << "\033[0m";
+        }
+      }
 
     }else{
       referenceInitTimer_.reset();
@@ -284,19 +296,27 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     testmapperOnlyTimer_.startStopwatch();
 
     if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols()){
+
       correctedTransform = icp_.compute(croppedCloud->dataPoints_, activeSubmapPm_->dataPoints_,
                                                           transformReadingToReferenceInitialGuess, false);
 
-    const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
-    testmapperOnlyTimer_.addMeasurementMsec(timeElapsed);
+      if (firstRefinement_){
+        std::cout << "\033[92m" << " Open3d SLAM is running properly." << " \n " << "\033[0m";
+        firstRefinement_=false;
+      }
 
-    std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
+      const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
+      testmapperOnlyTimer_.addMeasurementMsec(timeElapsed);
+
+      if (params_.isPrintTimingStatistics_){
+        std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
+      }
 
     }else{
-      std::cerr << "Submap dont have enough points to register to. Skipping scan2map refinement."<< std::endl;
+      std::cout << "Submap dont have enough points to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
       correctedTransform = transformReadingToReferenceInitialGuess;
     }
-  
+
   } catch (const std::runtime_error& error) {
     std::cout << "Experienced a runtime error while running libpointmatcher ICP: " << error.what() << std::endl;
   }
@@ -313,7 +333,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // Pass the calculated transform to o3d transform.
   Transform correctedTransform_o3d;
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
-  
+
   //std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   //std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
@@ -359,7 +379,9 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   const double insertiontimeElapsed = scanInsertionTimer_.elapsedMsecSinceStopwatchStart();
   scanInsertionTimer_.addMeasurementMsec(insertiontimeElapsed);
 
-  std::cout << "Scan Insertion: " << "\033[92m" << insertiontimeElapsed << " msec \n " << "\033[0m";
+  if (params_.isPrintTimingStatistics_){
+    std::cout << "Scan Insertion: " << "\033[92m" << insertiontimeElapsed << " msec \n " << "\033[0m";
+  }
 
   return true;
 }

@@ -967,8 +967,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
       } // else
     }
 
-    if (slam_->useSyncedPoses_)
-    {
+    if (slam_->useSyncedPoses_){
       // Expecting sync odometry and PC.
       if (slamInputs && slamInputs->pointCloud_ && slamInputs->odometryPose_ &&
           slamInputs->pointCloud_->header.stamp == slamInputs->odometryPose_->header.stamp) {

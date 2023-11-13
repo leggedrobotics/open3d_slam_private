@@ -41,10 +41,10 @@ std::shared_ptr<PmStampedPointCloud> createSimilarPointmatcherCloud(const std::s
   // Construct the point cloud from the generated matrices
   PmDataPoints pointMatcherdata(features, featLabels);
 
-  // Set padding/scale value to 1.
+  // Set padding/scale value to 1. Allows 4x4 transformation matrices to be used.
   pointMatcherdata.getFeatureViewByName("pad").setOnes();
 
-  // Normals.
+  // Normals. At this stage we don't care if the original cloud has normals or not.
   const PM::Matrix descriptor = PM::Matrix::Zero(3, size);
   pointMatcherdata.addDescriptor("normals", descriptor);
 
@@ -85,8 +85,7 @@ void open3dToPointmatcher(const open3d::geometry::PointCloud& pointcloud, PmStam
   //const auto& colors = pointcloud.colors_;
   //auto& surfaceNormalsView{pointMatcherCloud.dataPoints_.getDescriptorViewByName(std::string(pointCloudDescriptorNameNormals)) };
 
-  if (copyNormals)
-  {
+  if (copyNormals){
   BOOST_AUTO(surfaceNormalsView, pointMatcherCloud.dataPoints_.getDescriptorViewByName("normals"));
 
   //pointMatcherCloud.dataPoints_.features.conservativeResize(3);
@@ -127,7 +126,6 @@ void pointmatcherToOpen3d(const PmStampedPointCloud& pointMatcherCloud, open3d::
     return;
   }
   
-  
   // TODO Check if both have same number of points.
   if (pointMatcherCloud.isEmpty()){
     std::cout << "Pointmatcher cloud is empty" << std::endl;
@@ -143,27 +141,24 @@ void pointmatcherToOpen3d(const PmStampedPointCloud& pointMatcherCloud, open3d::
   BOOST_AUTO(surfaceNormalsView, pointMatcherCloud.dataPoints_.getDescriptorViewByName("normals"));
 
   if (pointcloud.normals_.size() != surfaceNormalsView.cols()){
-    std::cout << "Number of normals doesnt match, reseving memory" << std::endl;
+    std::cout << "Number of normals doesnt match, reserving memory" << std::endl;
     pointcloud.normals_.reserve(pointMatcherCloud.dataPoints_.features.cols());
   }
 
-  #pragma omp parallel for num_threads(4)
+  //#pragma omp parallel for num_threads(4)
   //#pragma omp critical
-    // Transfer point positions
-    for (size_t i = 0; i < pointMatcherCloud.dataPoints_.features.cols(); ++i)
-    {
-        pointcloud.points_[i][0] = pointMatcherCloud.dataPoints_.features(0, i);
-        pointcloud.points_[i][1] = pointMatcherCloud.dataPoints_.features(1, i);
-        pointcloud.points_[i][2] = pointMatcherCloud.dataPoints_.features(2, i);
+  // Transfer point positions
+  for (size_t i = 0; i < pointMatcherCloud.dataPoints_.features.cols(); ++i)
+  {
+      pointcloud.points_[i][0] = pointMatcherCloud.dataPoints_.features(0, i);
+      pointcloud.points_[i][1] = pointMatcherCloud.dataPoints_.features(1, i);
+      pointcloud.points_[i][2] = pointMatcherCloud.dataPoints_.features(2, i);
 
-        pointcloud.normals_.push_back(surfaceNormalsView.col(i).cast <double> ());// = surfaceNormalsView.col(i).cast <double> ();
-    }
+      pointcloud.normals_.push_back(surfaceNormalsView.col(i).cast <double> ());// = surfaceNormalsView.col(i).cast <double> ();
+  }
 
   return;
 }
-
-
-
 
 void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id) {
   sensor_msgs::PointCloud2Modifier modifier(ros_pc2);

@@ -25,18 +25,17 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.c
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 1.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 0.1 --sec
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
 
 --MAP_INITIALIZER
-params.map_initializer.pcd_file_package = "open3d_slam_ros"
-params.map_initializer.pcd_file_path = "/data/ETH_LEE_H_with_terrace.pcd"
-params.map_initializer.is_initialize_interactively = false
+params.map_initializer.pcd_file_package = ""
+params.map_initializer.pcd_file_path = ""
 params.map_initializer.init_pose.x = 0.0
 params.map_initializer.init_pose.y = 0.0
 params.map_initializer.init_pose.z = 0.0
 params.map_initializer.init_pose.roll = 0.0
 params.map_initializer.init_pose.pitch = 0.0
-params.map_initializer.init_pose.yaw = 90.0
+params.map_initializer.init_pose.yaw = 0.0
 
 --SUBMAP
 params.submap.submap_size = 70.0 --meters
@@ -48,12 +47,12 @@ params.submap.max_num_points = 550000
 params.map_builder.map_voxel_size = 0.075
 params.map_builder.scan_cropping.cropping_radius_max = 100.0
 params.map_builder.scan_cropping.cropping_radius_min = 2.0
-params.map_builder.space_carving.carve_space_every_n_scans = 10
+params.map_builder.space_carving.carve_space_every_n_scans = 1
 
 --DENSE_MAP_BUILDER
 params.dense_map_builder.map_voxel_size = 0.05
 params.dense_map_builder.scan_cropping.cropping_radius_max = 105.0
-params.dense_map_builder.space_carving.carve_space_every_n_scans = 10
+params.dense_map_builder.space_carving.carve_space_every_n_scans = 100000
 params.dense_map_builder.space_carving.truncation_distance = 0.1
 
 --PLACE_RECOGNITION

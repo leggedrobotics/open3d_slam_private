@@ -33,7 +33,7 @@
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
 
   <!-- Main Node -->
-  <node name="mapping_node" pkg="open3d_slam_ros"
+  <node name="open3d_slam" pkg="open3d_slam_ros"
         type="mapping_node" output="screen"
         launch-prefix="$(arg launch_prefix)">
     <param name="cloud_topic" type="string" value="$(arg cloud_topic)"/>

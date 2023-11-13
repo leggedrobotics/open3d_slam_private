@@ -95,6 +95,7 @@ class Mapper {
   open3d::geometry::PointCloud preProcessedScan_;
 
   bool isIgnoreOdometryPrediction_ = false;
+  bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
 

@@ -71,7 +71,7 @@ void SlamWrapperRos::startWorkers() {
 }
 
 void SlamWrapperRos::odomPublisherWorker() {
-  ros::Rate r(500.0);
+  ros::Rate r(100.0);
   while (ros::ok()) {
     auto getTransformMsg = [this](const Transform& T, const Time& t) {
       ros::Time timestamp = toRos(t);
@@ -137,7 +137,7 @@ void SlamWrapperRos::offlineTfWorker() {
 }
 
 void SlamWrapperRos::tfWorker() {
-  ros::WallRate r(75.0);
+  ros::WallRate r(100.0);
   while (ros::ok()) {
     const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
     const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScan_;
@@ -222,7 +222,6 @@ void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const na
       p_end.y = path2.poses[i].pose.position.y;
       p_end.z = path2.poses[i].pose.position.z;
       line_list.points.push_back(p_end);
-
   }
 
   differenceLinePub_.publish(line_list);
@@ -248,6 +247,10 @@ void SlamWrapperRos::visualizationWorker() {
     if (isTimeValid(scanToMapTimestamp)) {
       publishDenseMap(scanToMapTimestamp);
       publishMaps(scanToMapTimestamp);
+			if (params_.mapper_.isUseInitialMap_){
+				// publish initial map only once
+				break;
+			}
     }
 
     ros::spinOnce();
@@ -295,6 +298,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   folderPath_ = ros::package::getPath("open3d_slam_ros") + "/data/";
   mapSavingFolderPath_ = nh_->param<std::string>("map_saving_folder", folderPath_);
 
+  // Offline advanced parameters
   exportIMUdata_ = nh_->param<bool>("export_imu_data", false);
   useSyncedPoses_ = nh_->param<bool>("use_syncronized_poses_to_replay", false);
   bagReplayStartTime_ = nh_->param<double>("replay_start_time_as_second", 0.0);

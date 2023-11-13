@@ -64,7 +64,10 @@ bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcesse
     const double timeMeasurement = carvingStatisticsTimer_.elapsedMsecSinceStopwatchStart();
     carvingStatisticsTimer_.addMeasurementMsec(timeMeasurement);
 
-      std::cout << "Space carving took: " << "\033[92m" << timeMeasurement << " msec" << " \n" << "\033[0m";
+    // TODO [TT] double check if carving works as intended.
+    if (params_.isPrintTimingStatistics_) {
+    std::cout << "Space carving took: " << "\033[92m" << timeMeasurement << " msec" << " \n" << "\033[0m";
+    }
 
     //if (nScansInsertedMap_ % 100 == 1) {
     //  std::cout << "Space carving timing stats: Avg execution time: " << carvingStatisticsTimer_.getAvgMeasurementMsec()

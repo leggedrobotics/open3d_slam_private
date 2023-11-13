@@ -96,7 +96,7 @@ Visualization Manager:
       Size (Pixels): 2
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /mapping_node/raw_cloud
+      Topic: /open3d_slam/raw_cloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -124,7 +124,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.10000000149011612
       Style: Flat Squares
-      Topic: /mapping_node/mapping_input
+      Topic: /open3d_slam/mapping_input
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -152,7 +152,7 @@ Visualization Manager:
       Size (Pixels): 1
       Size (m): 0.20000000298023224
       Style: Points
-      Topic: /mapping_node/assembled_map
+      Topic: /open3d_slam/assembled_map
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -180,14 +180,14 @@ Visualization Manager:
       Size (Pixels): 2
       Size (m): 0.10000000149011612
       Style: Points
-      Topic: /mapping_node/submaps
+      Topic: /open3d_slam/submaps
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
     - Class: rviz/MarkerArray
       Enabled: false
-      Marker Topic: /mapping_node/submap_origins
+      Marker Topic: /open3d_slam/submap_origins
       Name: MarkerArray
       Namespaces:
         {}
@@ -202,11 +202,11 @@ Visualization Manager:
       Show Visual Aids: false
       Update Topic: /initialization_pose/update
       Value: false
-    - Alpha: 1
+    - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 13.245723724365234
-        Min Value: -2.26739764213562
+        Max Value: 14.789449691772461
+        Min Value: -2.4063239097595215
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -222,10 +222,10 @@ Visualization Manager:
       Position Transformer: XYZ
       Queue Size: 100
       Selectable: true
-      Size (Pixels): 2
+      Size (Pixels): 1
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /mapping_node/registered_cloud
+      Topic: /open3d_slam/registered_cloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -237,7 +237,7 @@ Visualization Manager:
       History Length: 1
       Name: Added IMU Meas.
       Queue Size: 10
-      Topic: /mapping_node/added_imu_measurements
+      Topic: /open3d_slam/added_imu_measurements
       Unreliable: false
       Value: false
     - Alpha: 1
@@ -277,7 +277,7 @@ Visualization Manager:
       Radius: 0.0005000000237487257
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /mapping_node/tracked_path
+      Topic: /open3d_slam/tracked_path
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -301,7 +301,7 @@ Visualization Manager:
       Radius: 0.004999999888241291
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /mapping_node/best_guess_path
+      Topic: /open3d_slam/best_guess_path
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -327,7 +327,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.019999999552965164
       Style: Flat Squares
-      Topic: /mapping_node/registered_cloud
+      Topic: /open3d_slam/registered_cloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -353,7 +353,7 @@ Visualization Manager:
       Radius: 0.0005000000237487257
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /mapping_node/best_guess_path_live
+      Topic: /open3d_slam/best_guess_path_live
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -377,12 +377,12 @@ Visualization Manager:
       Radius: 0.0005000000237487257
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /mapping_node/tracked_path_live
+      Topic: /open3d_slam/tracked_path_live
       Unreliable: false
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /mapping_node/differenceLines
+      Marker Topic: /open3d_slam/differenceLines
       Name: Motion Update Markers
       Namespaces:
         paths: true
@@ -420,7 +420,7 @@ Visualization Manager:
         Shaft Length: 1
         Shaft Radius: 0.05000000074505806
         Value: Axes
-      Topic: /mapping_node/scan2map_odometry
+      Topic: /open3d_slam/scan2map_odometry
       Unreliable: false
       Value: true
   Enabled: true
@@ -453,7 +453,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.8148220777511597
+      Distance: 6.592838287353516
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -461,17 +461,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.8354462385177612
-        Y: 1.9804553985595703
-        Z: 0.14099277555942535
+        X: -2.42315411567688
+        Y: 3.610649585723877
+        Z: -0.7202813029289246
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5303983688354492
+      Pitch: 1.1197973489761353
       Target Frame: base
-      Yaw: 6.068585395812988
+      Yaw: 0.8503991365432739
     Saved: ~
 Window Geometry:
   Displays:

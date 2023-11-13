@@ -4,19 +4,21 @@
 
   <!-- Arguments -->
   <arg name="launch_prefix" default="" doc="gdb -ex run --args"/>
-  <arg name="launch_rviz" default="true"/>
-  <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="use_sim_time" default="false"/>
+  <arg name="launch_rviz" default="false"/>
+  
+  <!-- The point cloud topic -->
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
    <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
-  <arg name="odometry_topic" default="/state_estimator/odometry1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
-
-  <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
+  <!-- Parameter File paths -->
+  <arg name="parameter_filename" default="param_velodyne_puck16_hike_mapping.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
   <arg name="map_saving_folder" default="$(find open3d_slam_ros)/data/maps/"/>
-  <arg name="num_accumulated_range_data" default="1"/>
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in external odometry frame` -->
@@ -26,13 +28,13 @@
   <arg name="tracked_sensor_frame" default="lidar"/> 
 
   <!-- Replay Options -->
+  <!-- These parameters are relevant only if you run the system in replay mode. -->
   <arg name="is_read_from_rosbag" default="false"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/Music/evo/procesed.bag"/>
-  <arg name="use_syncronized_poses_to_replay" default="false"/>
+  <arg name="rosbag_filepath" default="xyz.bag"/>
+  <arg name="use_syncronized_poses_to_replay" default="false"/> <!-- Use only if the odometry measurements carry the same stampt as the point clouds -->
   <arg name="replay_start_time_as_second" default="0.0"/>
   <arg name="replay_end_time_as_second" default="3000.0"/>
-
-  <arg name="use_sim_time" default="true"/>
+  <arg name="num_accumulated_range_data" default="1"/>
 
   <!-- ROS Param -->
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
@@ -67,10 +69,14 @@
 
     <param name="parameter_filename" type="string"
            value="$(arg parameter_filename)"/>
+
     <param name="num_accumulated_range_data"
            value="$(arg num_accumulated_range_data)"/>
+
     <param name="is_read_from_rosbag" value="$(arg is_read_from_rosbag)"/>
+
     <param name="rosbag_filepath" value="$(arg rosbag_filepath)"/>
+
     <param name="map_saving_folder" value="$(arg map_saving_folder)"/>
   </node>
 
