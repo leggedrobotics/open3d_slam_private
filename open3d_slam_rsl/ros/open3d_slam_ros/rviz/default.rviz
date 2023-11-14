@@ -27,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: AssembledMap
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -59,10 +59,182 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: false
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        LF_ADAPTER:
+          Value: true
+        LF_HAA:
+          Value: true
+        LF_HFE:
+          Value: true
+        LF_HIP:
+          Value: true
+        LF_KFE:
+          Value: true
+        LF_MOUNT:
+          Value: true
+        LF_SHANK:
+          Value: true
+        LF_THIGH:
+          Value: true
+        LF_hip_fixed:
+          Value: true
+        LF_shank_fixed:
+          Value: true
+        LF_thigh_fixed:
+          Value: true
+        LH_ADAPTER:
+          Value: true
+        LH_HAA:
+          Value: true
+        LH_HFE:
+          Value: true
+        LH_HIP:
+          Value: true
+        LH_KFE:
+          Value: true
+        LH_MOUNT:
+          Value: true
+        LH_SHANK:
+          Value: true
+        LH_THIGH:
+          Value: true
+        LH_hip_fixed:
+          Value: true
+        LH_shank_fixed:
+          Value: true
+        LH_thigh_fixed:
+          Value: true
+        RF_ADAPTER:
+          Value: true
+        RF_HAA:
+          Value: true
+        RF_HFE:
+          Value: true
+        RF_HIP:
+          Value: true
+        RF_KFE:
+          Value: true
+        RF_MOUNT:
+          Value: true
+        RF_SHANK:
+          Value: true
+        RF_THIGH:
+          Value: true
+        RF_hip_fixed:
+          Value: true
+        RF_shank_fixed:
+          Value: true
+        RF_thigh_fixed:
+          Value: true
+        RH_ADAPTER:
+          Value: true
+        RH_HAA:
+          Value: true
+        RH_HFE:
+          Value: true
+        RH_HIP:
+          Value: true
+        RH_KFE:
+          Value: true
+        RH_MOUNT:
+          Value: true
+        RH_SHANK:
+          Value: true
+        RH_THIGH:
+          Value: true
+        RH_hip_fixed:
+          Value: true
+        RH_shank_fixed:
+          Value: true
+        RH_thigh_fixed:
+          Value: true
+        base:
+          Value: true
+        base_inertia:
+          Value: true
+        base_offset:
+          Value: true
+        battery:
+          Value: true
+        body_top:
+          Value: true
+        bottom_shell:
+          Value: true
+        bpearl_front:
+          Value: true
+        bpearl_front_beam_origin:
+          Value: true
+        bpearl_front_protection_bars:
+          Value: true
+        bpearl_rear:
+          Value: true
+        bpearl_rear_beam_origin:
+          Value: true
+        bpearl_rear_protection_bars:
+          Value: true
+        camera_init:
+          Value: true
+        camera_init_CORRECTED:
+          Value: true
+        docking_hatch_cover:
+          Value: true
+        enu:
+          Value: true
+        front_handle:
+          Value: true
+        handle:
+          Value: true
+        hatch:
+          Value: true
+        imu_link:
+          Value: true
+        interface_hatch:
+          Value: true
+        lidar:
+          Value: true
+        lidar_o3d:
+          Value: true
+        map:
+          Value: true
+        map_o3d:
+          Value: true
+        odom_o3d:
+          Value: true
+        perception_head_cage:
+          Value: true
+        raw_odom_o3d:
+          Value: true
+        raw_rs_o3d:
+          Value: true
+        remote:
+          Value: true
+        top_shell:
+          Value: true
+        zed2i_baro_link:
+          Value: true
+        zed2i_base_link:
+          Value: true
+        zed2i_camera_center:
+          Value: true
+        zed2i_left_camera_frame:
+          Value: true
+        zed2i_left_camera_optical_frame:
+          Value: true
+        zed2i_mag_link:
+          Value: true
+        zed2i_right_camera_frame:
+          Value: true
+        zed2i_right_camera_optical_frame:
+          Value: true
+        zed2i_temp_left_link:
+          Value: true
+        zed2i_temp_right_link:
+          Value: true
+        zed_base_link:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -70,9 +242,79 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        base:
+          LF_HAA:
+            {}
+          LH_HAA:
+            {}
+          RF_HAA:
+            {}
+          RH_HAA:
+            {}
+          base_inertia:
+            {}
+          base_offset:
+            {}
+          battery:
+            {}
+          body_top:
+            {}
+          bottom_shell:
+            {}
+          bpearl_front:
+            bpearl_front_beam_origin:
+              {}
+          bpearl_front_protection_bars:
+            {}
+          bpearl_rear:
+            bpearl_rear_beam_origin:
+              {}
+          bpearl_rear_protection_bars:
+            {}
+          docking_hatch_cover:
+            {}
+          front_handle:
+            {}
+          handle:
+            {}
+          imu_link:
+            {}
+          interface_hatch:
+            hatch:
+              {}
+          perception_head_cage:
+            lidar:
+              {}
+          remote:
+            {}
+          top_shell:
+            {}
+          zed_base_link:
+            zed2i_base_link:
+              zed2i_camera_center:
+                zed2i_baro_link:
+                  {}
+                zed2i_left_camera_frame:
+                  zed2i_left_camera_optical_frame:
+                    {}
+                  zed2i_temp_left_link:
+                    {}
+                zed2i_mag_link:
+                  {}
+                zed2i_right_camera_frame:
+                  zed2i_right_camera_optical_frame:
+                    {}
+                  zed2i_temp_right_link:
+                    {}
+        map_o3d:
+          enu:
+            {}
+          raw_odom_o3d:
+            {}
+          raw_rs_o3d:
+            {}
       Update Interval: 0
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -132,8 +374,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 26.58759880065918
-        Min Value: -10.967199325561523
+        Max Value: 24.604572296142578
+        Min Value: -21.142749786376953
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -205,8 +447,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 3.768765449523926
-        Min Value: -0.375703901052475
+        Max Value: 0.8980928659439087
+        Min Value: -2.466836452484131
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -385,7 +627,7 @@ Visualization Manager:
       Marker Topic: /open3d_slam/differenceLines
       Name: Motion Update Markers
       Namespaces:
-        {}
+        paths: true
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0
@@ -453,7 +695,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 27.146230697631836
+      Distance: 9.166513442993164
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -461,17 +703,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -1.8465478420257568
-        Y: 1.1309309005737305
-        Z: -0.7189095616340637
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
-      Target Frame: base
-      Yaw: 4.698578834533691
+      Pitch: 0.7603980898857117
+      Target Frame: lidar
+      Yaw: 0.3253985643386841
     Saved: ~
 Window Geometry:
   Displays:

@@ -232,10 +232,12 @@ void LuaLoader::loadParameters(const DictPtr dict, MapperParameters *p) {
 	loadBoolIfKeyDefined(dict, "is_carving_enabled", &p->isCarvingEnabled_);
 	loadBoolIfKeyDefined(dict, "is_merge_scans_into_map", &p->isMergeScansIntoMap_);
 	loadBoolIfKeyDefined(dict, "ignore_minimum_refinement_fitness", &p->isIgnoreMinRefinementFitness_);
-
+	
+	// Double
 	loadDoubleIfKeyDefined(dict, "min_movement_between_mapping_steps", &p->minMovementBetweenMappingSteps_);
 	loadDoubleIfKeyDefined(dict, "map_merge_delay_in_seconds", &p->mapMergeDelayInSeconds_);
 
+	// Int
 	loadIntIfKeyDefined(dict, "mapping_buffer_size", &p->mappingBufferSize_);
 
 	loadIfDictionaryDefined(dict,"scan_to_map_registration", &p->scanMatcher_);

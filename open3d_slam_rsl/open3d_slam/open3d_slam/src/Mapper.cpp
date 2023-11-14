@@ -316,7 +316,7 @@ if (mapPatch->IsEmpty()){
       }
 
     }else{
-    std::cout << "Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" << croppedCloud->dataPoints_.features.cols() << ") " << "to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
+    std::cout << "open3d_slam Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" << croppedCloud->dataPoints_.features.cols() + 1000 << ") " << "to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
       correctedTransform = transformReadingToReferenceInitialGuess;
     }
 

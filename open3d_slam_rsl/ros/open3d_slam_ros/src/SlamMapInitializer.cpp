@@ -50,18 +50,6 @@ bool SlamMapInitializer::initSlamCallback(std_srvs::Trigger::Request& req, std_s
 void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
   mapInitializerParams_ = params;
 
-  /*
-  if (!mapInitializerParams_.isUseInitialMap_)
-  {
-    std::cout << "This is NOOOOOOOOOOOT unexpected.\n";
-    return;
-  }else{
-    std::cout << "This is NOOOOOOOOOOOT unexpected.\n";
-    std::cout << "Value: " << mapInitializerParams_.isUseInitialMap_ << "\n";
-  }
-  */
-  
-
   PointCloud raw_map;
   std::string pcdFile = ros::package::getPath(mapInitializerParams_.pcdFilePackage_) + mapInitializerParams_.pcdFilePath_;
     

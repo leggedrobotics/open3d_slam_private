@@ -175,18 +175,18 @@ bool SlamWrapper::isUsingOdometryTopic() const {
 
 bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const Time timestamp) {
   // Set the time regardless of whats going to happen next.
-  //updateFirstMeasurementTime(timestamp);
+  updateFirstMeasurementTime(timestamp);
   
   // Doesn't make sense to add the measurement if the pose buffer is empty.
   if ((params_.odometry_.useOdometryTopic_) && (odometry_->odomToRangeSensorBuffer_.empty())) {
-    std::cerr << "You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
+    std::cerr << "open3d_slam: You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
     return false;
   }
   
   if (!odometryBuffer_.empty()) {
     const auto latestTime = odometryBuffer_.peek_back().time_;
     if (timestamp < latestTime) {
-      std::cerr << "you are trying to add a range scan out of order! Dropping the measurement! \n";
+      std::cerr << "open3d_slam: You are trying to add a range scan out of order! Dropping the measurement! \n";
       return false;
     }
   }

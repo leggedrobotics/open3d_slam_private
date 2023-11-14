@@ -158,7 +158,6 @@ struct MapInitializingParameters {  // todo these are a bit implementation speci
   std::string pcdFilePackage_ = "";
   std::string pcdFilePath_ = "";
   bool isInitializeInteractively_ = false;
-  bool isUseInitialMap_ = false;
 };
 
 struct MapperParameters {
