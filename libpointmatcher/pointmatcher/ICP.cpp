@@ -1515,7 +1515,8 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
     BOOST_AUTO(referenceSurfaceNormals, matches.reference.getDescriptorViewByName("normals"));
 
     // Need to have proper normals.
-    assert(referenceSurfaceNormals.rows() = 3);
+    assert(referenceSurfaceNormals.rows() == 3);
+    
     // Cross is the cross product elements used for rotation subspace.
     // wF is the weighted feature matrix. 6xN
     // F is the regular feature matrix. 6xN

@@ -15,8 +15,9 @@ params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to i
 params.mapper_localizer.is_merge_scans_into_map = false
 params.mapper_localizer.is_build_dense_map = false
 params.mapper_localizer.is_attempt_loop_closures = false
-params.mapper_localizer.is_use_map_initialization = false
+params.mapper_localizer.is_use_map_initialization = true
 params.mapper_localizer.is_print_timing_information = false
+params.mapper_localizer.map_merge_delay_in_seconds = 10.0
 
 params.mapper_localizer.is_carving_enabled = true
 params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.075
@@ -25,11 +26,12 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.c
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 1.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 0.1 --sec
 
 --MAP_INITIALIZER
-params.map_initializer.pcd_file_package = ""
-params.map_initializer.pcd_file_path = ""
+params.map_initializer.pcd_file_package = "open3d_slam_ros"
+params.map_initializer.pcd_file_path = "/data/ETH_LEE_H_with_terrace.pcd"
+params.map_initializer.is_initialize_interactively = true
 params.map_initializer.init_pose.x = 0.0
 params.map_initializer.init_pose.y = 0.0
 params.map_initializer.init_pose.z = 0.0

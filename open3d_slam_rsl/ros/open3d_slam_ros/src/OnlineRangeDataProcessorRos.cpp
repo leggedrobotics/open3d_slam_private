@@ -83,9 +83,17 @@ void OnlineRangeDataProcessorRos::startProcessing() {
   // A timer to read the static calibration we between the provided tracked frame by odometry and the point cloud frame.
   staticTfCallback_ = nh_->createTimer(ros::Duration(0.1), &OnlineRangeDataProcessorRos::staticTfCallback, this);
 
+  std::cout << " Open3d_slam Subscribers are set." << std::endl;
+
   // Number of spinners should be equal to the number of active subscribers
   ros::MultiThreadedSpinner spinner(4);
   spinner.spin();
+  //ros::Rate r(10); // 10 hz
+  //while (ros::ok())
+  //{
+  //  ros::spinOnce();
+  //  r.sleep();
+  //}
   slam_->stopWorkers();
 }
 
@@ -120,8 +128,8 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
     //odomPose_transformed.pose.orientation.x=0.0;
     ROS_INFO("Initial Transform is set. Nice.");
 
-    std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << " \n" << "\033[0m";
-    std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" << "\033[0m";
+    //std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << " \n" << "\033[0m";
+    //std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" << "\033[0m";
 
     slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
 

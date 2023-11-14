@@ -112,7 +112,7 @@ void LidarOdometry::setInitialTransform(const Eigen::Matrix4d& initialTransform)
   //  if I leave it like this it is always continuous, but starts always from the
   //  origin
   if(isInitialTransformSet_){
-    std::cout << "\033[31m" << "Initial transform already set. Skipping." << "\033[0m" << std::endl;
+    std::cout << "\033[31m" << "Open3d_slam odometry initial transform already set. Skipping. OK to see in the beginning." << "\033[0m" << std::endl;
     return;
   }
 

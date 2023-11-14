@@ -234,6 +234,7 @@ void LuaLoader::loadParameters(const DictPtr dict, MapperParameters *p) {
 	loadBoolIfKeyDefined(dict, "ignore_minimum_refinement_fitness", &p->isIgnoreMinRefinementFitness_);
 
 	loadDoubleIfKeyDefined(dict, "min_movement_between_mapping_steps", &p->minMovementBetweenMappingSteps_);
+	loadDoubleIfKeyDefined(dict, "map_merge_delay_in_seconds", &p->mapMergeDelayInSeconds_);
 
 	loadIntIfKeyDefined(dict, "mapping_buffer_size", &p->mappingBufferSize_);
 

@@ -158,6 +158,7 @@ struct MapInitializingParameters {  // todo these are a bit implementation speci
   std::string pcdFilePackage_ = "";
   std::string pcdFilePath_ = "";
   bool isInitializeInteractively_ = false;
+  bool isUseInitialMap_ = false;
 };
 
 struct MapperParameters {
@@ -176,6 +177,7 @@ struct MapperParameters {
   bool isPrintTimingStatistics_ = true;
   bool isRefineOdometryConstraintsBetweenSubmaps_ = false;
   bool isUseInitialMap_ = false;
+  double mapMergeDelayInSeconds_ = 10.0;
   bool isCarvingEnabled_ = false;
   bool isMergeScansIntoMap_ = true;
   int mappingBufferSize_ = 1;

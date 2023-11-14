@@ -31,8 +31,8 @@ void TransformInterpolationBuffer::push(const Time& time, const Transform& tf) {
     }
 
     if (time < latest_time()) {
-      std::cerr << "TransformInterpolationBuffer:: you are trying to push something out of order, this should not happen \n";
-      std::cerr << "ignoring the mesurement \n";
+      std::cerr << "TransformInterpolationBuffer:: you are trying to push something out of order, this can only happen in the beginning. \n";
+      std::cerr << "ignoring this mesurement \n";
       std::cerr << "Time: " << toSecondsSinceFirstMeasurement(time) << std::endl;
       std::cerr << "latest time: " << toSecondsSinceFirstMeasurement(latest_time()) << std::endl;
       return;

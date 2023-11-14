@@ -194,8 +194,8 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
   if (!odometry_->odomToRangeSensorBuffer_.empty()) {
     const auto earliestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.earliest_time();
     if (timestamp < earliestAvailableOdometryTime) {
-      std::cerr << "You are trying to add a range scan earlier than all the odometry poses. Its okay. Dropping. \n";
-      std::cout << "Earliest vailable odometry time: " << toString(earliestAvailableOdometryTime) << std::endl;
+      std::cerr << "open3d_slam: You are trying to add a range scan earlier than all the odometry poses. Its okay. Dropping. \n";
+      std::cout << "Earliest available odometry time: " << toString(earliestAvailableOdometryTime) << std::endl;
       std::cout << "Requested time: " << toString(timestamp) << std::endl;
       return false;
     }
@@ -568,6 +568,7 @@ void SlamWrapper::unifiedWorkerMap() {
   while (isRunWorkers_) {
     // Mapping worker start
     if (mappingBuffer_.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
 

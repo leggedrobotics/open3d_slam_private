@@ -49,6 +49,19 @@ bool SlamMapInitializer::initSlamCallback(std_srvs::Trigger::Request& req, std_s
 
 void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
   mapInitializerParams_ = params;
+
+  /*
+  if (!mapInitializerParams_.isUseInitialMap_)
+  {
+    std::cout << "This is NOOOOOOOOOOOT unexpected.\n";
+    return;
+  }else{
+    std::cout << "This is NOOOOOOOOOOOT unexpected.\n";
+    std::cout << "Value: " << mapInitializerParams_.isUseInitialMap_ << "\n";
+  }
+  */
+  
+
   PointCloud raw_map;
   std::string pcdFile = ros::package::getPath(mapInitializerParams_.pcdFilePackage_) + mapInitializerParams_.pcdFilePath_;
     
@@ -62,7 +75,7 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
   Transform initPose = params.initialPose_;
   slamPtr_->setInitialMap(raw_map);
   slamPtr_->setInitialTransform(initPose.matrix());
-  std::cout << "init pose: " << asString(initPose) << std::endl;
+  std::cout << "Init pose within the given map: " << asString(initPose) << std::endl;
   if (params.isInitializeInteractively_) {
     initInteractiveMarker();
     initPoseSub_ = nh_->subscribe("/initialpose", 1, &SlamMapInitializer::initialPoseCallback, this);

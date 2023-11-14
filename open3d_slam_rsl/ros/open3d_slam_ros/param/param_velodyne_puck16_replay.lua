@@ -3,7 +3,7 @@ include "default/default_parameters.lua"
 
 params = deepcopy(DEFAULT_PARAMETERS)
 
---ODOMETRY
+--ScanToScan ODOMETRY
 params.odometry.scan_processing.voxel_size = 0.05
 params.odometry.scan_processing.downsampling_ratio = 1.0
 
@@ -12,11 +12,12 @@ params.odometry.use_odometry_topic_instead_of_scan_to_scan = true --Uses Odometr
 params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to initialize gravity aligned attitude.
 
 --MAPPER_LOCALIZER
+params.mapper_localizer.is_use_map_initialization = false
 params.mapper_localizer.is_merge_scans_into_map = true
 params.mapper_localizer.is_build_dense_map = false
 params.mapper_localizer.is_attempt_loop_closures = false
-params.mapper_localizer.is_use_map_initialization = true
 params.mapper_localizer.is_print_timing_information = false
+params.mapper_localizer.map_merge_delay_in_seconds = 10.0
 
 params.mapper_localizer.is_carving_enabled = true
 params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.075

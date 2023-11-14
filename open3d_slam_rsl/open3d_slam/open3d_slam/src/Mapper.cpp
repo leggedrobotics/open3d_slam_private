@@ -297,7 +297,8 @@ if (mapPatch->IsEmpty()){
 
     testmapperOnlyTimer_.startStopwatch();
 
-    if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols()){
+    // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
+    if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
 
       correctedTransform = icp_.compute(croppedCloud->dataPoints_, activeSubmapPm_->dataPoints_,
                                                           transformReadingToReferenceInitialGuess, false);
@@ -315,7 +316,7 @@ if (mapPatch->IsEmpty()){
       }
 
     }else{
-      std::cout << "Submap dont have enough points to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
+    std::cout << "Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" << croppedCloud->dataPoints_.features.cols() << ") " << "to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
       correctedTransform = transformReadingToReferenceInitialGuess;
     }
 
@@ -366,7 +367,7 @@ if (mapPatch->IsEmpty()){
 
   // We don't want to add the mis-aligned first scans to the map. Hence giving the registration time to converge.
   double timeSinceInit = toSecondsSinceFirstMeasurement(timestamp) - toSecondsSinceFirstMeasurement(initTime_);
-  if ((params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) || (timeSinceInit < 10.0 && params_.isMergeScansIntoMap_)) {
+  if ((params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) || (timeSinceInit < params_.mapMergeDelayInSeconds_ && params_.isUseInitialMap_ && params_.isMergeScansIntoMap_)) {
     // Early return before inserting the scans.
     lastMeasurementTimestamp_ = timestamp;
     mapToRangeSensorPrev_ = mapToRangeSensor_;

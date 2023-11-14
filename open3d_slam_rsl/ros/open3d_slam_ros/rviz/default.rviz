@@ -27,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: AssembledMap
+    SyncSource: ""
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -213,7 +213,7 @@ Visualization Manager:
       Class: rviz/PointCloud2
       Color: 252; 233; 79
       Color Transformer: AxisColor
-      Decay Time: 0
+      Decay Time: 1000
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
@@ -385,7 +385,7 @@ Visualization Manager:
       Marker Topic: /open3d_slam/differenceLines
       Name: Motion Update Markers
       Namespaces:
-        paths: true
+        {}
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0
