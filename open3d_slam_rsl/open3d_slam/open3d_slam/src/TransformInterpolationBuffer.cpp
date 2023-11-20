@@ -150,9 +150,11 @@ void TransformInterpolationBuffer::printTimesCurrentlyInBuffer() const {
 
 Transform getTransform(const Time& time, const TransformInterpolationBuffer& buffer) {
   if (time < buffer.earliest_time()) {
+    std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the past, this should not happen \n";
     return buffer.lookup(buffer.earliest_time());
   }
   if (time > buffer.latest_time()) {
+    std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the future, this should not happen \n";
     return buffer.lookup(buffer.latest_time());
   }
   return buffer.lookup(time);

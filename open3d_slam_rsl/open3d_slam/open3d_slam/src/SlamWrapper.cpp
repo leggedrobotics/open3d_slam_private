@@ -568,6 +568,7 @@ void SlamWrapper::unifiedWorkerMap() {
   while (isRunWorkers_) {
     // Mapping worker start
     if (mappingBuffer_.empty()) {
+      checkIfOptimizedGraphAvailable();
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
@@ -599,15 +600,22 @@ void SlamWrapper::unifiedWorkerMap() {
       registeredCloudBuffer_.push(registeredCloud);
       latestScanToMapRefinementTimestamp_ = measurement_map.time_;
 
-      if ((!mapper_->isRegistrationBestGuessBufferEmpty())){
-        ScanToMapRegistrationBestGuess bestGuess;
-        bestGuess.time_ = measurement_map.time_;
-        bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement_map.time_);
-        bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
-        bestGuess.targetFrame_ = frames_.mapFrame;
-        registrationBestGuessBuffer_.push(bestGuess);
-      }
+      ScanToMapRegistrationBestGuess bestGuess;
+      bestGuess.time_ = measurement_map.time_;
+      bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement_map.time_);
+      bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
+      bestGuess.targetFrame_ = frames_.mapFrame;
+      registrationBestGuessBuffer_.push(bestGuess);
+      
     }
+
+    if (params_.mapper_.isAttemptLoopClosures_) {
+      computeFeaturesIfReady();
+      attemptLoopClosuresIfReady();
+    }
+
+    checkIfOptimizedGraphAvailable();
+
   }
 }
 

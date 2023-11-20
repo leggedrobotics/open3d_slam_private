@@ -218,7 +218,7 @@ void RosbagRangeDataProcessorRos::processRosbagForIMU() {
       return;
     }
 
-    if (messageInstance.getTopic() == "/sensors/imu") {
+    if (messageInstance.getTopic() == topics[0]) {
       sensor_msgs::Imu::ConstPtr message = messageInstance.instantiate<sensor_msgs::Imu>();
       if (message != nullptr) {
 
@@ -665,7 +665,8 @@ void RosbagRangeDataProcessorRos::processRosbag() {
   }
   
   topics.push_back(tfStaticTopic_);
-  topics.push_back(tfTopic_);
+  //TODO TT Parametrize this
+  //topics.push_back(tfTopic_);
 
   Timer rosbagTimer;
 
@@ -844,6 +845,8 @@ void RosbagRangeDataProcessorRos::processRosbag() {
         slamInputs->pointCloud_ = message;
 
         if(slamInputs->pointCloud_){
+          // Read the point cloud frame from the topic. Think whether having the option to change it makes sense.
+          slam_->frames_.rangeSensorFrame = slamInputs->pointCloud_->header.frame_id;
           if (slam_->frames_.rangeSensorFrame != slamInputs->pointCloud_->header.frame_id){
             ROS_ERROR("Tracked frame and PC frame are not same. This is not supported yet." );
             ROS_ERROR_STREAM("Tracked frame: " << slam_->frames_.rangeSensorFrame << " and PC frame: " << slamInputs->pointCloud_->header.frame_id);

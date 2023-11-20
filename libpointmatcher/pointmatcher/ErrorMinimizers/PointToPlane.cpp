@@ -109,7 +109,6 @@ PointToPlaneErrorMinimizer<T>::PointToPlaneErrorMinimizer(const ParametersDoc pa
 	}
 }
 
-
 template<typename T, typename MatrixA, typename Vector>
 void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b, Vector& x, const bool isConstrained)
 {
@@ -123,22 +122,85 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
 
     //BOOST_AUTO(solverQR, A.householderQr());
     //x = solverQR.solve(b);
-    x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+    //x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+    bool ispsd_=true;
 
-    /*
-    if (isConstrained)
+    // If we do constraint opt. it is never symmetrical.
+    /*if (!A.isApprox(A.transpose())) {
+        throw std::runtime_error("Not symmetrical?!");
+        ispsd_ =  false;
+    }
+    const auto ldlt = A.template selfadjointView<Eigen::Upper>().ldlt();
+    if (ldlt.info() == Eigen::NumericalIssue || !ldlt.isPositive()) {
+        throw std::runtime_error("Numerical issue or not PSD?!");
+        ispsd_ =  false;
+    }
+    */
+
+
+    /*std::cout << "The matrix A is" << std::endl << A << std::endl;
+    Eigen::LLT<Matrix> lltOfA(A); // compute the Cholesky decomposition of A
+    if(lltOfA.info() == Eigen::NumericalIssue)
+    {
+        throw std::runtime_error("Possibly non semi-positive definitie matrix!");
+    }
+    if (!A.isApprox(A.transpose()) || lltOfA.info() == Eigen::NumericalIssue) {
+        throw std::runtime_error("Not symm. Possibly non semi-positive definitie matrix!");
+    }*/
+
+    //BOOST_AUTO(solverQR, A.householderQr());
+    if (isConstrained && ispsd_)
     {
         // TODO(ynava) Investigate the effects of using SVD directly.
 
         // Alternative to doing SVD. Note: Constrained ICP methods are not solvable with fullHouseHolderQR method since this solver does column shifting to make the problem full rank. Whereas, our augmented optimization hessian might be rank deficient practically.
-        BOOST_AUTO(solverQR, A.householderQr());
-        x = solverQR.solve(b);
+
+        //x = solverQR.solve(b);
 
         // SVD, exists for all matrices without exception. If there is a solution it will find it despite not being optimum.
-        //x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+        // HouseholderQRPreconditioner
+        // ColPivHouseholderQRPreconditioner
+        // Eigen::NoQRPreconditioner
+        // FullPivHouseholderQRPreconditioner 
+
+        //std::cout << "Augmented A: " << std::endl << A << std::endl;
+        //std::cout << "Augmented b: " << std::endl << b << std::endl;
+
+        x = A.template cast<double>().jacobiSvd(HouseholderQRPreconditioner | ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+        //x = A.template cast<double>().householderQr().solve(b.template cast<double>()).template cast<T>();
+
+        //x = A.bdcSvd(ComputeThinU | ComputeThinV).solve(b);
+
+        //x = A.template cast<double>().bdcSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+
+        //std::cout << "Starting Calculaiton: " << std::endl;
+        //Eigen::JacobiSVD<Matrix, HouseholderQRPreconditioner> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        //x = svd.solve(b);
+        //std::cout << "Calculated Solution: " << std::endl << x.head(6) << std::endl;
+        
+        //Eigen::Matrix<T, 6, 1> U = svd.matrixU();
+        //const Eigen::Matrix3f V = svd.matrixV();
+        //Eigen::Matrix3f R_ortho = U * V.transpose();
+        //Eigen::Matrix<T, 6, 1> eigens = svd.singularValues();
+
+        // The determinant of R must be 1 for it to be a valid rotation matrix
+        //if (R_ortho.determinant() < 0)
+        //{
+            //U.block<1, 3>(2, 0) = -U.block<1, 3>(2, 0); // not tested
+            //R_ortho = U * V.transpose();
+        //    std::cout << "Determinant of R is -1" << std::endl;
+        //}
     }
     else
-    {
+    {   
+        if (isConstrained){
+            std::cout << "######################################## " << std::endl;
+            std::cout << "######################################## " << std::endl;
+            std::cout << "  MATRIX IS NOT SEMI POISITIVE DEFINITE " << std::endl;
+            std::cout << "######################################## " << std::endl;
+            std::cout << "######################################## " << std::endl;
+        }
+
         // Regular Least Squares Optimization problem solving.
         BOOST_AUTO(Aqr, A.fullPivHouseholderQr());
         if (!Aqr.isInvertible())
@@ -186,10 +248,20 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
         else
         {
             // Cholesky decomposition, expects the problem to be invertible and full rank. Extremely fast but also fragile under a not well-conditioned problem.
-            x = A.llt().solve(b);
+            //x = A.llt().solve(b);
+            //x = ldlt.solve(b);
+
+            //x = A.template cast<double>().householderQr().solve(b.template cast<double>()).template cast<T>();
+            x = A.template cast<double>().jacobiSvd(HouseholderQRPreconditioner | ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+
+            
         }
+
+        //x = A.template cast<double>().householderQr().solve(b.template cast<double>()).template cast<T>();
+        //x = A.template cast<double>().jacobiSvd(HouseholderQRPreconditioner | ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+
     }
-    */
+    
 }
 
 template<typename T>
@@ -205,6 +277,11 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     const Eigen::Index dim{ mPts.reading.features.rows() };
     assert(dim == 4);
     assert(mPts.reading.features.cols() > 0);
+
+    const Vector meanReading{mPts.reading.features.topRows(dim-1).rowwise().mean()};
+    mPts.reading.features.topRows(dim-1).colwise() -= meanReading;
+    const Vector meanReference{mPts.reference.features.topRows(dim-1).rowwise().mean()};
+    mPts.reference.features.topRows(dim-1).colwise() -= meanReference;
 
     // Get the reference to the optimization matrices.
     const Matrix& A = localizabilityParametersForErrorMinimization.A_;
@@ -252,7 +329,7 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     Matrix mOut;
     if (dim == 4 && !force2D)
     {
-        Eigen::Transform<T, 3, Eigen::Affine> transform;
+        Eigen::Transform<T, 3, Eigen::Affine> transform{Eigen::Transform<T, 3, Eigen::Affine>::Identity()};
         // PLEASE DONT USE EULAR ANGLES!!!!
         // Rotation in Eular angles follow roll-pitch-yaw (1-2-3) rule
         /*transform = Eigen::AngleAxis<T>(x(0), Eigen::Matrix<T,1,3>::UnitX())
@@ -262,7 +339,9 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
         // Normal 6DOF takes the whole rotation vector from the solution to construct the output quaternion
         if (!force4DOF)
         {
-            transform = Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized()); //x=[alpha,beta,gamma,x,y,z]
+            const T rotationAngle{std::atan(x.head(3).norm())};
+            transform = Eigen::AngleAxis<T>(rotationAngle, x.head(3).stableNormalized());
+            //transform = Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized()); //x=[alpha,beta,gamma,x,y,z]
         }
         else // 4DOF needs only one number, the rotation around the Z axis
         {
@@ -394,12 +473,15 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     if (!doConstraintOptimization)
     {
         // Regular vanilla ICP.
-        solvePossiblyUnderdeterminedLinearSystem<T>(A, b, x, true);
+        solvePossiblyUnderdeterminedLinearSystem<T>(A, b, x, false);
     }
     else
     {
+        //////////////// for REGULARIZATION
+        //////  Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.cols());
+
         // Constrained optimization hessian (6+c) x (6)
-        Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.cols());
+        Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.cols() + numberOfConstraints);
         augmentedA.topLeftCorner(A.rows(), A.cols()) = A;
 
         // Constrained optimization constraint vector. (6+c) x (1)

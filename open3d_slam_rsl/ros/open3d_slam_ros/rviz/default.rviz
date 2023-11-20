@@ -5,6 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1/Status1
+        - /RegisteredCloud1
         - /Scan2Map1/Shape1
       Splitter Ratio: 0.5747883319854736
     Tree Height: 762
@@ -58,22 +60,379 @@ Visualization Manager:
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: false
+    - Alpha: 1
+      Class: rviz/RobotModel
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        LF_FOOT:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LF_HAA_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LF_HFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LF_HFE_output:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LF_HIP:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LF_KFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LF_SHANK:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LF_THIGH:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LF_hip_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LF_shank_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LF_thigh_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_FOOT:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_HAA_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_HFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_HFE_output:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LH_HIP:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LH_KFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_SHANK:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LH_THIGH:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        LH_hip_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_shank_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        LH_thigh_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        Link Tree Style: Links in Alphabetic Order
+        RF_FOOT:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RF_HAA_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RF_HFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RF_HFE_output:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RF_HIP:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RF_KFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RF_SHANK:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RF_THIGH:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RF_hip_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RF_shank_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RF_thigh_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_FOOT:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_HAA_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_HFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_HFE_output:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RH_HIP:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RH_KFE_drive:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_SHANK:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RH_THIGH:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        RH_hip_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_shank_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        RH_thigh_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_inertia:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        battery:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        body_top:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        bottom_shell:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        depth_camera_front_lower_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_front_lower_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_front_upper_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_front_upper_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_left_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_left_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_rear_lower_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_rear_lower_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_rear_upper_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_rear_upper_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_right_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        depth_camera_right_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        docking_socket:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        face_front:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        face_rear:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        face_shell_front:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        face_shell_rear:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        hatch_shell:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        hbc_receiver:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        lidar:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lidar_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        top_shell:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        wide_angle_camera_front_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        wide_angle_camera_front_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        wide_angle_camera_rear_camera:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        wide_angle_camera_rear_camera_parent:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Name: ANYmal
+      Robot Description: anymal_description
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
     - Class: rviz/TF
       Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        LF_ADAPTER:
+        LF_FOOT:
           Value: true
-        LF_HAA:
+        LF_HAA_drive:
           Value: true
-        LF_HFE:
+        LF_HFE_drive:
+          Value: true
+        LF_HFE_output:
           Value: true
         LF_HIP:
           Value: true
-        LF_KFE:
-          Value: true
-        LF_MOUNT:
+        LF_KFE_drive:
           Value: true
         LF_SHANK:
           Value: true
@@ -85,17 +444,17 @@ Visualization Manager:
           Value: true
         LF_thigh_fixed:
           Value: true
-        LH_ADAPTER:
+        LH_FOOT:
           Value: true
-        LH_HAA:
+        LH_HAA_drive:
           Value: true
-        LH_HFE:
+        LH_HFE_drive:
+          Value: true
+        LH_HFE_output:
           Value: true
         LH_HIP:
           Value: true
-        LH_KFE:
-          Value: true
-        LH_MOUNT:
+        LH_KFE_drive:
           Value: true
         LH_SHANK:
           Value: true
@@ -107,17 +466,17 @@ Visualization Manager:
           Value: true
         LH_thigh_fixed:
           Value: true
-        RF_ADAPTER:
+        RF_FOOT:
           Value: true
-        RF_HAA:
+        RF_HAA_drive:
           Value: true
-        RF_HFE:
+        RF_HFE_drive:
+          Value: true
+        RF_HFE_output:
           Value: true
         RF_HIP:
           Value: true
-        RF_KFE:
-          Value: true
-        RF_MOUNT:
+        RF_KFE_drive:
           Value: true
         RF_SHANK:
           Value: true
@@ -129,17 +488,17 @@ Visualization Manager:
           Value: true
         RF_thigh_fixed:
           Value: true
-        RH_ADAPTER:
+        RH_FOOT:
           Value: true
-        RH_HAA:
+        RH_HAA_drive:
           Value: true
-        RH_HFE:
+        RH_HFE_drive:
+          Value: true
+        RH_HFE_output:
           Value: true
         RH_HIP:
           Value: true
-        RH_KFE:
-          Value: true
-        RH_MOUNT:
+        RH_KFE_drive:
           Value: true
         RH_SHANK:
           Value: true
@@ -155,163 +514,193 @@ Visualization Manager:
           Value: true
         base_inertia:
           Value: true
-        base_offset:
-          Value: true
         battery:
           Value: true
         body_top:
           Value: true
         bottom_shell:
           Value: true
-        bpearl_front:
+        depth_camera_front_lower_camera:
           Value: true
-        bpearl_front_beam_origin:
+        depth_camera_front_lower_camera_parent:
           Value: true
-        bpearl_front_protection_bars:
+        depth_camera_front_upper_camera:
           Value: true
-        bpearl_rear:
+        depth_camera_front_upper_camera_parent:
           Value: true
-        bpearl_rear_beam_origin:
+        depth_camera_left_camera:
           Value: true
-        bpearl_rear_protection_bars:
+        depth_camera_left_camera_parent:
           Value: true
-        camera_init:
+        depth_camera_rear_lower_camera:
           Value: true
-        camera_init_CORRECTED:
+        depth_camera_rear_lower_camera_parent:
           Value: true
-        docking_hatch_cover:
+        depth_camera_rear_upper_camera:
           Value: true
-        enu:
+        depth_camera_rear_upper_camera_parent:
           Value: true
-        front_handle:
+        depth_camera_right_camera:
           Value: true
-        handle:
+        depth_camera_right_camera_parent:
           Value: true
-        hatch:
+        docking_socket:
+          Value: true
+        face_front:
+          Value: true
+        face_rear:
+          Value: true
+        face_shell_front:
+          Value: true
+        face_shell_rear:
+          Value: true
+        feetcenter:
+          Value: true
+        footprint:
+          Value: true
+        hatch_shell:
+          Value: true
+        hbc_receiver:
           Value: true
         imu_link:
           Value: true
-        interface_hatch:
-          Value: true
         lidar:
           Value: true
-        lidar_o3d:
-          Value: true
-        map:
+        lidar_parent:
           Value: true
         map_o3d:
           Value: true
-        odom_o3d:
+        odom:
           Value: true
-        perception_head_cage:
-          Value: true
-        raw_odom_o3d:
+        odom_o3d_:
           Value: true
         raw_rs_o3d:
           Value: true
-        remote:
-          Value: true
         top_shell:
           Value: true
-        zed2i_baro_link:
+        wide_angle_camera_front_camera:
           Value: true
-        zed2i_base_link:
+        wide_angle_camera_front_camera_parent:
           Value: true
-        zed2i_camera_center:
+        wide_angle_camera_rear_camera:
           Value: true
-        zed2i_left_camera_frame:
-          Value: true
-        zed2i_left_camera_optical_frame:
-          Value: true
-        zed2i_mag_link:
-          Value: true
-        zed2i_right_camera_frame:
-          Value: true
-        zed2i_right_camera_optical_frame:
-          Value: true
-        zed2i_temp_left_link:
-          Value: true
-        zed2i_temp_right_link:
-          Value: true
-        zed_base_link:
+        wide_angle_camera_rear_camera_parent:
           Value: true
       Marker Alpha: 1
-      Marker Scale: 1
+      Marker Scale: 0.5
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        base:
-          LF_HAA:
-            {}
-          LH_HAA:
-            {}
-          RF_HAA:
-            {}
-          RH_HAA:
-            {}
-          base_inertia:
-            {}
-          base_offset:
-            {}
-          battery:
-            {}
-          body_top:
-            {}
-          bottom_shell:
-            {}
-          bpearl_front:
-            bpearl_front_beam_origin:
+        odom:
+          base:
+            LF_HAA_drive:
+              LF_HIP:
+                LF_hip_fixed:
+                  LF_HFE_output:
+                    LF_THIGH:
+                      LF_HFE_drive:
+                        LF_thigh_fixed:
+                          LF_KFE_drive:
+                            LF_SHANK:
+                              LF_shank_fixed:
+                                LF_FOOT:
+                                  {}
+            LH_HAA_drive:
+              LH_HIP:
+                LH_hip_fixed:
+                  LH_HFE_output:
+                    LH_THIGH:
+                      LH_HFE_drive:
+                        LH_thigh_fixed:
+                          LH_KFE_drive:
+                            LH_SHANK:
+                              LH_shank_fixed:
+                                LH_FOOT:
+                                  {}
+            RF_HAA_drive:
+              RF_HIP:
+                RF_hip_fixed:
+                  RF_HFE_output:
+                    RF_THIGH:
+                      RF_HFE_drive:
+                        RF_thigh_fixed:
+                          RF_KFE_drive:
+                            RF_SHANK:
+                              RF_shank_fixed:
+                                RF_FOOT:
+                                  {}
+            RH_HAA_drive:
+              RH_HIP:
+                RH_hip_fixed:
+                  RH_HFE_output:
+                    RH_THIGH:
+                      RH_HFE_drive:
+                        RH_thigh_fixed:
+                          RH_KFE_drive:
+                            RH_SHANK:
+                              RH_shank_fixed:
+                                RH_FOOT:
+                                  {}
+            base_inertia:
               {}
-          bpearl_front_protection_bars:
-            {}
-          bpearl_rear:
-            bpearl_rear_beam_origin:
+            battery:
               {}
-          bpearl_rear_protection_bars:
-            {}
-          docking_hatch_cover:
-            {}
-          front_handle:
-            {}
-          handle:
-            {}
-          imu_link:
-            {}
-          interface_hatch:
-            hatch:
+            body_top:
               {}
-          perception_head_cage:
-            lidar:
+            bottom_shell:
               {}
-          remote:
-            {}
-          top_shell:
-            {}
-          zed_base_link:
-            zed2i_base_link:
-              zed2i_camera_center:
-                zed2i_baro_link:
+            depth_camera_left_camera:
+              depth_camera_left_camera_parent:
+                {}
+            depth_camera_right_camera:
+              depth_camera_right_camera_parent:
+                {}
+            docking_socket:
+              {}
+            face_front:
+              depth_camera_front_lower_camera:
+                depth_camera_front_lower_camera_parent:
                   {}
-                zed2i_left_camera_frame:
-                  zed2i_left_camera_optical_frame:
-                    {}
-                  zed2i_temp_left_link:
-                    {}
-                zed2i_mag_link:
+              depth_camera_front_upper_camera:
+                depth_camera_front_upper_camera_parent:
                   {}
-                zed2i_right_camera_frame:
-                  zed2i_right_camera_optical_frame:
+              face_shell_front:
+                {}
+              wide_angle_camera_front_camera:
+                wide_angle_camera_front_camera_parent:
+                  {}
+            face_rear:
+              depth_camera_rear_lower_camera:
+                depth_camera_rear_lower_camera_parent:
+                  {}
+              depth_camera_rear_upper_camera:
+                depth_camera_rear_upper_camera_parent:
+                  {}
+              face_shell_rear:
+                {}
+              wide_angle_camera_rear_camera:
+                wide_angle_camera_rear_camera_parent:
+                  {}
+            hatch_shell:
+              {}
+            hbc_receiver:
+              {}
+            imu_link:
+              {}
+            lidar_parent:
+              lidar:
+                map_o3d:
+                  raw_rs_o3d:
                     {}
-                  zed2i_temp_right_link:
-                    {}
-        map_o3d:
-          enu:
+                odom_o3d_:
+                  {}
+            top_shell:
+              {}
+          feetcenter:
             {}
-          raw_odom_o3d:
-            {}
-          raw_rs_o3d:
+          footprint:
             {}
       Update Interval: 0
       Value: true
@@ -374,8 +763,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 24.604572296142578
-        Min Value: -21.142749786376953
+        Max Value: 21.487506866455078
+        Min Value: -4.524633884429932
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -447,8 +836,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0.8980928659439087
-        Min Value: -2.466836452484131
+        Max Value: 17.668193817138672
+        Min Value: -0.5980565547943115
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -463,7 +852,7 @@ Visualization Manager:
       Name: RegisteredCloud
       Position Transformer: XYZ
       Queue Size: 100
-      Selectable: true
+      Selectable: false
       Size (Pixels): 1
       Size (m): 0.009999999776482582
       Style: Points
@@ -695,7 +1084,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.166513442993164
+      Distance: 36.506961822509766
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -703,17 +1092,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -3.034968614578247
+        Y: -5.4827165603637695
+        Z: 0.21644380688667297
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7603980898857117
+      Pitch: 0.7653980255126953
       Target Frame: lidar
-      Yaw: 0.3253985643386841
+      Yaw: 3.280397891998291
     Saved: ~
 Window Geometry:
   Displays:

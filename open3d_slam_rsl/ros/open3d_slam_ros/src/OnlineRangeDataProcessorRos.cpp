@@ -30,6 +30,12 @@ void OnlineRangeDataProcessorRos::initialize() {
 
 bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded(){
   
+  if (slam_->frames_.rangeSensorFrame == "default")
+  {
+    ROS_WARN_STREAM("Range sensor frame is not set yet. Delaying the transformation look-up.");
+    return false;
+  }
+
   // The frames are identical. This is often not the case since the odometry follows a certain frame like base but the point clouds arrive in the lidar frame.
   if ((slam_->frames_.rangeSensorFrame == slam_->frames_.assumed_external_odometry_tracked_frame)){
     slam_->setExternalOdometryFrameToCloudFrameCalibration(Eigen::Isometry3d::Identity());
@@ -122,11 +128,11 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
     tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
 
     //odomPose_transformed.position=odomPose.position;
-    //odomPose_transformed.pose.orientation.w=1.0;
-    //odomPose_transformed.pose.orientation.z=0.0;
-    //odomPose_transformed.pose.orientation.y=0.0;
-    //odomPose_transformed.pose.orientation.x=0.0;
-    ROS_INFO("Initial Transform is set. Nice.");
+    odomPose_transformed.pose.orientation.w=1.0;
+    odomPose_transformed.pose.orientation.z=0.0;
+    odomPose_transformed.pose.orientation.y=0.0;
+    odomPose_transformed.pose.orientation.x=0.0;
+    ROS_INFO("Initial Transform is set. Nice. The rotation is enforced to be identity.");
 
     //std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << " \n" << "\033[0m";
     //std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" << "\033[0m";
@@ -256,11 +262,12 @@ void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, co
 
 void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
   ROS_DEBUG_STREAM("A point cloud has arrived.");
-  if (msg->header.frame_id != slam_->frames_.rangeSensorFrame){
+  slam_->frames_.rangeSensorFrame = msg->header.frame_id;
+  /*if (msg->header.frame_id != slam_->frames_.rangeSensorFrame){
     ROS_ERROR_STREAM("You failed to provide the right frame id in the parameters and the cloud. Exiting.");
     ROS_ERROR_STREAM("Frame from the msg: " << msg->header.frame_id << " Frame from the parameters: " << slam_->frames_.rangeSensorFrame);
     return;
-  }
+  }*/
 
   open3d::geometry::PointCloud cloud;
   open3d_conversions::rosToOpen3d(msg, cloud, false);

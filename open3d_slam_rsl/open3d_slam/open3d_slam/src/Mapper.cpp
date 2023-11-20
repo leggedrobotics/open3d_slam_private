@@ -185,7 +185,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     return true;
   }
 
-  if (timestamp < lastMeasurementTimestamp_) {
+  if (timestamp <= lastMeasurementTimestamp_) {
     std::cerr << "\n\n !!!!! MAPPER WARNING: Measurements came out of order!!!! \n\n";
     return false;
   }
@@ -216,12 +216,25 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
 
 
+    if (odometryMotion.translation().norm() == 0.0)
+    {
+      std::cout << "\033[92m" << " MOTION SHOULD BE PERFECTLY 0. " << "\n\033[0m";
+      std::cout << " MOTION SHOULDNT BE PERFECTLY 0. " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
+    }
+    
     /*int64_t uts_timestamp = toUniversal(timestamp);
     int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    std::cout << " Time: " << "\033[92m" << ns_since_unix_epoch << " \n" << "\033[0m";
+    std::cout << " timestamp: " << "\033[92m" << ns_since_unix_epoch << " \n" << "\033[0m";
+
+    int64_t uts_timestamp_prev = toUniversal(lastMeasurementTimestamp_);
+    int64_t ns_since_unix_epoch_prev = (uts_timestamp_prev - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    std::cout << " lastMeasurementTimestamp_: " << "\033[92m" << ns_since_unix_epoch_prev << " \n" << "\033[0m";
+
+    std::cout << " odomToRangeSensor: " << "\033[92m" << asString(odomToRangeSensor) << " \n" << "\033[0m";
+    std::cout << " odomToRangeSensorPrev: " << "\033[92m" << asString(odomToRangeSensorPrev) << " \n" << "\033[0m";
     std::cout << " odometryMotion: " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
-    std::cout << " mapToRangeSensorPrev_: " << "\033[92m" << asString(mapToRangeSensorPrev_) << " \n" << "\033[0m";
     */
+
   }
 
   isIgnoreOdometryPrediction_ = false;
@@ -269,7 +282,6 @@ if (mapPatch->IsEmpty()){
     
     if (isNewInitialValueSet_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)){ 
     
-
       {
         std::lock_guard<std::mutex> lck(mapManipulationMutex_);
         // Create pointmatcher cloud
@@ -282,15 +294,14 @@ if (mapPatch->IsEmpty()){
 
         lastReferenceInitializationTimestamp_ = timestamp;
         icp_.initReference(activeSubmapPm_->dataPoints_);
-
-        const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
-        referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
-
-        if (params_.isPrintTimingStatistics_){
-          std::cout << " Reference Cloud Re-init time: " << "\033[92m" << referenceInittimeElapsed << " msec \n" << "\033[0m";
-        }
       }
+      const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
+      referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
 
+      if (params_.isPrintTimingStatistics_){
+        std::cout << " Reference Cloud Re-init time: " << "\033[92m" << referenceInittimeElapsed << " msec \n" << "\033[0m";
+      }
+      
     }else{
       referenceInitTimer_.reset();
     }
@@ -300,8 +311,12 @@ if (mapPatch->IsEmpty()){
     // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
     if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
 
-      correctedTransform = icp_.compute(croppedCloud->dataPoints_, activeSubmapPm_->dataPoints_,
-                                                          transformReadingToReferenceInitialGuess, false);
+      {
+        std::lock_guard<std::mutex> lck(mapManipulationMutex_);
+
+        correctedTransform = icp_.compute(croppedCloud->dataPoints_, activeSubmapPm_->dataPoints_,
+                                                            transformReadingToReferenceInitialGuess, false);
+      }
 
       if (firstRefinement_){
         std::cout << "\033[92m" << " Open3d SLAM is running properly." << " \n " << "\033[0m";

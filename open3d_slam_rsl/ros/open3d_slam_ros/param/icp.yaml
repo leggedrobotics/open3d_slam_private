@@ -10,7 +10,7 @@ referenceDataPointsFilters:
 
 matcher:
   KDTreeMatcher:
-    knn: 3              # 1
+    knn: 1              # 1
     maxDist: 0.5        # 0.5
     epsilon: 0.01       # 0.01
 
@@ -85,8 +85,8 @@ degeneracyAwareness:
 
 transformationCheckers:
   - DifferentialTransformationChecker:
-      minDiffRotErr: 0.0005    # 0.001
-      minDiffTransErr: 0.005   # 0.01
+      minDiffRotErr: 0.001    # 0.001
+      minDiffTransErr: 0.008   # 0.01
       smoothLength: 3         # 3
   - CounterTransformationChecker:
       maxIterationCount: 30   # 30 

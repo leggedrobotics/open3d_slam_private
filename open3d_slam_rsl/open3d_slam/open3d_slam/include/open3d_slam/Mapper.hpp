@@ -88,7 +88,7 @@ class Mapper {
   Transform bestGuessMemory_ = Transform::Identity();
 
   MapperParameters params_;
-  std::mutex mapManipulationMutex_;
+  mutable std::mutex mapManipulationMutex_;
   std::shared_ptr<SubmapCollection> submaps_;
   const TransformInterpolationBuffer& odomToRangeSensorBuffer_;
   TransformInterpolationBuffer mapToRangeSensorBuffer_;

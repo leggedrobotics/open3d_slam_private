@@ -5,13 +5,15 @@
   <!-- Arguments -->
   <arg name="launch_prefix" default="" doc="gdb -ex run --args , valgrind --leak-check=full"/>
   <arg name="launch_rviz" default="true"/>
-  <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="launch_tf" default="false"/>
+  <arg name="load_params" default="n" doc="y , n"/>
+  <arg name="robot_description_file_path" default="/home/tutuna/journal_results_data/all_datasets_used_for_tro/EXTRA/mitholz_first_day_degen/2023-01-13-16-01-31_anymal-d020-lpc_mission.yaml"/>
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar_depth_camera/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
    <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
-  <arg name="odometry_topic" default="/state_estimator/odometry1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-
 
   <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
@@ -23,7 +25,7 @@
   <arg name="assumed_external_odometry_tracked_frame" default="base"/>
 
   <!-- Frame of the LiDAR point cloud. -->
-  <arg name="tracked_sensor_frame" default="lidar"/> 
+  <arg name="tracked_sensor_frame" default="base"/> 
 
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="false"/>
@@ -78,6 +80,17 @@
   <include
       file="$(find open3d_slam_ros)/launch/vis.launch"
       if="$(arg launch_rviz)">
+  </include>
+
+  <!-- Robot Description & Parameter Loading -->
+  <group if="$(eval load_params == 'y')">
+       <rosparam command="load" file="$(arg robot_description_file_path)" />
+  </group>
+
+    <!-- Anymal tf publisher, you are responsible to load the robot description. -->
+  <include 
+       file="$(find anymal_tf_publisher)/launch/anymal_tf_publisher.launch"
+       if="$(arg launch_tf)">
   </include>
 
 </launch>

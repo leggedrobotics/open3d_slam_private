@@ -137,7 +137,7 @@ void SlamWrapperRos::offlineTfWorker() {
 }
 
 void SlamWrapperRos::tfWorker() {
-  ros::WallRate r(100.0);
+  ros::WallRate r(500.0);
   while (ros::ok()) {
     const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
     const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScan_;
@@ -145,9 +145,9 @@ void SlamWrapperRos::tfWorker() {
       const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
       ros::Time timestamp = toRos(latestScanToScan);
       // This distinguish the lidar frame in regular anymal tf and the re-publish by o3d.
-      std::string appendedSensor = frames_.rangeSensorFrame + "_o3d";
-      o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.odomFrame, appendedSensor, tfBroadcaster_.get());
-      o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.mapFrame, "raw_odom_o3d", tfBroadcaster_.get());
+      //std::string appendedSensor = frames_.rangeSensorFrame + "_o3d";
+      o3d_slam::publishTfTransform(T.matrix().inverse(), timestamp, frames_.rangeSensorFrame, frames_.odomFrame, tfBroadcaster_.get());
+      //o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.mapFrame, "raw_odom_o3d", tfBroadcaster_.get());
       prevPublishedTimeScanToScan_ = latestScanToScan;
     }
 
@@ -305,7 +305,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   bagReplayEndTime_ = nh_->param<double>("replay_end_time_as_second", 8000.0);
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
 
-  frames_.rangeSensorFrame = nh_->param<std::string>("tracked_sensor_frame", "default");
+  frames_.rangeSensorFrame = "default"; // nh_->param<std::string>("tracked_sensor_frame", "default");
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
   
   if (isOfflineReplay){
@@ -355,7 +355,8 @@ void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
     if ((isTimeValid(latestMapToRangeMeasurement_.time_))){
       // Publish lidar to map transform.
       // Since base is the parent of lidar, we cant publish o3d_map as the parent of lidar. Hence we publish it as a child of lidar.
-      o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(), o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, frames_.mapFrame, tfBroadcaster_.get());
+      std::string adaptedMapFrame = frames_.mapFrame;
+      o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(), o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, adaptedMapFrame, tfBroadcaster_.get());
     }
   }
 }
