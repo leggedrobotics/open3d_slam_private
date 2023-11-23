@@ -28,7 +28,6 @@
   <arg name="replay_start_time_as_second" default="0.0"/>
   <arg name="replay_end_time_as_second" default="275.0"/>
   <arg name="use_sim_time" default="true"/>
-  <arg name="tracked_sensor_frame" default="lidar"/> <!-- PandarQT The frame of the LiDAR, the tracked odometry frame and the final tracked map frame has to be same. -->
   <arg name="assumed_external_odometry_tracked_frame" default="base"/> <!-- zed2i_base_link This is used to find the transformation to the "tracked_sensor_frame" -->
   <arg name="export_imu_data" default="false"/> <!-- This is used to export the IMU data from the rosbag. Also sleeps 10s. -->
 
@@ -47,9 +46,6 @@
 
     <param name="parameter_folder_path" type="string"
            value="$(arg parameter_folder_path)"/>
-
-    <param name="tracked_sensor_frame" type="string"
-           value="$(arg tracked_sensor_frame)"/>
 
     <param name="assumed_external_odometry_tracked_frame" type="string"
            value="$(arg assumed_external_odometry_tracked_frame)"/>

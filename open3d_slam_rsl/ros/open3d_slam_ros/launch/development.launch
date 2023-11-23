@@ -25,9 +25,6 @@
   <!-- Reads as `pose of base in external odometry frame` -->
   <arg name="assumed_external_odometry_tracked_frame" default="base"/>
 
-  <!-- Frame of the LiDAR point cloud. -->
-  <arg name="tracked_sensor_frame" default="base"/> 
-
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="false"/>
   <arg name="rosbag_filepath" default="/home/tutuna/Music/evo/procesed.bag"/>
@@ -52,9 +49,6 @@
 
     <param name="parameter_folder_path" type="string"
            value="$(arg parameter_folder_path)"/>
-
-    <param name="tracked_sensor_frame" type="string"
-           value="$(arg tracked_sensor_frame)"/>
 
     <param name="assumed_external_odometry_tracked_frame" type="string"
            value="$(arg assumed_external_odometry_tracked_frame)"/>

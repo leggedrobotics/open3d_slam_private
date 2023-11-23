@@ -32,7 +32,7 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded(){
   
   if (slam_->frames_.rangeSensorFrame == "default")
   {
-    ROS_WARN_STREAM_THROTTLE(0.5, "Range sensor frame is not set yet. Delaying the transformation look-up. (Throttled 0.5s)");
+    ROS_WARN_STREAM_THROTTLE(2.0, "Range sensor frame is not set yet. Delaying the transformation look-up. (Throttled 2s)");
     return false;
   }
 
