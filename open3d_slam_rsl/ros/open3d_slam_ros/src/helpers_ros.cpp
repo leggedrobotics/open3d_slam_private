@@ -56,28 +56,16 @@ void assembleColoredPointCloud(const SubmapCollection& submaps, open3d::geometry
   rndGen.seed(time(NULL));
   const int nPoints = submaps.getTotalNumPoints();
   cloud->points_.reserve(nPoints);
-
-  if (cloud->HasColors()){
-      cloud->colors_.reserve(nPoints);
-      for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
-        const Submap& submap = submaps.getSubmap(j);
-        const auto color = Color::getColor(j % (Color::numColors_ - 2) + 2);
-        const PointCloud map = submap.getMapPointCloudCopy();
-        for (size_t i = 0; i < map.points_.size(); ++i) {
-          cloud->points_.push_back(map.points_.at(i));
-          cloud->colors_.emplace_back(Eigen::Vector3d(color.r, color.g, color.b));
-        }
-      }
-
-  }else{
-      std::uniform_int_distribution<int> rndInt(2, 12);
-      for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
-        const Submap& submap = submaps.getSubmap(j);
-        const PointCloud map = submap.getMapPointCloudCopy();
-        for (size_t i = 0; i < map.points_.size(); ++i) {
-          cloud->points_.push_back(map.points_.at(i));
-        }
-      }
+  cloud->colors_.reserve(nPoints);
+  std::uniform_int_distribution<int> rndInt(2, 12);
+  for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
+    const Submap& submap = submaps.getSubmap(j);
+    const auto color = Color::getColor(j % (Color::numColors_ - 2) + 2);
+    const PointCloud map = submap.getMapPointCloudCopy();
+    for (size_t i = 0; i < map.points_.size(); ++i) {
+      cloud->points_.push_back(map.points_.at(i));
+      cloud->colors_.emplace_back(Eigen::Vector3d(color.r, color.g, color.b));
+    }
   }
 }
 
@@ -98,16 +86,16 @@ void publishTfTransform(const Eigen::Matrix4d& Mat, const ros::Time& time, const
 }
 
 bool lookupTransform(const std::string& target_frame, const std::string& source_frame, const ros::Time& time,
-                     const tf2_ros::Buffer& tfBuffer, Eigen::Isometry3d& transform) {
+                     const tf2_ros::Buffer& tfBuffer, Eigen::Isometry3d* transform) {
   geometry_msgs::TransformStamped transformStamped;
   try {
     transformStamped = tfBuffer.lookupTransform(target_frame, source_frame, time, ros::Duration(0.05));
   } catch (tf2::TransformException& ex) {
     ROS_WARN("caught exception while looking up the tf: %s", ex.what());
-    transform = Eigen::Isometry3d::Identity();
+    *transform = Eigen::Isometry3d::Identity();
     return false;
   }
-  transform = tf2::transformToEigen(transformStamped);
+  *transform = tf2::transformToEigen(transformStamped);
   return true;
 }
 
@@ -120,12 +108,6 @@ geometry_msgs::Pose getPose(const Eigen::MatrixXd& T) {
   tf::poseEigenToMsg(eigenTr, pose);
 
   return pose;
-}
-
-o3d_slam::Transform getTransform(const geometry_msgs::Pose& pose) {
-  Transform transform;
-  tf::poseMsgToEigen(pose, transform);
-  return transform;
 }
 
 geometry_msgs::TransformStamped toRos(const Eigen::Matrix4d& Mat, const ros::Time& time, const std::string& frame,

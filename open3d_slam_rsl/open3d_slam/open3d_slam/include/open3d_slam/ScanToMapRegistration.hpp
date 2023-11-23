@@ -31,9 +31,6 @@ class ScanToMapRegistration {
   ScanToMapRegistration() = default;
   virtual ~ScanToMapRegistration() = default;
   virtual ProcessedScans processForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const = 0;
-  virtual PointCloudPtr reducedProcessForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const = 0;
-  virtual PointCloudPtr cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor) const = 0;
-  virtual PointCloudPtr getCroppedCloud(const PointCloudPtr& in) const = 0;
   virtual RegistrationResult scanToMapRegistration(const PointCloud& scan, const Submap& activeSubmap, const Transform& mapToRangeSensor,
                                                    const Transform& initialGuess) const = 0;
   virtual bool isMergeScanValid(const PointCloud& in) const = 0;
@@ -46,19 +43,13 @@ class ScanToMapIcp : public ScanToMapRegistration {
   virtual ~ScanToMapIcp() = default;
   void setParameters(const MapperParameters& p);
   ProcessedScans processForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const final;
-  PointCloudPtr reducedProcessForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const final;
   RegistrationResult scanToMapRegistration(const PointCloud& scan, const Submap& activeSubmap, const Transform& mapToRangeSensor,
                                            const Transform& initialGuess) const final;
   bool isMergeScanValid(const PointCloud& in) const final;
   void prepareInitialMap(PointCloud* map) const final;
 
-  PointCloudPtr cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor) const;
-
-  PointCloudPtr getCroppedCloud(const PointCloudPtr& in) const final;
-
  private:
   PointCloudPtr preprocess(const PointCloud& in) const;
-  PointCloudPtr reducedPreprocess(const PointCloud& in) const;
   void update(const MapperParameters& p);
 
   MapperParameters params_;

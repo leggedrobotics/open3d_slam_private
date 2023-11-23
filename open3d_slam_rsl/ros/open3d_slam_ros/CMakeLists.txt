@@ -14,7 +14,6 @@ set(SRC_FILES
   src/DataProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
-  src/ImuBuffer.cpp
   )
 
 set(CATKIN_PACKAGE_DEPENDENCIES
@@ -23,9 +22,6 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   open3d_conversions
   open3d_slam
   eigen_conversions
-  nav_msgs
-  geometry_msgs
-  rosgraph_msgs
   tf2
   tf2_ros
   tf2_geometry_msgs

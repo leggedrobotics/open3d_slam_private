@@ -27,7 +27,6 @@ int main(int argc, char** argv) {
   const bool isProcessAsFastAsPossible = o3d_slam::tryGetParam<bool>("is_read_from_rosbag", *nh);
   std::cout << "Is process as fast as possible: " << std::boolalpha << isProcessAsFastAsPossible << "\n";
   std::cout << "Is use a map for initialization: " << std::boolalpha << params.mapper_.isUseInitialMap_ << "\n";
-  std::cout << "Is Map carving enabled: " << std::boolalpha << params.mapper_.isCarvingEnabled_ << "\n";
 
   // This is where the initial class is constructed and passed on.
   std::shared_ptr<DataProcessorRos> dataProcessor = dataProcessorFactory(nh, isProcessAsFastAsPossible);

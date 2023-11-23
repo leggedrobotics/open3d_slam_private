@@ -18,7 +18,6 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/MarkerArray.h>
 #include "open3d_slam/time.hpp"
-#include "open3d_slam/Transform.hpp"
 
 namespace o3d_slam {
 
@@ -35,15 +34,13 @@ void publishCloud(const open3d::geometry::PointCloud& cloud, const std::string& 
 
 geometry_msgs::Pose getPose(const Eigen::MatrixXd& T);
 
-o3d_slam::Transform getTransform(const geometry_msgs::Pose& pose);
-
 geometry_msgs::TransformStamped toRos(const Eigen::Matrix4d& Mat, const ros::Time& time, const std::string& frame,
                                       const std::string& childFrame);
 
 void publishTfTransform(const Eigen::Matrix4d& Mat, const ros::Time& time, const std::string& frame, const std::string& childFrame,
                         tf2_ros::TransformBroadcaster* broadcaster);
 bool lookupTransform(const std::string& target_frame, const std::string& source_frame, const ros::Time& time,
-                     const tf2_ros::Buffer& tfBuffer, Eigen::Isometry3d& transform);
+                     const tf2_ros::Buffer& tfBuffer, Eigen::Isometry3d* transform);
 
 ros::Time toRos(Time time);
 

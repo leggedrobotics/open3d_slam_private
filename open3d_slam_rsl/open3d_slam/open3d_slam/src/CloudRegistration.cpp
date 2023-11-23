@@ -19,21 +19,14 @@ RegistrationIcpGeneralized::RegistrationResult RegistrationIcpGeneralized::regis
   return RegistrationGeneralizedICP(source, target, maxCorrespondenceDistance_, init.matrix(), tranformationEstimationGICP_,
                                     icpConvergenceCriteria_);
 }
-
-// In the current setup, surface normal calculation is highl tightly coupled to registration. This is not ideal.
-// We are using the surface normal generation function of generalizedICP while we use libpointmatcher for registration.
 void RegistrationIcpGeneralized::estimateNormalsOrCovariancesIfNeeded(PointCloud* cloud) const {
   assert_gt(maxRadiusNormalEstimation_, 0.0, "maxRadiusNormalEstimation_");
   assert_gt(knnNormalEstimation_, 0, "knnNormalEstimation_");
   open3d::geometry::KDTreeSearchParamHybrid param(maxRadiusNormalEstimation_, knnNormalEstimation_);
-  cloud->EstimateNormals(param, true);
+  cloud->EstimateNormals(param);
   cloud->NormalizeNormals();
   cloud->OrientNormalsTowardsCameraLocation();
-  
-  // Could be advantegous for planar surfaces.
-  //cloud->OrientNormalsConsistentTangentPlane(knnNormalEstimation_);
   //	cloud->EstimateCovariances(param);
-  return;
 }
 
 std::unique_ptr<RegistrationIcpGeneralized> createGeneralizedIcp(const CloudRegistrationParameters& p) {

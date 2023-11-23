@@ -95,7 +95,6 @@ void loadParameters(const YAML::Node &n, IcpParameters *p) {
 	p->maxCorrespondenceDistance_ = n["max_correspondence_dist"].as<double>();
 	p->maxNumIter_ = n["max_n_iter"].as<int>();
 	loadIfKeyDefined<double>(n, "max_distance_knn", &p->maxDistanceKnn_);
-	loadIfKeyDefined<double>(n, "reference_cloud_seting_period", &p->referenceCloudSettingPeriod_);
 }
 
 void loadParameters(const YAML::Node &node, CloudRegistrationParameters *p){
@@ -109,8 +108,6 @@ void loadParameters(const YAML::Node &node, OdometryParameters *p){
 	loadParameters(node["scan_matching"], &(p->scanMatcher_) );
 	loadParameters(node["scan_processing"], &(p->scanProcessing_) );
 	loadIfKeyDefined<bool>(node,"is_publish_odometry_msgs", &p->isPublishOdometryMsgs_);
-	loadIfKeyDefined<bool>(node,"use_odometry_topic_instead_of_scan_to_scan", &p->useOdometryTopic_);
-	loadIfKeyDefined<bool>(node,"use_IMU_for_attitude_initialization", &p->isIMUattitudeInitializationEnabled_);
 	loadIfKeyDefined<int>(node,"odometry_buffer_size", &p->odometryBufferSize_);
 }
 
@@ -132,10 +129,7 @@ void loadParameters(const YAML::Node &node, ScanCroppingParameters *p){
 void loadParameters(const YAML::Node &node, SubmapParameters *p){
 	p->radius_ = node["size"].as<double>();
 	p->minNumRangeData_ = node["min_num_range_data"].as<int>();
-	p->maxNumPoints_ = node["max_num_points"].as<int>();
-	
 	p->adjacencyBasedRevisitingMinFitness_ = node["adjacency_based_revisiting_min_fitness"].as<double>();
-	p->minSecondsBetweenFeatureComputation_ = node["min_seconds_between_feature_computation"].as<double>();
 	p->numScansOverlap_ = node["submaps_num_scan_overlap"].as<int>();
 }
 
@@ -154,8 +148,6 @@ void loadParameters(const YAML::Node &node, MapperParameters *p) {
 	p->isPrintTimingStatistics_ = node["is_print_timing_information"].as<bool>();
 	p->isRefineOdometryConstraintsBetweenSubmaps_ = node["is_refine_odometry_constraints_between_submaps"].as<bool>();
 	p->isUseInitialMap_ = node["is_use_map_initialization"].as<bool>();
-	p->mapMergeDelayInSeconds_ = node["map_merge_delay_in_seconds"].as<double>();
-	p->isCarvingEnabled_ = node["is_carving_enabled"].as<bool>();
 	p->isMergeScansIntoMap_ = node["is_merge_scans_into_map"].as<bool>();
 	loadParameters(node["scan_to_map_refinement"],&(p->scanMatcher_));
 	loadParameters(node["scan_to_map_refinement"]["scan_processing"], &(p->scanProcessing_));

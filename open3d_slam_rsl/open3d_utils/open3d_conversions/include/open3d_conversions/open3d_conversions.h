@@ -29,13 +29,9 @@
 // C++
 #include <string>
 
-// std msgs
-#include <std_msgs/Header.h>
-
 #include "open3d_slam_msgs/PolygonMesh.h"
 
 namespace open3d_conversions {
-
 /**
  * @brief Copy data from a open3d::geometry::PointCloud to a sensor_msgs::PointCloud2
  *

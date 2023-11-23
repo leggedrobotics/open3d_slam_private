@@ -16,11 +16,6 @@
 #include "open3d_slam/croppers.hpp"
 #include "open3d_slam/time.hpp"
 
-#include <pointmatcher/PointMatcher.h>
-#include <pointmatcher_ros/PmTf.h>
-#include <pointmatcher_ros/usings.h>
-#include <nav_msgs/Path.h>
-
 namespace o3d_slam {
 
 class ScanToMapRegistration;
@@ -43,8 +38,6 @@ class Mapper {
   MapperParameters* getParametersPtr();
   Transform getMapToOdom(const Time& timestamp) const;
   Transform getMapToRangeSensor(const Time& timestamp) const;
-  Transform getRegistrationBestGuess(const Time& timestamp) const;
-  bool isRegistrationBestGuessBufferEmpty() const;
   const TransformInterpolationBuffer& getMapToRangeSensorBuffer() const;
   const PointCloud& getPreprocessedScan() const;
   const ScanToMapRegistration& getScanToMapRegistration() const;
@@ -53,47 +46,24 @@ class Mapper {
   bool hasProcessedMeasurements() const;
   bool addRangeMeasurement(const PointCloud& cloud, const Time& timestamp);
 
-  void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
-  bool isExternalOdometryFrameToCloudFrameCalibrationSet();
-
-  // This is re-initialized in the constructor as well as by a setter.
-  Transform calibration_ = Transform::Identity();
-  bool isCalibrationSet_ = false;
-
-  nav_msgs::Path trackedPath_;
-  nav_msgs::Path bestGuessPath_;
-  bool isNewInitialValueSet_ = false;
-
  private:
   void update(const MapperParameters& p);
   void checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const;
 
   Time lastMeasurementTimestamp_;
-  Time lastReferenceInitializationTimestamp_;
-  Time initTime_;
-  Timer testmapperOnlyTimer_;
-  Timer referenceInitTimer_;
-  Timer auxilaryTimer_;
-  Timer scanInsertionTimer_;
-
   Transform mapToRangeSensor_ = Transform::Identity();
   Transform mapToRangeSensorPrev_ = Transform::Identity();
   Transform mapToRangeSensorLastScanInsertion_ = Transform::Identity();
-  Transform bestGuessMemory_ = Transform::Identity();
 
   MapperParameters params_;
-  mutable std::mutex mapManipulationMutex_;
+  std::mutex mapManipulationMutex_;
   std::shared_ptr<SubmapCollection> submaps_;
   const TransformInterpolationBuffer& odomToRangeSensorBuffer_;
   TransformInterpolationBuffer mapToRangeSensorBuffer_;
-  TransformInterpolationBuffer bestGuessBuffer_;
   open3d::geometry::PointCloud preProcessedScan_;
-
+  bool isNewInitialValueSet_ = false;
   bool isIgnoreOdometryPrediction_ = false;
-  bool firstRefinement_ = true;
-
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-
 };
 
 } /* namespace o3d_slam */
