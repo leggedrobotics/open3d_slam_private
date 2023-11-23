@@ -13,6 +13,7 @@
 #include "open3d/io/PointCloudIO.h"
 
 #include "open3d_conversions/open3d_conversions.h"
+#include "open3d_slam/frames.hpp"
 #include "open3d_slam/helpers.hpp"
 #include "open3d_slam/output.hpp"
 #include "open3d_slam/time.hpp"
@@ -49,21 +50,18 @@ bool SlamMapInitializer::initSlamCallback(std_srvs::Trigger::Request& req, std_s
 
 void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
   mapInitializerParams_ = params;
-
   PointCloud raw_map;
-  std::string pcdFile = ros::package::getPath(mapInitializerParams_.pcdFilePackage_) + mapInitializerParams_.pcdFilePath_;
-    
   initialized_.store(false);
 
-  std::cout << "Loading pointloud from: " << pcdFile << "\n";
-  if (!open3d::io::ReadPointCloud(pcdFile, raw_map)) {
+  std::cout << "Loading pointloud from: " << mapInitializerParams_.pcdFilePath_ << "\n";
+  if (!open3d::io::ReadPointCloud(mapInitializerParams_.pcdFilePath_, raw_map)) {
     std::cerr << "[Error] Initialization pointcloud not loaded" << std::endl;
   }
 
   Transform initPose = params.initialPose_;
   slamPtr_->setInitialMap(raw_map);
   slamPtr_->setInitialTransform(initPose.matrix());
-  std::cout << "Init pose within the given map: " << asString(initPose) << std::endl;
+  std::cout << "init pose: " << asString(initPose) << std::endl;
   if (params.isInitializeInteractively_) {
     initInteractiveMarker();
     initPoseSub_ = nh_->subscribe("/initialpose", 1, &SlamMapInitializer::initialPoseCallback, this);
@@ -125,7 +123,7 @@ void SlamMapInitializer::pointcloudCallback(const sensor_msgs::PointCloud2& msg)
   open3d::geometry::PointCloud cloud;
   open3d_conversions::rosToOpen3d(msg, cloud, false);
   cloud.Transform(markerPose.matrix());
-  o3d_slam::publishCloud(cloud, slamPtr_->frames_.mapFrame, marker.header.stamp, cloudPub_);
+  o3d_slam::publishCloud(cloud, o3d_slam::frames::mapFrame, marker.header.stamp, cloudPub_);
 }
 
 visualization_msgs::InteractiveMarker SlamMapInitializer::createInteractiveMarker() const {

@@ -44,7 +44,6 @@ inline InverseVoxelSize fromVoxelSize(const Eigen::Vector3d& voxSize) {
   return InverseVoxelSize{1.0 / voxSize.x(), 1.0 / voxSize.y(), 1.0 / voxSize.z()};
 }
 
-// Do we need +0.5 for proper rounding?
 inline Eigen::Vector3i getVoxelIdx(const Eigen::Vector3d& p, const InverseVoxelSize& invSize) {
   return Eigen::Vector3i(int(std::floor(p.x() * invSize.invSizeX_)), int(std::floor(p.y() * invSize.invSizeY_)),
                          int(std::floor(p.z() * invSize.invSizeZ_)));

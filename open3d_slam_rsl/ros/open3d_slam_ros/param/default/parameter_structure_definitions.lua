@@ -24,9 +24,9 @@ end
 
 SAVING_PARAMETERS = {
   save_at_mission_end = true,
-  save_map = true,
+  save_map = false,
   save_submaps = false,
-  save_dense_submaps = true,
+  save_dense_submaps = false,
 }
 
 MOTION_COMPENSATION_PARAMETERS = {
@@ -37,9 +37,9 @@ MOTION_COMPENSATION_PARAMETERS = {
 }
 
 VISUALIZATION_PARAMETERS = {
-  assembled_map_voxel_size = 0.05,
-  submaps_voxel_size = 0.05,
-  visualize_every_n_msec = 250.0,
+  assembled_map_voxel_size = 0.3,
+  submaps_voxel_size = 0.3,
+  visualize_every_n_msec = 300.0,
 }
 
 GLOBAL_OPTIMIZATION_PARAMETERS = {
@@ -50,7 +50,7 @@ GLOBAL_OPTIMIZATION_PARAMETERS = {
 }
 
 SCAN_CROPPING_PARAMETERS = {
-  cropping_radius_max= 100.0,
+  cropping_radius_max= 30.0,
   cropping_radius_min= 2.0,
   min_z= -50.0,
   max_z= 50.0,
@@ -58,8 +58,8 @@ SCAN_CROPPING_PARAMETERS = {
 }
 
 SCAN_PROCESSING_PARAMETERS = {
-  voxel_size = 0.01,
-  downsampling_ratio = 1.0,
+  voxel_size = 0.1,
+  downsampling_ratio = 0.3,
   point_cloud_buffer_size = 1, -- the scan processing buffer size. 1 means no buffering.
   scan_cropping = deepcopy(SCAN_CROPPING_PARAMETERS),
 }
@@ -67,9 +67,8 @@ SCAN_PROCESSING_PARAMETERS = {
 ICP_PARAMETERS = {
   max_correspondence_dist= 1.0,
   knn= 20,
-  max_distance_knn= 1.0,
+  max_distance_knn= 3.0,
   max_n_iter= 50,
-  reference_cloud_seting_period= 1.0,
 }
 
 SCAN_MATCHING_PARAMETERS = {
@@ -78,8 +77,6 @@ SCAN_MATCHING_PARAMETERS = {
 }
 
 ODOMETRY_PARAMETERS = {
-  use_odometry_topic_instead_of_scan_to_scan = true,
-  use_IMU_for_attitude_initialization = false,
   is_publish_odometry_msgs = true,
   odometry_buffer_size = 1, -- the scan2scan odometry buffer size. 1 means no buffering.
   scan_matching = deepcopy(SCAN_MATCHING_PARAMETERS),
@@ -90,7 +87,6 @@ SUBMAP_PARAMETERS = {
   submap_size = 20, -- meters
   min_num_range_data = 10,
   adjacency_based_revisiting_min_fitness = 0.5,
-  min_seconds_between_feature_computation = 5.0,
   submaps_num_scan_overlap = 10,
 }
 
@@ -101,8 +97,9 @@ SPACE_CARVING_PARAMETERS = {
   carve_space_every_n_scans= 10.0,
 }
 
+
 MAP_BUILDER_PARAMETERS = {
-  map_voxel_size = 0.05, --meters
+  map_voxel_size = 0.1, --meters
   scan_cropping = deepcopy(SCAN_CROPPING_PARAMETERS),
   space_carving = deepcopy(SPACE_CARVING_PARAMETERS),
 }
@@ -114,13 +111,12 @@ SCAN_TO_MAP_REGISTRATION_PARAMETERS = {
   scan_processing = deepcopy(SCAN_PROCESSING_PARAMETERS),
 }
 
+
 MAPPER_LOCALIZER_PARAMETERS = {
   is_print_timing_information = true,
-  is_carving_enabled = false,
   is_build_dense_map = false,
-  is_attempt_loop_closures = false,
+  is_attempt_loop_closures = true,
   is_use_map_initialization = false,
-  map_merge_delay_in_seconds = 10.0,
   is_merge_scans_into_map = false,
   dump_submaps_to_file_before_after_lc = false,
   is_refine_odometry_constraints_between_submaps = false,
@@ -143,7 +139,6 @@ MAP_INITIALIZER_PARAMETERS = {
   is_initialize_interactively = false,
   frame_id = "map_o3d",
   pcd_file_path = "",
-  pcd_file_package = "",
   init_pose = POSE,
 }
 

@@ -32,10 +32,6 @@ set(SRC_FILES
 
 set(CATKIN_PACKAGE_DEPENDENCIES
   open3d_catkin
-  open3d_conversions
-  eigen_conversions
-  nav_msgs
-  geometry_msgs
   )
 
 

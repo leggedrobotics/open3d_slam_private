@@ -104,14 +104,12 @@ void randomDownSample(double downSamplingRatio, open3d::geometry::PointCloud* pc
   auto downSampled = pcl->RandomDownSample(downSamplingRatio);
   *pcl = std::move(*downSampled);
 }
-
 void voxelize(double voxelSize, open3d::geometry::PointCloud* pcl) {
   if (voxelSize <= 0) {
     return;
   }
   auto voxelized = pcl->VoxelDownSample(voxelSize);
   *pcl = std::move(*voxelized);
-  return;
 }
 
 std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(double voxel_size, const CroppingVolume& croppingVolume,
@@ -121,6 +119,7 @@ std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(doubl
   if (voxel_size <= 0.0) {
     *output = cloud;
     return output;
+    //		throw std::runtime_error("[VoxelDownSample] voxel_size <= 0.");
   }
 
   const Eigen::Vector3d voxelSize = Eigen::Vector3d(voxel_size, voxel_size, voxel_size);
@@ -149,20 +148,11 @@ std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(doubl
   }
 
   voxelindex_to_accpoint.reserve(cloud.points_.size());
-
-  // Are these loops paralizeable? (seems not)
-  //#pragma omp parallel for num_threads(16)
   for (size_t i = 0; i < cloud.points_.size(); i++) {
-
-    // This assumes the volume we are operating with is already voxelized and hence `finds` and adds the point accordingly.
     if (croppingVolume.isWithinVolume(cloud.points_[i])) {
-
-      // This is the actual voxelization. Give arbitrary index based on the point position and assign points to similar volumes.
       const Eigen::Vector3i voxelIdx = getVoxelIdx(cloud.points_[i], invVoxelSize);
       voxelindex_to_accpoint[voxelIdx].AddPoint(cloud, i);
-
     } else {
-      // If the points are not within the voxel, this means the point is new.
       output->points_.emplace_back(std::move(cloud.points_[i]));
       if (has_normals) {
         output->normals_.emplace_back(std::move(cloud.normals_[i]));
@@ -176,7 +166,6 @@ std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(doubl
     }
   }
 
-  // Average over the points within a voxel.
   for (auto accpoint : voxelindex_to_accpoint) {
     output->points_.emplace_back(std::move(accpoint.second.GetAveragePoint()));
     if (has_normals) {
@@ -243,7 +232,6 @@ std::vector<size_t> getIdxsOfCarvedPoints(const open3d::geometry::PointCloud& sc
   std::iota(subsetIdxs.begin(), subsetIdxs.end(), 0);
   return getIdxsOfCarvedPoints(scan, cloud, sensorPosition, subsetIdxs, param);
 }
-
 std::vector<size_t> getIdxsOfCarvedPoints(const open3d::geometry::PointCloud& scan, const open3d::geometry::PointCloud& cloud,
                                           const Eigen::Vector3d& sensorPosition, const std::vector<size_t>& cloudIdxsSubset,
                                           const SpaceCarvingParameters& param) {
@@ -297,8 +285,6 @@ std::shared_ptr<open3d::geometry::PointCloud> transform(const Eigen::Matrix4d& T
   if (cloud.HasCovariances()) {
     out->covariances_.reserve(cloud.points_.size());
   }
-
-  //#pragma omp critical
   for (size_t i = 0; i < cloud.points_.size(); ++i) {
     const auto& p = cloud.points_[i];
     Eigen::Vector4d new_point = T * Eigen::Vector4d(p(0), p(1), p(2), 1.0);
@@ -315,8 +301,6 @@ std::shared_ptr<open3d::geometry::PointCloud> transform(const Eigen::Matrix4d& T
       out->covariances_.emplace_back(std::move(R * cov * R.transpose()));
     }
   }
-
-
   return out;
 }
 

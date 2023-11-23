@@ -122,7 +122,6 @@ bool MinMaxRadiusCroppingVolume::isWithinVolumeImpl(const Eigen::Vector3d& p) co
   const double d = (p - pose_.translation()).norm();
   return d <= radiusMax_ && d >= radiusMin_;
 }
-
 void MinMaxRadiusCroppingVolume::setParameters(double radiusMin, double radiusMax) {
   radiusMin_ = radiusMin;
   radiusMax_ = radiusMax;
@@ -137,7 +136,6 @@ MaxRadiusCroppingVolume::MaxRadiusCroppingVolume(double radius) : radius_(radius
 bool MaxRadiusCroppingVolume::isWithinVolumeImpl(const Eigen::Vector3d& p) const {
   return (p - pose_.translation()).norm() <= radius_;
 }
-
 void MaxRadiusCroppingVolume::setParameters(double radius) {
   radius_ = radius;
 }

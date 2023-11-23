@@ -16,7 +16,6 @@
 #include "open3d/core/EigenConverter.h"
 
 namespace open3d_conversions {
-
 void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id) {
   sensor_msgs::PointCloud2Modifier modifier(ros_pc2);
   if (pointcloud.HasColors()) {
@@ -68,9 +67,8 @@ void rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointC
       o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
     }
   } else {
-    
+    o3d_pc.colors_.reserve(ros_pc2->height * ros_pc2->width);
     if (ros_pc2->fields[3].name == "rgb") {
-      o3d_pc.colors_.reserve(ros_pc2->height * ros_pc2->width);
       sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_r(*ros_pc2, "r");
       sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_g(*ros_pc2, "g");
       sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_b(*ros_pc2, "b");
@@ -84,14 +82,11 @@ void rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointC
       sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_i(*ros_pc2, "intensity");
       for (size_t i = 0; i < ros_pc2->height * ros_pc2->width; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_i) {
         o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
-        // This is not okay.
-        // We need to create a custom struct to keep the intesity information. Currently this is not integrated.
-        //o3d_pc.colors_.push_back(Eigen::Vector3d(*ros_pc2_i, *ros_pc2_i, *ros_pc2_i));
+        o3d_pc.colors_.push_back(Eigen::Vector3d(*ros_pc2_i, *ros_pc2_i, *ros_pc2_i));
       }
     }
   }
 }
-
 void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id,
                  int t_num_fields, ...) {
   sensor_msgs::PointCloud2Modifier modifier(ros_pc2);

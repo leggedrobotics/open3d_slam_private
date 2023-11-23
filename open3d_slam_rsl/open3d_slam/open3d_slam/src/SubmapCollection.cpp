@@ -105,47 +105,27 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
   if (params_.isUseInitialMap_) {
     return;  // do not switch maps if we are doing in the localization mode
   }
-
   const size_t closestMapIdx = findClosestSubmap(mapToRangeSensor_);
   const Submap& closestSubmap = submaps_.at(closestMapIdx);
   const Submap& activeSubmap = submaps_.at(activeSubmapIdx_);
-  
-  // Upper-bound of map size to limit computation. It would be crazy practical to have this adaptive based on the wallTime measurement.
-  if ((activeSubmap.getNbPoints() > params_.submaps_.maxNumPoints_))
-  {
-      isForceNewSubmapCreation_ = true; 
-  }
-
-  // Get the submap center in Map frame?
   const Eigen::Vector3d closestSubmapPosition = closestSubmap.getMapToSubmapCenter();
-
-  // This is to identify if active map and closest map are adjacent.
   const bool isAnotherSubmapWithinRange = (mapToRangeSensor_.translation() - closestSubmapPosition).norm() < params_.submaps_.radius_;
-
-  // Check if the closest submap is the same as the active one.
   if (isAnotherSubmapWithinRange) {
-    // We are operating in the submap we are closest to. Expected and nice.
     if (closestMapIdx == activeSubmapIdx_) {
       return;
     }
-
-    // We are for sure expecting the submap we are changing to is actually adjacent to the active one.
     if (adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId()) &&
         isSwitchingSubmapsConsistant(scan, closestSubmap.getId(), mapToRangeSensor)) {
       // todo here we could put a consistency check
       activeSubmapIdx_ = closestMapIdx;
-
     } else {
-
       const bool isTraveledSufficientDistance =
           (mapToRangeSensor_.translation() - activeSubmap.getMapToSubmapCenter()).norm() > params_.submaps_.radius_;
       if (isTraveledSufficientDistance) {
         createNewSubmap(mapToRangeSensor_);
       }
-
     }
   } else {
-    // There is no other submap around, we are traversing to a new area so we ned to create a new submap.
     createNewSubmap(mapToRangeSensor_);
   }
 }
@@ -193,57 +173,35 @@ bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& p
                                   const Time& timestamp) {
   mapToRangeSensor_ = mapToRangeSensor;
   timestamp_ = timestamp;
-  
-  // Assign the bookkeeping variables.
-  const size_t prevActiveSubmapIdx = activeSubmapIdx_;
-  
-  // Creation of the submap.
   if (submaps_.empty()) {
     createNewSubmap(mapToRangeSensor_);
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
     ++numScansMergedInActiveSubmap_;
     return true;
   }
-
-  // Add scan to the buffer, but why? What does the buffer do?
   addScanToBuffer(preProcessedScan, mapToRangeSensor, timestamp);
-
-  // Check the active submap. Bookeeping variable activeSubmapIdx_ is updated
+  const size_t prevActiveSubmapIdx = activeSubmapIdx_;
   updateActiveSubmap(mapToRangeSensor, preProcessedScan);
   // either different one is active or new one is created
   const bool isActiveSubmapChanged = prevActiveSubmapIdx != activeSubmapIdx_;
   if (isActiveSubmapChanged) {
     std::lock_guard<std::mutex> lck(featureComputationMutex_);
     submaps_.at(prevActiveSubmapIdx).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
-
-    // Why do we need to compute the submap center each time we change the submap? Can't we store it within the submap struct?
     submaps_.at(prevActiveSubmapIdx).computeSubmapCenter();
     std::cout << "Active submap changed from " << prevActiveSubmapIdx << " to " << activeSubmapIdx_ << "\n";
     lastFinishedSubmapIdx_ = prevActiveSubmapIdx;
     TimestampedSubmapId timestampedId{prevActiveSubmapIdx, timestamp};
     finishedSubmapsIdxs_.push(timestampedId);
     numScansMergedInActiveSubmap_ = 0;
-
-    // Meaning these submaps are adjencent, so we add an edge between them.
     const auto id1 = submaps_.at(prevActiveSubmapIdx).getId();
     const auto id2 = submaps_.at(activeSubmapIdx_).getId();
     adjacencyMatrix_.addEdge(id1, id2);
     //		std::cout << "Adding edge between " << id1 << " and " << id2 << std::endl;
-
-    // Huh?
     insertBufferedScans(&submaps_.at(activeSubmapIdx_));
     assert_true(!submaps_.at(activeSubmapIdx_).isEmpty(), "submap should not be empty after switching");
-
   } else {
-    Timer actualInsertion;
-    actualInsertion.startStopwatch();
-    // We are still in the previously active submap.
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
-    const double actualInsertiontimeElapsed = actualInsertion.elapsedMsecSinceStopwatchStart();
-    //std::cout << "Actual Scan Insertion: " << "\033[92m" << actualInsertiontimeElapsed << " msec \n " << "\033[0m";
-
   }
-
   ++numScansMergedInActiveSubmap_;
   return true;
 }
@@ -266,8 +224,8 @@ void SubmapCollection::computeFeatures(const TimestampedSubmapIds& finishedSubma
   auto featureComputation = [&]() {
     //		Timer t("feature computation");
     for (const auto& id : finishedSubmapIds) {
-      			//std::cout << "computing features for submap: " << id.submapId_ << std::endl;
-      			//std::cout << "submap size: " << submaps_.at(id.submapId_).getMapPointCloud().points_.size() << std::endl;
+      //			std::cout << "computing features for submap: " << id.submapId_ << std::endl;
+      //			std::cout << "submap size: " << submaps_.at(id.submapId_).getMapPointCloud().points_.size() << std::endl;
       submaps_.at(id.submapId_).computeFeatures();
       loopClosureCandidatesIdxs_.push(id);
     }

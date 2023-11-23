@@ -9,6 +9,7 @@
 #include "open3d_slam/ScanToMapRegistration.hpp"
 #include "open3d_slam/Voxel.hpp"
 #include "open3d_slam/assert.hpp"
+#include "open3d_slam/frames.hpp"
 #include "open3d_slam/helpers.hpp"
 #include "open3d_slam/math.hpp"
 #include "open3d_slam/output.hpp"
@@ -19,9 +20,6 @@
 #include "open3d/utility/Eigen.h"
 #include "open3d/utility/Helper.h"
 
-#include <pointmatcher/PointMatcher.h>
-#include "open3d_conversions/open3d_conversions.h"
-
 namespace o3d_slam {
 
 namespace {
@@ -31,7 +29,6 @@ const bool isCheckTransformChainingAndPrintResult = false;
 
 Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std::shared_ptr<SubmapCollection> submaps)
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
-  // `updates` with default parameters
   update(params_);
 }
 
@@ -42,17 +39,6 @@ void Mapper::setParameters(const MapperParameters& p) {
 
 MapperParameters* Mapper::getParametersPtr() {
   return &params_;
-}
-
-void Mapper::setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform) {
-  //Not thread safe?
-  calibration_ = transform.matrix();
-  isCalibrationSet_ = true;
-  return;
-}
-
-bool Mapper::isExternalOdometryFrameToCloudFrameCalibrationSet() {
-  return isCalibrationSet_;
 }
 
 void Mapper::loopClosureUpdate(const Transform& loopClosureCorrection) {
@@ -75,17 +61,8 @@ Transform Mapper::getMapToOdom(const Time& timestamp) const {
   return mapToRangeSensor * odomToRangeSensor.inverse();
   //	return getTransform(timestamp, mapToOdomBuffer_);
 }
-
 Transform Mapper::getMapToRangeSensor(const Time& timestamp) const {
   return getTransform(timestamp, mapToRangeSensorBuffer_);
-}
-
-bool Mapper::isRegistrationBestGuessBufferEmpty() const{
-  return bestGuessBuffer_.empty();
-}
-
-Transform Mapper::getRegistrationBestGuess(const Time& timestamp) const {
-  return getTransform(timestamp, bestGuessBuffer_);
 }
 
 const SubmapCollection& Mapper::getSubmaps() const {
@@ -108,13 +85,6 @@ void Mapper::setMapToRangeSensor(const Transform& t) {
   mapToRangeSensor_ = t;
 }
 void Mapper::setMapToRangeSensorInitial(const Transform& t) {
-  
-  if (isNewInitialValueSet_){
-    return;
-  }
-  
-  //std::cout << " Setting initial value transform at mapper: " << "\033[92m" << asString(t) << " \n" << "\033[0m";
-
   mapToRangeSensorPrev_ = t;
   mapToRangeSensor_ = t;
   isNewInitialValueSet_ = true;
@@ -128,36 +98,24 @@ const ScanToMapRegistration& Mapper::getScanToMapRegistration() const {
   return *scan2MapReg_;
 }
 
-// Entry point to scan2map registration
 bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& timestamp) {
-
-  if (!isCalibrationSet_){
-    std::cerr << "Calibration is not set. Returning from mapping." << std::endl;
-    return false;
-  }
-
   submaps_->setMapToRangeSensor(mapToRangeSensor_);
 
   // insert first scan
   if (submaps_->getActiveSubmap().isEmpty()) {
     if (params_.isUseInitialMap_) {
       assert_true(scan2MapReg_->isMergeScanValid(rawScan), "Init map invalid!!!!");
-      submaps_->insertScan(rawScan, rawScan, mapToRangeSensor_, timestamp);      
-      
+      submaps_->insertScan(rawScan, rawScan, Transform::Identity(), timestamp);
     } else {
-      mapToRangeSensorPrev_ = mapToRangeSensor_;
       const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
-      // TODO(TT) the init of submap is changed from identity to mapToRangeSensor_. This allows nice start of the mapping.
-      // Depending more on the initial transform.
-      submaps_->insertScan(rawScan, *processed.merge_, mapToRangeSensor_, timestamp);
+      submaps_->insertScan(rawScan, *processed.merge_, Transform::Identity(), timestamp);
       mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
-      bestGuessBuffer_.push(timestamp, mapToRangeSensor_);
     }
     return true;
   }
 
-  if (timestamp <= lastMeasurementTimestamp_) {
-    std::cerr << "\n\n !!!!! MAPPER WARNING: Measurements came out of order!!!! \n\n";
+  if (timestamp < lastMeasurementTimestamp_) {
+    std::cerr << "\n\n !!!!! MAPER WARNING: Measurements came out of order!!!! \n\n";
     return false;
   }
 
@@ -171,93 +129,44 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   Transform mapToRangeSensorEstimate = mapToRangeSensorPrev_;
 
-  // This is where we prepare the scan2map initial guess.
   if (isOdomOkay && !isNewInitialValueSet_ && !isIgnoreOdometryPrediction_) {
-    
-    // Get the pose at the current timestamp of the PC we are operating with.
-    const Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_) * calibration_.inverse();
-
-    // Get the pose at the previous PC timestamp we already calculated the scan2map refinement for.
-    const Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
-
-    // Calculate the motion between the two poses. This immediately allows us get rid of `drift` in the odometry.
-    Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
-
-    // Apply the calculated odometry motion to the previous scan2map refined pose.
+    const Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_);
+    const Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_);
+    const Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
-
-
-    if (odometryMotion.translation().norm() == 0.0)
-    {
-      std::cout << "\033[92m" << " MOTION SHOULD BE PERFECTLY 0. " << "\n\033[0m";
-      std::cout << " MOTION SHOULDNT BE PERFECTLY 0. " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
-    }
-    
-    /*int64_t uts_timestamp = toUniversal(timestamp);
-    int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    std::cout << " timestamp: " << "\033[92m" << ns_since_unix_epoch << " \n" << "\033[0m";
-
-    int64_t uts_timestamp_prev = toUniversal(lastMeasurementTimestamp_);
-    int64_t ns_since_unix_epoch_prev = (uts_timestamp_prev - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    std::cout << " lastMeasurementTimestamp_: " << "\033[92m" << ns_since_unix_epoch_prev << " \n" << "\033[0m";
-
-    std::cout << " odomToRangeSensor: " << "\033[92m" << asString(odomToRangeSensor) << " \n" << "\033[0m";
-    std::cout << " odomToRangeSensorPrev: " << "\033[92m" << asString(odomToRangeSensorPrev) << " \n" << "\033[0m";
-    std::cout << " odometryMotion: " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
-    */
-
   }
-
   isIgnoreOdometryPrediction_ = false;
-
-  // Start auxilary time measurement.
-  auxilaryTimer_.startStopwatch();
-  
   const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
-
   const RegistrationResult result =
-        scan2MapReg_->scanToMapRegistration(*processed.match_, submaps_->getActiveSubmap(), mapToRangeSensor_, mapToRangeSensorEstimate);
-
-  const double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
-  auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
-
-  if (params_.isPrintTimingStatistics_){
-    std::cout << " Auxilary time: " << "\033[92m" << auxilarytimeElapsed << " msec \n" << "\033[0m";
-  }
-
+      scan2MapReg_->scanToMapRegistration(*processed.match_, submaps_->getActiveSubmap(), mapToRangeSensor_, mapToRangeSensorEstimate);
+  preProcessedScan_ = *processed.match_;
   if (isNewInitialValueSet_) {
-    if (isTimeValid(timestamp))
-    {
-      initTime_ = timestamp;
-    }
-    
-    std::cout << "\033[92m" << "Setting initial value for the map to range sensor transform. ONLY expected at the start-up." << "\033[0m" << "\n";
     mapToRangeSensorPrev_ = mapToRangeSensor_;
     mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
-    bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
     isNewInitialValueSet_ = false;
     isIgnoreOdometryPrediction_ = true;
     return true;
   }
 
-  // Pass to placeholders variables
-  preProcessedScan_ = *processed.match_;
+  if (!params_.isIgnoreMinRefinementFitness_ && result.fitness_ < params_.scanMatcher_.minRefinementFitness_) {
+    std::cout << "Skipping the refinement step, fitness: " << result.fitness_ << std::endl;
+    std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
+    std::cout << "postIcp: " << asString(Transform(result.transformation_)) << "\n\n";
+    return false;
+  }
+
+  // update transforms
   mapToRangeSensor_.matrix() = result.transformation_;
   mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
-  bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
   submaps_->setMapToRangeSensor(mapToRangeSensor_);
 
-  // Given a map, we don't want to add the mis-aligned first scans to the map. Hence giving the registration time to converge.
-  double timeSinceInit = toSecondsSinceFirstMeasurement(timestamp) - toSecondsSinceFirstMeasurement(initTime_);
-  if ((params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) || (timeSinceInit < params_.mapMergeDelayInSeconds_ && params_.isUseInitialMap_ && params_.isMergeScansIntoMap_)) {
-    // Early return before inserting the scans.
+  if (params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) {
     lastMeasurementTimestamp_ = timestamp;
     mapToRangeSensorPrev_ = mapToRangeSensor_;
     return true;
   }
 
-  scanInsertionTimer_.startStopwatch();
-  // Concatenate registered cloud into map
+  // concatenate registered cloud into map
   const Transform sensorMotion = mapToRangeSensorLastScanInsertion_.inverse() * mapToRangeSensor_;
   const bool isMovedTooLittle = sensorMotion.translation().norm() < params_.minMovementBetweenMappingSteps_;
   if (!isMovedTooLittle) {
@@ -268,26 +177,12 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   lastMeasurementTimestamp_ = timestamp;
   mapToRangeSensorPrev_ = mapToRangeSensor_;
-
-  const double insertiontimeElapsed = scanInsertionTimer_.elapsedMsecSinceStopwatchStart();
-  scanInsertionTimer_.addMeasurementMsec(insertiontimeElapsed);
-
-  if (params_.isPrintTimingStatistics_){
-    std::cout << "Scan Insertion: " << "\033[92m" << insertiontimeElapsed << " msec \n " << "\033[0m";
-  }
-
   return true;
 }
 
 Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {
-  const int nPoints = submaps_->getTotalNumPoints();
-
-  if (nPoints == 0){
-    std::cerr << "No points in the assembled map. Returning empty cloud." << std::endl;
-    return PointCloud();
-  }
-
   PointCloud cloud;
+  const int nPoints = submaps_->getTotalNumPoints();
   const Submap& activeSubmap = getActiveSubmap();
   cloud.points_.reserve(nPoints);
   if (activeSubmap.getMapPointCloud().HasColors()) {
@@ -309,7 +204,6 @@ Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {
       }
     }
   }
-
   return cloud;
 }
 

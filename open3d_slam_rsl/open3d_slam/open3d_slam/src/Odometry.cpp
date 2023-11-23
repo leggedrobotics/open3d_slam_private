@@ -1,3 +1,5 @@
+
+
 /*
  * Odometry.cpp
  *
@@ -6,6 +8,7 @@
  */
 #include "open3d_slam/Odometry.hpp"
 #include "open3d_slam/CloudRegistration.hpp"
+#include "open3d_slam/frames.hpp"
 #include "open3d_slam/helpers.hpp"
 #include "open3d_slam/output.hpp"
 #include "open3d_slam/time.hpp"
@@ -27,8 +30,6 @@ PointCloudPtr LidarOdometry::preprocess(const PointCloud& in) const {
 }
 
 bool LidarOdometry::addRangeScan(const open3d::geometry::PointCloud& cloud, const Time& timestamp) {
-  
-  // If the previous cloud is empty then this is the first measurement.
   if (cloudPrev_.IsEmpty()) {
     auto preProcessed = preprocess(cloud);
     cloudPrev_ = *preProcessed;
@@ -38,19 +39,12 @@ bool LidarOdometry::addRangeScan(const open3d::geometry::PointCloud& cloud, cons
   }
 
   if (timestamp < lastMeasurementTimestamp_) {
-    std::cerr << "\n\n !!!!! LIDAR ODOMETRY WARNING: Measurements came out of order!!!! This might happen at the beginning once. \n\n";
+    std::cerr << "\n\n !!!!! LIDAR ODOMETRY WARNING: Measurements came out of order!!!! \n\n";
     return false;
-  }
-
-  // We return early if we don't need to employ scan2scan odometry.
-  if(params_.useOdometryTopic_){
-    //std::cout << "Already an odometry measurement for this timestamp. Skipping" << std::endl;
-    return true;
   }
 
   const o3d_slam::Timer timer;
   auto preProcessed = preprocess(cloud);
-
   const auto result = cloudRegistration_->registerClouds(cloudPrev_, *preProcessed, Transform::Identity());
 
   // todo magic
@@ -83,7 +77,6 @@ bool LidarOdometry::addRangeScan(const open3d::geometry::PointCloud& cloud, cons
   lastMeasurementTimestamp_ = timestamp;
   return isOdomOkay;
 }
-
 const Transform LidarOdometry::getOdomToRangeSensor(const Time& t) const {
   return getTransform(t, odomToRangeSensorBuffer_);
 }
@@ -111,12 +104,6 @@ void LidarOdometry::setInitialTransform(const Eigen::Matrix4d& initialTransform)
   //  if I uncomment stuff below the odom jumps but starts from the pose you specified
   //  if I leave it like this it is always continuous, but starts always from the
   //  origin
-  if(isInitialTransformSet_){
-    std::cout << "\033[31m" << "Open3d_slam odometry initial transform already set. Skipping. OK to see in the beginning." << "\033[0m" << std::endl;
-    return;
-  }
-
-  // Set to global variables.
   initialTransform_ = initialTransform;
   odomToRangeSensorCumulative_ = Transform(initialTransform);
   isInitialTransformSet_ = true;

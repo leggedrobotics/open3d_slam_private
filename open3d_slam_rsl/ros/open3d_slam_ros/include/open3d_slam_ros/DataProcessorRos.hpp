@@ -22,9 +22,7 @@ class DataProcessorRos {
   virtual void initialize() = 0;
   virtual void startProcessing() = 0;
   virtual void processMeasurement(const PointCloud& cloud, const Time& timestamp);
-  virtual void processOdometry(const Transform& cloud, const Time& timestamp);
   void accumulateAndProcessRangeData(const PointCloud& cloud, const Time& timestamp);
-  void processOdometryData(const Transform& transform, const Time& timestamp);
   void initCommonRosStuff();
   std::shared_ptr<SlamWrapper> getSlamPtr();
 
@@ -33,19 +31,8 @@ class DataProcessorRos {
   size_t numPointCloudsReceived_ = 0;
   size_t numAccumulatedRangeDataDesired_ = 1;
   PointCloud accumulatedCloud_;
-
   ros::Publisher rawCloudPub_;
-  ros::Publisher registeredCloudPub_;
-  ros::Publisher offlinePathPub_;
-  ros::Publisher offlineDifferenceLinePub_;
-  ros::Publisher offlineBestGuessPathPub_;
-  ros::Publisher addedImuMeasPub_;
-  std::string cloudTopic_{""};
-  std::string odometryTopic_{""};
-  std::string poseStampedWithCovarianceTopic_{""};
-  std::string poseStampedTopic_{""};
-
-
+  std::string cloudTopic_;
   std::shared_ptr<SlamWrapper> slam_;
   ros::NodeHandlePtr nh_;
 };

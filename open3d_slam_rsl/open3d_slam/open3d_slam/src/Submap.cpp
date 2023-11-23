@@ -52,42 +52,24 @@ bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcesse
   }
 
   auto transformedCloud = o3d_slam::transform(mapToRangeSensor.matrix(), preProcessedScan);
-
-  if (params_.isCarvingEnabled_ && isPerformCarving) {
+  if (isPerformCarving) {
     carvingStatisticsTimer_.startStopwatch();
-
     {
       std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
       carve(rawScan, mapToRangeSensor, *mapBuilderCropper_, params_.mapBuilder_.carving_, &mapCloud_);
     }
-
     const double timeMeasurement = carvingStatisticsTimer_.elapsedMsecSinceStopwatchStart();
     carvingStatisticsTimer_.addMeasurementMsec(timeMeasurement);
-
-    // TODO [TT] double check if carving works as intended.
-    if (params_.isPrintTimingStatistics_) {
-    std::cout << "Space carving took: " << "\033[92m" << timeMeasurement << " msec" << " \n" << "\033[0m";
+    if (nScansInsertedMap_ % 100 == 1) {
+      std::cout << "Space carving timing stats: Avg execution time: " << carvingStatisticsTimer_.getAvgMeasurementMsec()
+                << " msec , frequency: " << 1e3 / carvingStatisticsTimer_.getAvgMeasurementMsec() << " Hz \n";
+      carvingStatisticsTimer_.reset();
     }
-
-    //if (nScansInsertedMap_ % 100 == 1) {
-    //  std::cout << "Space carving timing stats: Avg execution time: " << carvingStatisticsTimer_.getAvgMeasurementMsec()
-    //            << " msec , frequency: " << 1e3 / carvingStatisticsTimer_.getAvgMeasurementMsec() << " Hz \n";
-    //  carvingStatisticsTimer_.reset();
-    //}
   }
-
-  {
-    std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
-    mapCloud_ += *transformedCloud;
-    mapBuilderCropper_->setPose(mapToRangeSensor);
-  }
-
-  //voxelizeAndCropTimer.startStopwatch();
-  // TODO(TT) We voxelize the whole map each time we add a scan. This is not optimal. Maybe we can do this only once in a while.
+  std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
+  mapCloud_ += *transformedCloud;
+  mapBuilderCropper_->setPose(mapToRangeSensor);
   voxelizeInsideCroppingVolume(*mapBuilderCropper_, params_.mapBuilder_, &mapCloud_);
-  //const double croppertimeMeasurement = voxelizeAndCropTimer.elapsedMsecSinceStopwatchStart();
-  //std::cout << "Voxelization and cropping took: " << "\033[92m" << croppertimeMeasurement << " msec" << " \n" << "\033[0m";
-
   ++nScansInsertedMap_;
   return true;
 }
@@ -158,8 +140,6 @@ void Submap::voxelizeInsideCroppingVolume(const CroppingVolume& cropper, const M
     //			Timer timer("voxelize_map",true);
     auto voxelizedMap = voxelizeWithinCroppingVolume(param.mapVoxelSize_, cropper, *map);
     *map = *voxelizedMap;
-  }else{
-    std::cerr << "Map voxel size is zero. Not voxelizing the map." << std::endl;
   }
 }
 
@@ -239,10 +219,6 @@ void Submap::update(const MapperParameters& p) {
 
 bool Submap::isEmpty() const {
   return mapCloud_.points_.empty();
-}
-
-std::size_t Submap::getNbPoints() const {
-  return mapCloud_.points_.size();
 }
 
 const VoxelMap& Submap::getVoxelMap() const {

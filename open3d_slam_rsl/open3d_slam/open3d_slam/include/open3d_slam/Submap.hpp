@@ -47,7 +47,6 @@ class Submap {
   const VoxelizedPointCloud& getDenseMap() const;
   VoxelizedPointCloud getDenseMapCopy() const;
   bool isEmpty() const;
-  std::size_t getNbPoints() const;
   const Feature& getFeatures() const;
   const PointCloud& getSparseMapPointCloud() const;
   void computeSubmapCenter();
@@ -83,7 +82,6 @@ class Submap {
   bool isCenterComputed_ = false;
   size_t parentId_ = 0;
   Timer carvingStatisticsTimer_;
-  Timer voxelizeAndCropTimer;
   int scanCounter_ = 0;
   VoxelMap voxelMap_;
   VoxelizedPointCloud denseMap_;

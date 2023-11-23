@@ -26,7 +26,6 @@ void ScanToMapIcp::setParameters(const MapperParameters& p) {
   params_ = p;
   update(params_);
 }
-
 void ScanToMapIcp::update(const MapperParameters& p) {
   mapBuilderCropper_ = croppingVolumeFactory(params_.mapBuilder_.cropper_);
   scanMatcherCropper_ = croppingVolumeFactory(params_.scanProcessing_.cropper_);
@@ -35,22 +34,8 @@ void ScanToMapIcp::update(const MapperParameters& p) {
 
 PointCloudPtr ScanToMapIcp::preprocess(const PointCloud& in) const {
   auto croppedCloud = mapBuilderCropper_->crop(in);
-
-  // TODO(TT) Check if the order of this operations matter this is okay or have any benefits. (Currently switched from original)
   o3d_slam::voxelize(params_.scanProcessing_.voxelSize_, croppedCloud.get());
   cloudRegistration->estimateNormalsOrCovariancesIfNeeded(croppedCloud.get());
-
-  // For reproducability, random rownsampling must be disabled. i.e. set the ratio to 1.0
-  return croppedCloud->RandomDownSample(params_.scanProcessing_.downSamplingRatio_);
-}
-
-PointCloudPtr ScanToMapIcp::reducedPreprocess(const PointCloud& in) const {
-  auto croppedCloud = mapBuilderCropper_->crop(in);
-
-  // TODO(TT) Check if the order of this operations matter this is okay or have any benefits. (Currently switched from original)
-  o3d_slam::voxelize(params_.scanProcessing_.voxelSize_, croppedCloud.get());
-  
-  // For reproducability, random rownsampling must be disabled. i.e. set the ratio to 1.0
   return croppedCloud->RandomDownSample(params_.scanProcessing_.downSamplingRatio_);
 }
 
@@ -67,35 +52,6 @@ ProcessedScans ScanToMapIcp::processForScanMatchingAndMerging(const PointCloud& 
   assert_gt<int>(wideCropped->points_.size(), 0, "ScanToMapIcp::wideCropped cropped size is zero");
   return retVal;
 }
-
-PointCloudPtr ScanToMapIcp::reducedProcessForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const {
-  ProcessedScans retVal;
-  PointCloudPtr wideCropped;
-  wideCropped = reducedPreprocess(in);
-
-  assert_gt<int>(wideCropped->points_.size(), 0, "ScanToMapIcp::wideCropped cropped size is zero");
-  return wideCropped;
-}
-
-PointCloudPtr ScanToMapIcp::getCroppedCloud(const PointCloudPtr& in) const {
-  PointCloudPtr narrowCropped;
-
-  scanMatcherCropper_->setPose(Transform::Identity());
-  narrowCropped = scanMatcherCropper_->crop(*in);
-
-  assert_gt<int>(narrowCropped->points_.size(), 0, "ScanToMapIcp::narrow cropped size is zero");
-  return narrowCropped;
-}
-
-
-PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor) const {
-  const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();
-  scanMatcherCropper_->setPose(mapToRangeSensor);
-  PointCloudPtr mapPatch = scanMatcherCropper_->crop(activeSubmapPointCloud);
-  assert_gt<int>(mapPatch->points_.size(), 0, "map patch size is zero");
-  return mapPatch;
-}
-
 RegistrationResult ScanToMapIcp::scanToMapRegistration(const PointCloud& scan, const Submap& activeSubmap,
                                                        const Transform& mapToRangeSensor, const Transform& initialGuess) const {
   const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();

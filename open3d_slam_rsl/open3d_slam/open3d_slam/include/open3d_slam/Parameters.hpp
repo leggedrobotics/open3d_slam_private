@@ -68,7 +68,6 @@ struct IcpParameters {
   double maxCorrespondenceDistance_ = 0.2;
   int knn_ = 5;
   double maxDistanceKnn_ = 10.0;
-  double referenceCloudSettingPeriod_ = 1.0;
 };
 
 struct CloudRegistrationParameters : public Parameters {
@@ -80,8 +79,6 @@ struct OdometryParameters {
   CloudRegistrationParameters scanMatcher_;
   ScanProcessingParameters scanProcessing_;
   bool isPublishOdometryMsgs_ = false;
-  bool useOdometryTopic_ = true;
-  bool isIMUattitudeInitializationEnabled_ = false;
   int odometryBufferSize_ = 1;
 };
 
@@ -103,7 +100,6 @@ struct MapBuilderParameters {
 struct SubmapParameters {
   double radius_ = 20.0;
   int minNumRangeData_ = 5;
-  int maxNumPoints_ = 400000;
   double minSecondsBetweenFeatureComputation_ = 5.0;
   double adjacencyBasedRevisitingMinFitness_ = 0.4;
   int numScansOverlap_ = 3;
@@ -155,7 +151,6 @@ struct ScanToMapRegistrationParameters : public Parameters {
 struct MapInitializingParameters {  // todo these are a bit implementation specific
   std::string frameId_ = "";
   Eigen::Isometry3d initialPose_ = Eigen::Isometry3d::Identity();
-  std::string pcdFilePackage_ = "";
   std::string pcdFilePath_ = "";
   bool isInitializeInteractively_ = false;
 };
@@ -176,8 +171,6 @@ struct MapperParameters {
   bool isPrintTimingStatistics_ = true;
   bool isRefineOdometryConstraintsBetweenSubmaps_ = false;
   bool isUseInitialMap_ = false;
-  double mapMergeDelayInSeconds_ = 10.0;
-  bool isCarvingEnabled_ = false;
   bool isMergeScansIntoMap_ = true;
   int mappingBufferSize_ = 1;
   MapInitializingParameters mapInit_;

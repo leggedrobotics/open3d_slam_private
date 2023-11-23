@@ -229,15 +229,11 @@ void LuaLoader::loadParameters(const DictPtr dict, MapperParameters *p) {
 	loadBoolIfKeyDefined(dict, "is_print_timing_information", &p->isPrintTimingStatistics_);
 	loadBoolIfKeyDefined(dict, "is_refine_odometry_constraints_between_submaps", &p->isRefineOdometryConstraintsBetweenSubmaps_);
 	loadBoolIfKeyDefined(dict, "is_use_map_initialization", &p->isUseInitialMap_);
-	loadBoolIfKeyDefined(dict, "is_carving_enabled", &p->isCarvingEnabled_);
 	loadBoolIfKeyDefined(dict, "is_merge_scans_into_map", &p->isMergeScansIntoMap_);
 	loadBoolIfKeyDefined(dict, "ignore_minimum_refinement_fitness", &p->isIgnoreMinRefinementFitness_);
-	
-	// Double
-	loadDoubleIfKeyDefined(dict, "min_movement_between_mapping_steps", &p->minMovementBetweenMappingSteps_);
-	loadDoubleIfKeyDefined(dict, "map_merge_delay_in_seconds", &p->mapMergeDelayInSeconds_);
 
-	// Int
+	loadDoubleIfKeyDefined(dict, "min_movement_between_mapping_steps", &p->minMovementBetweenMappingSteps_);
+
 	loadIntIfKeyDefined(dict, "mapping_buffer_size", &p->mappingBufferSize_);
 
 	loadIfDictionaryDefined(dict,"scan_to_map_registration", &p->scanMatcher_);
@@ -270,7 +266,6 @@ void LuaLoader::loadParameters(const DictPtr dict, PlaceRecognitionParameters *p
 
 void LuaLoader::loadParameters(const DictPtr dict, MapInitializingParameters* p) {
 	loadStringIfKeyDefined(dict, "frame_id", &p->frameId_);
-	loadStringIfKeyDefined(dict, "pcd_file_package", &p->pcdFilePackage_);
 	loadStringIfKeyDefined(dict, "pcd_file_path", &p->pcdFilePath_);
 	loadBoolIfKeyDefined(dict, "is_initialize_interactively", &p->isInitializeInteractively_);
 	loadIfDictionaryDefined(dict,"init_pose", &p->initialPose_);
@@ -294,10 +289,8 @@ void LuaLoader::loadParameters(const DictPtr dict, MapBuilderParameters* p) {
 void LuaLoader::loadParameters(const DictPtr dict, SubmapParameters *p){
 	loadDoubleIfKeyDefined(dict, "submap_size", &p->radius_);
 	loadDoubleIfKeyDefined(dict, "adjacency_based_revisiting_min_fitness", &p->adjacencyBasedRevisitingMinFitness_);
-	loadDoubleIfKeyDefined(dict, "min_seconds_between_feature_computation", &p->minSecondsBetweenFeatureComputation_);
 	loadIntIfKeyDefined(dict, "submaps_num_scan_overlap", &p->numScansOverlap_);
 	loadIntIfKeyDefined(dict, "min_num_range_data", &p->minNumRangeData_);
-	loadIntIfKeyDefined(dict, "max_num_points", &p->maxNumPoints_);
 
 }
 
@@ -305,8 +298,6 @@ void LuaLoader::loadParameters(const DictPtr dict, OdometryParameters *p){
 	loadIfDictionaryDefined(dict,"scan_matching", &p->scanMatcher_);
 	loadIfDictionaryDefined(dict,"scan_processing", &p->scanProcessing_);
 	loadBoolIfKeyDefined(dict, "is_publish_odometry_msgs", &p->isPublishOdometryMsgs_);
-	loadBoolIfKeyDefined(dict, "use_odometry_topic_instead_of_scan_to_scan", &p->useOdometryTopic_);
-	loadBoolIfKeyDefined(dict, "use_IMU_for_attitude_initialization", &p->isIMUattitudeInitializationEnabled_);
 	loadIntIfKeyDefined  (dict, "odometry_buffer_size", &p->odometryBufferSize_);
 }
 
@@ -350,7 +341,6 @@ void LuaLoader::loadParameters(const DictPtr dict, IcpParameters *p){
 	loadIntIfKeyDefined(dict, "knn", &p->knn_);
 	loadDoubleIfKeyDefined(dict, "max_correspondence_dist", &p->maxCorrespondenceDistance_);
 	loadDoubleIfKeyDefined(dict, "max_distance_knn", &p->maxDistanceKnn_);
-	loadDoubleIfKeyDefined(dict, "reference_cloud_seting_period", &p->referenceCloudSettingPeriod_);
 }
 void LuaLoader::loadParameters(const DictPtr dict, GlobalOptimizationParameters *p){
 	loadDoubleIfKeyDefined(dict, "edge_prune_threshold", &p->edgePruneThreshold_);
