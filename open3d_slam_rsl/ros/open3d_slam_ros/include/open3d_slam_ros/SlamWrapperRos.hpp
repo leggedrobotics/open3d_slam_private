@@ -44,8 +44,6 @@ class SlamWrapperRos : public SlamWrapper {
   void loadParametersAndInitialize() override;
   void startWorkers() override;
 
-  bool readLibpointmatcherConfig(const std::string& path);
-
   void offlineTfWorker() override;
   void offlineVisualizationWorker() override;
 

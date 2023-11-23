@@ -16,8 +16,6 @@
 #include "open3d_slam/croppers.hpp"
 #include "open3d_slam/time.hpp"
 
-#include "open3d_conversions/usings.hpp"
-
 #include <pointmatcher/PointMatcher.h>
 #include <pointmatcher_ros/PmTf.h>
 #include <pointmatcher_ros/usings.h>
@@ -66,10 +64,6 @@ class Mapper {
   nav_msgs::Path bestGuessPath_;
   bool isNewInitialValueSet_ = false;
 
-  // The pointmatcher registration object.
-  // The parameter loading dont have a slam_ API yet, thus object not private.
-  pointmatcher_ros::PmIcp icp_;
-
  private:
   void update(const MapperParameters& p);
   void checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const;
@@ -99,9 +93,6 @@ class Mapper {
   bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-
-  std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
-  std::shared_ptr<open3d_conversions::PmStampedPointCloud> activeSubmapPm_;
 
 };
 

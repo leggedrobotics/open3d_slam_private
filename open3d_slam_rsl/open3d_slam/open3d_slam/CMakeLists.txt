@@ -32,8 +32,6 @@ set(SRC_FILES
 
 set(CATKIN_PACKAGE_DEPENDENCIES
   open3d_catkin
-  libpointmatcher
-  pointmatcher_ros
   open3d_conversions
   eigen_conversions
   nav_msgs
