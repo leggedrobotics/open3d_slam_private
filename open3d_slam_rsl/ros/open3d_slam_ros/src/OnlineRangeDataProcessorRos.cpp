@@ -32,7 +32,7 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded(){
   
   if (slam_->frames_.rangeSensorFrame == "default")
   {
-    ROS_WARN_STREAM("Range sensor frame is not set yet. Delaying the transformation look-up.");
+    ROS_WARN_STREAM_THROTTLE(0.5, "Range sensor frame is not set yet. Delaying the transformation look-up. (Throttled 0.5s)");
     return false;
   }
 
@@ -61,6 +61,9 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded(){
     
     } catch (const tf2::TransformException& exception) {
       ROS_WARN_STREAM("Caught exception while looking for the transform frame: " << slam_->frames_.rangeSensorFrame << " to " << slam_->frames_.assumed_external_odometry_tracked_frame << "." << exception.what());
+      return false;
+    }catch (const tf2::ExtrapolationException& e) {
+      ROS_WARN_STREAM_THROTTLE(1, "Caught ExtrapolationException: " << e.what() << " (Warning is throttled: 1s)");
       return false;
     }
     return true;

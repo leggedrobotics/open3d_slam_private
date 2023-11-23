@@ -423,6 +423,12 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     auto& odometryPose = buffer.front()->odometryPose_;
     geometry_msgs::Pose odomPose =odometryPose->pose;
 
+    if (isFirstMessage_)
+    {
+      Eigen::Isometry3d eigenTransform = Eigen::Isometry3d::Identity();
+      slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
+    }
+
     if (isFirstMessage_ && isStaticTransformFound_)
     {
       geometry_msgs::Pose initialPose;
@@ -433,6 +439,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
       initialPose.orientation.x=0.0;
       slam_->setInitialTransform(o3d_slam::getTransform(initialPose).matrix());
       isFirstMessage_ = false;
+      
     }
 
     // Add to the odometry buffer.
@@ -624,6 +631,13 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
 }
 
 bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded(){
+
+  if (slam_->useSyncedPoses_){
+    Eigen::Affine3d transform = Eigen::Affine3d::Identity();
+    baseToLidarTransform_ = tf2::eigenToTransform(transform);
+    isStaticTransformFound_ = true;
+    return true;
+  }
 
   if (!isStaticTransformFound_ && (slam_->frames_.rangeSensorFrame != slam_->frames_.assumed_external_odometry_tracked_frame)){
     try {

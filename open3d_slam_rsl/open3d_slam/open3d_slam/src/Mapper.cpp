@@ -166,15 +166,22 @@ const ScanToMapRegistration& Mapper::getScanToMapRegistration() const {
 
 // Entry point to scan2map registration
 bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& timestamp) {
+
+  if (!isCalibrationSet_){
+    std::cerr << "Calibration is not set. Returning from mapping." << std::endl;
+    return false;
+  }
+
   submaps_->setMapToRangeSensor(mapToRangeSensor_);
 
   // insert first scan
   if (submaps_->getActiveSubmap().isEmpty()) {
     if (params_.isUseInitialMap_) {
       assert_true(scan2MapReg_->isMergeScanValid(rawScan), "Init map invalid!!!!");
-      submaps_->insertScan(rawScan, rawScan, Transform::Identity(), timestamp);      
+      submaps_->insertScan(rawScan, rawScan, mapToRangeSensor_, timestamp);      
       
     } else {
+      mapToRangeSensorPrev_ = mapToRangeSensor_;
       const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
       // TODO(TT) the init of submap is changed from identity to mapToRangeSensor_. This allows nice start of the mapping.
       // Depending more on the initial transform.
@@ -271,7 +278,7 @@ if (mapPatch->IsEmpty()){
   
 
   // Initialize the registered pose.
-  pointmatcher_ros::PmTfParameters correctedTransform;
+  pointmatcher_ros::PmTfParameters correctedTransform = transformReadingToReferenceInitialGuess;
   
   try {
     //std::cout << "activeSubmap: " << activeSubmap->dataPoints_.features.cols() << " x " << activeSubmap->dataPoints_.features.rows() << std::endl;
@@ -309,7 +316,7 @@ if (mapPatch->IsEmpty()){
     testmapperOnlyTimer_.startStopwatch();
 
     // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
-    if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
+    //if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
 
       {
         std::lock_guard<std::mutex> lck(mapManipulationMutex_);
@@ -330,10 +337,10 @@ if (mapPatch->IsEmpty()){
         std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
       }
 
-    }else{
-    std::cout << "open3d_slam Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" << croppedCloud->dataPoints_.features.cols() + 1000 << ") " << "to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
-      correctedTransform = transformReadingToReferenceInitialGuess;
-    }
+    //}else{
+    //std::cout << "open3d_slam Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" << croppedCloud->dataPoints_.features.cols() + 1000 << ") " << "to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;
+    //  //correctedTransform = transformReadingToReferenceInitialGuess;
+    //}
 
   } catch (const std::runtime_error& error) {
     std::cout << "Experienced a runtime error while running libpointmatcher ICP: " << error.what() << std::endl;
@@ -377,10 +384,7 @@ if (mapPatch->IsEmpty()){
   bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
   submaps_->setMapToRangeSensor(mapToRangeSensor_);
 
-  // This is commented since currently we are using libpointmatcher.
-  //mapToRangeSensor_.matrix() = result.transformation_;
-
-  // We don't want to add the mis-aligned first scans to the map. Hence giving the registration time to converge.
+  // Given a map, we don't want to add the mis-aligned first scans to the map. Hence giving the registration time to converge.
   double timeSinceInit = toSecondsSinceFirstMeasurement(timestamp) - toSecondsSinceFirstMeasurement(initTime_);
   if ((params_.isUseInitialMap_ && !params_.isMergeScansIntoMap_) || (timeSinceInit < params_.mapMergeDelayInSeconds_ && params_.isUseInitialMap_ && params_.isMergeScansIntoMap_)) {
     // Early return before inserting the scans.
