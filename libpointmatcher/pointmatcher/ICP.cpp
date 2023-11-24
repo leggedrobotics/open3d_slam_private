@@ -842,20 +842,22 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
     return computeWithTransformedReference(readingIn, this->referenceFiltered, this->T_refIn_refMean, T_refIn_readIn);
 }
+
 template<typename T>
 bool PointMatcher<T>::ICP::initReference(const DataPoints& referenceIn)
 {
     const long int nbPtsReference{ referenceIn.features.cols() };
     if (nbPtsReference == 0)
     {
+        std::cout << "The reference point cloud is empty. (libpointmatcher)" << std::endl;
         this->matcherIsInitialized = false;
         return false;
     }
-
+    
     // Reset reference and transformation.
-    const long int dim{ referenceIn.features.rows() };
     this->referenceFiltered = referenceIn;
 
+    const long int dim{ referenceIn.features.rows() };
     // Reset transformation from reference frame to reference centroid.
     this->T_refIn_refMean = Matrix::Identity(dim, dim);
 

@@ -86,6 +86,7 @@ class Mapper {
   Transform mapToRangeSensorPrev_ = Transform::Identity();
   Transform mapToRangeSensorLastScanInsertion_ = Transform::Identity();
   Transform bestGuessMemory_ = Transform::Identity();
+  Transform odometryMotionMemory_ = Transform::Identity();
 
   MapperParameters params_;
   mutable std::mutex mapManipulationMutex_;
@@ -101,7 +102,6 @@ class Mapper {
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
 
   std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
-  std::shared_ptr<open3d_conversions::PmStampedPointCloud> activeSubmapPm_;
 
 };
 

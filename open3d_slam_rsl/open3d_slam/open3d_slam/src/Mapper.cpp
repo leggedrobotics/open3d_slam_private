@@ -33,7 +33,6 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
   // `updates` with default parameters
   update(params_);
-  activeSubmapPm_ = std::make_shared<open3d_conversions::PmStampedPointCloud>();
   pmPointCloudFilter_ = std::make_shared<open3d_conversions::PmPointCloudFilters>();
 
   // These filters are currently not used.
@@ -194,13 +193,31 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   if (timestamp <= lastMeasurementTimestamp_) {
     std::cerr << "\n\n !!!!! MAPPER WARNING: Measurements came out of order!!!! \n\n";
-    return false;
+    std::cerr << "Using the previously calculated odometry motion to propagate measurement. \n";    
+
+    // Latest arbitrary time:
+    Time arbitraryLatestTime = odomToRangeSensorBuffer_.latest_time();
+
+    const Transform odomToRangeSensor = getTransform(arbitraryLatestTime, odomToRangeSensorBuffer_) * calibration_.inverse();
+    const Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+    Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
+    Transform backupTransform = mapToRangeSensorPrev_ * odometryMotion;
+
+    // Pass to placeholders variables
+    mapToRangeSensor_.matrix() = backupTransform.matrix();
+    mapToRangeSensorBuffer_.push(arbitraryLatestTime, mapToRangeSensor_);
+    bestGuessBuffer_.push(arbitraryLatestTime, mapToRangeSensorPrev_);
+    submaps_->setMapToRangeSensor(mapToRangeSensor_);
+    lastMeasurementTimestamp_ = arbitraryLatestTime;
+    mapToRangeSensorPrev_ = mapToRangeSensor_;
+
+    return true;
   }
 
   bool isOdomOkay = odomToRangeSensorBuffer_.has(timestamp);
   if (!isOdomOkay) {
     std::cerr << "WARNING: odomToRangeSensorBuffer_ DOES NOT HAVE THE DESIRED TRANSFORM! \n";
-    std::cerr << "  going to attempt the scan to map refinement anyway \n";
+    std::cerr << "Going to attempt the scan to map refinement anyway. \n";
   }
 
   checkTransformChainingAndPrintResult(isCheckTransformChainingAndPrintResult);
@@ -218,6 +235,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
     // Calculate the motion between the two poses. This immediately allows us get rid of `drift` in the odometry.
     Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
+    odometryMotionMemory_ = odometryMotion;
 
     // Apply the calculated odometry motion to the previous scan2map refined pose.
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
@@ -225,8 +243,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
     if (odometryMotion.translation().norm() == 0.0)
     {
-      std::cout << "\033[92m" << " MOTION SHOULD BE PERFECTLY 0. " << "\n\033[0m";
-      std::cout << " MOTION SHOULDNT BE PERFECTLY 0. " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
+      std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
     }
     
     /*int64_t uts_timestamp = toUniversal(timestamp);
@@ -275,14 +292,13 @@ if (mapPatch->IsEmpty()){
     std::cout << "\033[92m" << " Map patch is empty impossible. Returning" << " \n" << "\033[0m";
     return false;
   }
-  
 
   // Initialize the registered pose.
   pointmatcher_ros::PmTfParameters correctedTransform = transformReadingToReferenceInitialGuess;
   
   try {
     //std::cout << "activeSubmap: " << activeSubmap->dataPoints_.features.cols() << " x " << activeSubmap->dataPoints_.features.rows() << std::endl;
-    //std::cout << "activeSubmap datapoints x" << activeSubmap->dataPoints_.features.col(0).row(0) << std::endl;
+
 
     double passedTime = std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
     //std::cerr << "Passed Time: " << passedTime << std::endl;
@@ -292,16 +308,22 @@ if (mapPatch->IsEmpty()){
       {
         std::lock_guard<std::mutex> lck(mapManipulationMutex_);
         // Create pointmatcher cloud
-        activeSubmapPm_ = open3d_conversions::createSimilarPointmatcherCloud(mapPatch->points_.size());
+        open3d_conversions::PmStampedPointCloud activeSubmapPm_ = *open3d_conversions::createSimilarPointmatcherCloud(mapPatch->points_.size());
 
         // Convert to pointmatcher. This is time consuming.
-        open3d_conversions::open3dToPointmatcher(*mapPatch, *activeSubmapPm_);
+        open3d_conversions::open3dToPointmatcher(*mapPatch, activeSubmapPm_);
 
         referenceInitTimer_.startStopwatch();
 
         lastReferenceInitializationTimestamp_ = timestamp;
-        icp_.initReference(activeSubmapPm_->dataPoints_);
+
+        if (!icp_.initReference(activeSubmapPm_.dataPoints_))
+        {
+          std::cout << "Failed to initialize reference cloud. Exitting. " << std::endl;
+          return false;
+        }
       }
+      
       const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
       referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
 
@@ -318,24 +340,26 @@ if (mapPatch->IsEmpty()){
     // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
     //if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
 
-      {
-        std::lock_guard<std::mutex> lck(mapManipulationMutex_);
+    {
+      std::lock_guard<std::mutex> lck(mapManipulationMutex_);
 
-        correctedTransform = icp_.compute(croppedCloud->dataPoints_, activeSubmapPm_->dataPoints_,
-                                                            transformReadingToReferenceInitialGuess, false);
-      }
+      // We are explicitly setting the reference cloud above. Hence the empty placeholder.
+      open3d_conversions::PmStampedPointCloud emptyPlaceholder;
+      correctedTransform = icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_,
+                                                          transformReadingToReferenceInitialGuess, false);
+    }
 
-      if (firstRefinement_){
-        std::cout << "\033[92m" << " Open3d SLAM is running properly." << " \n " << "\033[0m";
-        firstRefinement_=false;
-      }
+    if (firstRefinement_){
+      std::cout << "\033[92m" << " Open3d SLAM is running properly." << " \n " << "\033[0m";
+      firstRefinement_=false;
+    }
 
-      const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
-      testmapperOnlyTimer_.addMeasurementMsec(timeElapsed);
+    const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
+    testmapperOnlyTimer_.addMeasurementMsec(timeElapsed);
 
-      if (params_.isPrintTimingStatistics_){
-        std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
-      }
+    if (params_.isPrintTimingStatistics_){
+      std::cout << " Scan2Map Registration: " << "\033[92m" << timeElapsed << " msec \n " << "\033[0m";
+    }
 
     //}else{
     //std::cout << "open3d_slam Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" << croppedCloud->dataPoints_.features.cols() + 1000 << ") " << "to register to. Skipping scan2map refinement. (Expect few times during start-up)"<< std::endl;

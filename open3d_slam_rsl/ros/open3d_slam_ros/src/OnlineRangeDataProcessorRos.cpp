@@ -37,7 +37,7 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded(){
   }
 
   // The frames are identical. This is often not the case since the odometry follows a certain frame like base but the point clouds arrive in the lidar frame.
-  if ((slam_->frames_.rangeSensorFrame == slam_->frames_.assumed_external_odometry_tracked_frame)){
+  if ((slam_->frames_.rangeSensorFrame == slam_->frames_.assumed_external_odometry_tracked_frame) || !slam_->isUsingOdometryTopic()){
     slam_->setExternalOdometryFrameToCloudFrameCalibration(Eigen::Isometry3d::Identity());
     return true;
   }
@@ -111,41 +111,40 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
   //Transform tfQueriedLatestOdometry;
   //bool succ= o3d_slam::lookupTransform("lidar", "imu_link", ros::Time(0.0), tfBuffer_, tfQueriedLatestOdometry);
 
-  if (slam_->isUsingOdometryTopic())
-  {
+  if (slam_->isUsingOdometryTopic()){
+    if (readCalibrationIfNeeded()){
+      
+      // We conciously read from the object to ensure it is initialized.
+      // This casts isometry3d to affine3d.
+      Eigen::Affine3d eigenTransform = slam_->getExternalOdometryFrameToCloudFrameCalibration();
+      geometry_msgs::TransformStamped calibrationAsTransform =  tf2::eigenToTransform(eigenTransform);
 
-  if (readCalibrationIfNeeded()){
-    
-    // We conciously read from the object to ensure it is initialized.
-    // This casts isometry3d to affine3d.
-    Eigen::Affine3d eigenTransform = slam_->getExternalOdometryFrameToCloudFrameCalibration();
-    geometry_msgs::TransformStamped calibrationAsTransform =  tf2::eigenToTransform(eigenTransform);
+      geometry_msgs::PoseStamped odomPose_transformed;
+      geometry_msgs::PoseStamped odomPose;
 
-    geometry_msgs::PoseStamped odomPose_transformed;
-    geometry_msgs::PoseStamped odomPose;
+      const auto latestOdomMeasurement  = slam_->getLatestOdometryPoseMeasurement();
+      odomPose.pose = o3d_slam::getPose(latestOdomMeasurement.transform_.matrix());
 
-    const auto latestOdomMeasurement  = slam_->getLatestOdometryPoseMeasurement();
-    odomPose.pose = o3d_slam::getPose(latestOdomMeasurement.transform_.matrix());
+      // Actual transformation applied to the odometry measurement. Reads as pose of Lidar frame in the external odometry frame.
+      tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
 
-    // Actual transformation applied to the odometry measurement. Reads as pose of Lidar frame in the external odometry frame.
-    tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
+      //odomPose_transformed.position=odomPose.position;
+      odomPose_transformed.pose.orientation.w=1.0;
+      odomPose_transformed.pose.orientation.z=0.0;
+      odomPose_transformed.pose.orientation.y=0.0;
+      odomPose_transformed.pose.orientation.x=0.0;
+      ROS_INFO("Initial Transform is set. Nice. The rotation is enforced to be identity.");
 
-    //odomPose_transformed.position=odomPose.position;
-    odomPose_transformed.pose.orientation.w=1.0;
-    odomPose_transformed.pose.orientation.z=0.0;
-    odomPose_transformed.pose.orientation.y=0.0;
-    odomPose_transformed.pose.orientation.x=0.0;
-    ROS_INFO("Initial Transform is set. Nice. The rotation is enforced to be identity.");
+      //std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << " \n" << "\033[0m";
+      //std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" << "\033[0m";
 
-    //std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << " \n" << "\033[0m";
-    //std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" << "\033[0m";
+      slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
 
-    slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
-
-    ROS_INFO("Static TF reader callback is terminated after successfully reading the transform.");
-    staticTfCallback_.stop();
-  }
+      ROS_INFO("Static TF reader callback is terminated after successfully reading the transform.");
+      staticTfCallback_.stop();
+    }
   }else{
+    slam_->setExternalOdometryFrameToCloudFrameCalibration(Eigen::Isometry3d::Identity());
     staticTfCallback_.stop();
   }
 
@@ -180,12 +179,20 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   // Get the latest registered point cloud and publish it.
   std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
   std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
-  const bool isCloudEmpty = std::get<0>(cloudTimePair).IsEmpty();
-  if (isTimeValid(std::get<1>(cloudTimePair)) && !isCloudEmpty) {
+
+  if (std::get<0>(cloudTimePair).IsEmpty())
+  {
+    ROS_WARN("Registered Cloud will not be published. Registration didn't take place yet.");
+    return;
+  }
+
+  if (isTimeValid(std::get<1>(cloudTimePair))) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), registeredCloudPub_);
   }else
   {
-    ROS_WARN("Registered Cloud will not be published. Either time is off or cloud empty. Can happen at start-up.");
+    ROS_WARN("Registered Cloud will be published with original stamp. Should only happen at start-up.");
+    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(timestamp), registeredCloudPub_);
+
     return;
   }
 

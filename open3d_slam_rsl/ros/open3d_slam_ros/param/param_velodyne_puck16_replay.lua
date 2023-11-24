@@ -8,7 +8,7 @@ params.odometry.scan_processing.voxel_size = 0.05
 params.odometry.scan_processing.downsampling_ratio = 1.0
 
 --Advanced Options.
-params.odometry.use_odometry_topic_instead_of_scan_to_scan = true --Uses Odometry topic instead of Scan2Scan registration.
+params.odometry.use_odometry_topic_instead_of_scan_to_scan = false --Uses Odometry topic instead of Scan2Scan registration.
 params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to initialize gravity aligned attitude.
 
 --MAPPER_LOCALIZER
