@@ -146,6 +146,7 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&){
     staticTfCallback_.stop();
   }
   }else{
+    slam_->setExternalOdometryFrameToCloudFrameCalibration(Eigen::Isometry3d::Identity());
     staticTfCallback_.stop();
   }
 
