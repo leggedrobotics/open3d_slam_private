@@ -14,13 +14,14 @@
 #include "open3d_slam/output.hpp"
 #include "open3d_slam/time.hpp"
 
+#include "open3d_conversions/open3d_conversions.h"
+
 #include <open3d/Open3D.h>
 #include <open3d/pipelines/registration/Registration.h>
-#include "open3d/utility/Eigen.h"
-#include "open3d/utility/Helper.h"
+#include <open3d/utility/Eigen.h>
+#include <open3d/utility/Helper.h>
 
 #include <pointmatcher/PointMatcher.h>
-#include "open3d_conversions/open3d_conversions.h"
 
 namespace o3d_slam {
 

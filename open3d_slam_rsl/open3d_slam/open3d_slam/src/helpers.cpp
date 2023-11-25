@@ -14,9 +14,9 @@
 #include "open3d_slam/time.hpp"
 
 #include <open3d/Open3D.h>
+#include <open3d/geometry/KDTreeFlann.h>
 #include <open3d/pipelines/registration/Registration.h>
 #include <open3d/utility/Eigen.h>
-#include "open3d/geometry/KDTreeFlann.h"
 
 #ifdef open3d_slam_OPENMP_FOUND
 #include <omp.h>
