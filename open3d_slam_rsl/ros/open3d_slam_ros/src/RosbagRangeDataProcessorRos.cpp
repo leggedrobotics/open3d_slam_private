@@ -47,7 +47,6 @@ void RosbagRangeDataProcessorRos::initialize() {
   timeDiff_ = ros::Duration(0.0);
 
   // Provide questionare.
-  ROS_INFO_STREAM( "\033[33m" << " Did you check the pointcloud topic frame? " << "\033[39m");
   ROS_INFO_STREAM( "\033[33m" << " Did you check the odometry topic frame? " << "\033[39m");
   ROS_INFO_STREAM( "\033[33m" << " Did you check the check if loopclosure enabled? " << "\033[39m");
   ROS_INFO_STREAM( "\033[33m" << " Is clock available in your bag? " << "\033[39m");
@@ -77,14 +76,16 @@ bool RosbagRangeDataProcessorRos::createOutputDirectory() {
   return false;
 }
 
-std::string RosbagRangeDataProcessorRos::buildUpLogFilename(const std::string& typeSuffix) {
+std::string RosbagRangeDataProcessorRos::buildUpLogFilename(const std::string& typeSuffix, const std::string& extension) {
 
   ros::WallTime stamp = ros::WallTime::now();
   std::stringstream ss;
   ss << stamp.sec << "_" << stamp.nsec;
 
   // Add prefixes.
-  std::string filename = slam_->mapSavingFolderPath_ + typeSuffix + ss.str() + ".txt";
+  // Not sure if adding time is the best thing to do since we dont keep a ring buffer.
+  //std::string filename = slam_->mapSavingFolderPath_ + typeSuffix + ss.str() + extension;
+  std::string filename = slam_->mapSavingFolderPath_ + typeSuffix + extension;
 
   return filename;
 }
@@ -255,7 +256,6 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     std::cout << "Sleeping 10 seconds.." << "\n";
   }
 
-
   std::string trackedPosesFilename_ = buildUpLogFilename("slam_poses");
   std::remove(trackedPosesFilename_.c_str());
 
@@ -264,73 +264,78 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   // Open file and set numerical precision to the max.
   poseFile_.open(trackedPosesFilename_, std::ios_base::app);
   poseFile_.precision(std::numeric_limits<double>::max_digits10);
-  // Save data to file.
   poseFile_ << poseLogFileHeader_ << std::endl;
 
-  // Iterate and process the bag
-  // TODO(TT) make the return here bool.
-  processRosbag();
+  std::string outBagPath_ = buildUpLogFilename("processed_slam", ".bag");
+  std::remove(outBagPath_.c_str());
+  outBag.open(outBagPath_, rosbag::bagmode::Write);
+
+  // Iterate and process the bag.
+  if (processRosbag())
+  {
+    // Create the magical tube.
+    visualization_msgs::MarkerArray lineStrip = convertPathToMarkerArray(trackedPath_);
+
+    o3d_slam::PointCloud samplecloud;
+    // Magic number, points per circle strip. If you set it too high, cloud becomes mega heavy.
+    int numPoints = 50;
+    // Define the radius of the tube
+    float tube_radius = 0.02;
+
+    samplecloud = lineStripToPointCloud(lineStrip, numPoints);
+
+    calculateSurfaceNormals(samplecloud);
+
+    // Create a new point cloud for the tube
+    o3d_slam::PointCloud tube_cloud;
+    std::vector<Eigen::Vector3d> tube_cloud_normal_vector;
+    std::vector<Eigen::Vector3d> tube_cloud_point_vector;
+
+    tube_cloud_normal_vector.reserve(samplecloud.points_.size() * 36);
+    tube_cloud_point_vector.reserve(samplecloud.points_.size() * 36);
+
+    // Iterate over the points in the original point cloud
+    for (int i = 0; i < samplecloud.points_.size() - numPoints; i++) {
+      // Retrieve the surface normal
+      Eigen::Vector3d normal = samplecloud.normals_[i].normalized();
+
+      // Calculate the direction vector
+      const Eigen::Vector3d direction = normal.unitOrthogonal().cross(normal).normalized();
+
+      // Generate points around the current point
+      const Eigen::Vector3d current_point = samplecloud.points_[i];
+      const Eigen::Vector3d current_normal = samplecloud.normals_[i];
+      for (float angle = 0; angle <= 360; angle += 10) {
+        float x = current_point.x() + tube_radius * (direction.x() * cos(angle) + normal.x() * sin(angle));
+        float y = current_point.y() + tube_radius * (direction.y() * cos(angle) + normal.y() * sin(angle));
+        float z = current_point.z() + tube_radius * (direction.z() * cos(angle) + normal.z() * sin(angle));
+
+        Eigen::Vector3d tube_point(x, y, z);
+
+        tube_cloud_normal_vector.push_back(current_normal);
+        tube_cloud_point_vector.push_back(tube_point);
+      }
+    }
+    tube_cloud.normals_ = tube_cloud_normal_vector;
+    tube_cloud.points_ = tube_cloud_point_vector;
+
+    // Copy the surface normals to the new point cloud
+    for (int i = 0; i < samplecloud.points_.size() - numPoints; i++) {
+      for (int j = 0; j < 36; j++) {
+        tube_cloud.normals_[i * 36 + j] = samplecloud.normals_[i];
+      }
+    }
+
+    std::string nameWithCorrectSuffix = slam_->mapSavingFolderPath_ + "robotPathAsMesh.pcd";
+    //size_t found = nameWithCorrectSuffix.find(".pcd");
+
+    open3d::io::WritePointCloudToPCD(nameWithCorrectSuffix, tube_cloud, open3d::io::WritePointCloudOption());
+    ROS_INFO_STREAM("Successfully saved the poses as point cloud. Waiting for user to terminate.");
+  }
+
   // Close file handle.
   poseFile_.close();
-
-  // Create the magical tube.
-  visualization_msgs::MarkerArray lineStrip = convertPathToMarkerArray(trackedPath_);
-
-  o3d_slam::PointCloud samplecloud;
-  // Magic number, points per circle strip. If you set it too high, cloud becomes mega heavy.
-  int numPoints = 50;
-  // Define the radius of the tube
-  float tube_radius = 0.02;
-
-  samplecloud = lineStripToPointCloud(lineStrip, numPoints);
-
-  calculateSurfaceNormals(samplecloud);
-
-  // Create a new point cloud for the tube
-  o3d_slam::PointCloud tube_cloud;
-  std::vector<Eigen::Vector3d> tube_cloud_normal_vector;
-  std::vector<Eigen::Vector3d> tube_cloud_point_vector;
-
-  tube_cloud_normal_vector.reserve(samplecloud.points_.size() * 36);
-  tube_cloud_point_vector.reserve(samplecloud.points_.size() * 36);
-
-  // Iterate over the points in the original point cloud
-  for (int i = 0; i < samplecloud.points_.size() - numPoints; i++) {
-    // Retrieve the surface normal
-    Eigen::Vector3d normal = samplecloud.normals_[i].normalized();
-
-    // Calculate the direction vector
-    const Eigen::Vector3d direction = normal.unitOrthogonal().cross(normal).normalized();
-
-    // Generate points around the current point
-    const Eigen::Vector3d current_point = samplecloud.points_[i];
-    const Eigen::Vector3d current_normal = samplecloud.normals_[i];
-    for (float angle = 0; angle <= 360; angle += 10) {
-      float x = current_point.x() + tube_radius * (direction.x() * cos(angle) + normal.x() * sin(angle));
-      float y = current_point.y() + tube_radius * (direction.y() * cos(angle) + normal.y() * sin(angle));
-      float z = current_point.z() + tube_radius * (direction.z() * cos(angle) + normal.z() * sin(angle));
-
-      Eigen::Vector3d tube_point(x, y, z);
-
-      tube_cloud_normal_vector.push_back(current_normal);
-      tube_cloud_point_vector.push_back(tube_point);
-    }
-  }
-  tube_cloud.normals_ = tube_cloud_normal_vector;
-  tube_cloud.points_ = tube_cloud_point_vector;
-
-  // Copy the surface normals to the new point cloud
-  for (int i = 0; i < samplecloud.points_.size() - numPoints; i++) {
-    for (int j = 0; j < 36; j++) {
-      tube_cloud.normals_[i * 36 + j] = samplecloud.normals_[i];
-    }
-  }
-
-  std::string nameWithCorrectSuffix = slam_->mapSavingFolderPath_ + "robotPathAsMesh.pcd";
-  //size_t found = nameWithCorrectSuffix.find(".pcd");
-
-  open3d::io::WritePointCloudToPCD(nameWithCorrectSuffix, tube_cloud, open3d::io::WritePointCloudOption());
-  ROS_INFO_STREAM("Successfully saved the poses as point cloud.");
+  outBag.close();
 
   ros::spin();
   slam_->stopWorkers();
@@ -347,8 +352,16 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
     if (topicView.size() == 0u) {
 
       if (topic == clockTopic_){
-        ROS_WARN_STREAM(clockTopic_<< " topic does not exist in YOUR bag. You are lazy... Using alternative topic: " << slam_->asyncOdometryTopic_ << " as clock.");
-        clockTopic_ = slam_->asyncOdometryTopic_;
+        // This means this is our second time coming here. So actually the the alternative topic is not working either.
+        if (topic == slam_->asyncOdometryTopic_)
+        {
+          ROS_ERROR_STREAM(clockTopic_<< " topic does not exist in the rosbag. This is breaking.");
+          areMandatoryTopicsInRosbag = false;
+        }else{
+          ROS_ERROR_STREAM(clockTopic_<< " topic does not exist in the rosbag. Using alternative topic: " << slam_->asyncOdometryTopic_ << " as clock.");
+          clockTopic_ = slam_->asyncOdometryTopic_;
+        }
+
       }else if (topic == tfTopic_)
       {
         ROS_WARN_STREAM("No data under the topic: " << topic << " was found. This was optional so okay.");
@@ -393,7 +406,7 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
   }
 
   if (!areMandatoryTopicsInRosbag) {
-    ROS_ERROR("Sequential SLAM runner will exit.");
+    ROS_ERROR("All required topics are not within the rosbag. Replay operations are terminated. Waiting user to terminate.");
     return false;
   }
 
@@ -466,7 +479,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   const Time timestamp = fromRos(pointCloud->header.stamp);
 
   if(!slam_->doesOdometrybufferHasMeasurement(timestamp)){
-    std::cout << "Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Popping the measurement." << std::endl;
+    std::cout << "RosbagReplayer:: Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Popping the measurement." << std::endl;
     buffer.pop_front();
     return false;
   }
@@ -529,6 +542,8 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   poseStamped.pose.orientation.z = rotation.z();
   trackedPath_.poses.push_back(poseStamped);
 
+  outBag.write("/slam_optimized_poses", toRos(std::get<1>(cloudTimePair)), poseStamped);
+
   const double stamp = pointCloud->header.stamp.toSec();
   poseFile_ << stamp << " ";
   poseFile_ << calculatedTransform.translation().x() << " " << calculatedTransform.translation().y() << " " << calculatedTransform.translation().z() << " ";
@@ -553,6 +568,14 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   // Pop oldest input point cloud from the queue.
   buffer.pop_front();
+
+  sensor_msgs::PointCloud2 outCloud;
+  open3d_conversions::open3dToRos(std::get<0>(cloudTimePair), outCloud, slam_->frames_.rangeSensorFrame);
+  outCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
+  outBag.write("/registered_cloud", toRos(std::get<1>(cloudTimePair)), outCloud);
+
+  const ros::WallTime arbitrarySleep{ros::WallTime::now() + ros::WallDuration(slam_->relativeSleepDuration_)};
+  ros::WallTime::sleepUntil(arbitrarySleep);
 
   return true;
 }
@@ -663,24 +686,29 @@ bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded(){
   }
 }
 
-void RosbagRangeDataProcessorRos::processRosbag() {
+bool RosbagRangeDataProcessorRos::processRosbag() {
   std::vector<std::string> topics;
 
   // Currently investigating if we really need clock or can we live without it.
   topics.push_back(clockTopic_);
-
   topics.push_back(cloudTopic_);
-  if (slam_->useSyncedPoses_){
-    // This is currently very specific
-    topics.push_back(poseStampedTopic_);
-  }else{
-    // This is alternating between different common ROS msg types. I.e. poseStampedWithCovariance and Odometry
-    topics.push_back(slam_->asyncOdometryTopic_);
+  topics.push_back(tfStaticTopic_);
+
+  if (slam_->isUsingOdometryTopic()){
+    if (slam_->useSyncedPoses_){
+      // This is currently very specific
+      topics.push_back(poseStampedTopic_);
+    }else{
+      // This is alternating between different common ROS msg types. I.e. poseStampedWithCovariance and Odometry
+      topics.push_back(slam_->asyncOdometryTopic_);
+    }
   }
   
-  topics.push_back(tfStaticTopic_);
-  //TODO TT Parametrize this
-  //topics.push_back(tfTopic_);
+  if (slam_->rePublishTf_)
+  {
+    ROS_INFO_STREAM( "\033[33m" << " So you like living risky? Tf will be republished. It is YOUR responsibility to ensure there is no frame duplication." << "\033[39m");
+    topics.push_back(tfTopic_);
+  }
 
   Timer rosbagTimer;
 
@@ -690,15 +718,13 @@ void RosbagRangeDataProcessorRos::processRosbag() {
     bag.open(rosbagFilename_, rosbag::bagmode::Read);
   } catch (const rosbag::BagIOException& e) {
     ROS_ERROR_STREAM("Error opening ROS bag: '" << rosbagFilename_ << "'");
-    return;
+    return false;
   }
   ROS_INFO_STREAM("ROS bag '" << rosbagFilename_ << "' open.");
 
-
   if (!validateTopicsInRosbag(bag, topics)) {
-    ROS_ERROR("FAILED TO SUCCESSFULLY VALIDATE THE ROSBAG.");
     bag.close();
-    return;
+    return false;
   }
 
   ROS_INFO_STREAM( "\033[92m" << " Here wo go... " << "\033[0m");
@@ -718,7 +744,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
   for (const auto& messageInstance : view) {
     // If the node is shutdown, stop processing and do early return.
     if (!ros::ok()) {
-      return;
+      return false;
     }
 
     if (!slamInputs) {
@@ -745,12 +771,12 @@ void RosbagRangeDataProcessorRos::processRosbag() {
         }else{
           ROS_ERROR("clockMsgs not initialized something is wrong.");
           isInvalidMessageInBag = true;
-          return;
+          return false;
         }
 
 
       } else if ((messageInstance.getDataType() == "nav_msgs/Odometry") || (messageInstance.getDataType()== "geometry_msgs/PoseWithCovarianceStamped")){
-        ROS_WARN_STREAM_THROTTLE(1.0, "Using async odometry topic as clock master. This is sub-optimal. Topic: " << clockTopic_);
+        ROS_WARN_STREAM_ONCE("SHOWN ONCE: Using async odometry topic as clock master. This is sub-optimal. Topic: " << clockTopic_);
 
         rosgraph_msgs::Clock clockMessage;// = messageInstance.instantiate<rosgraph_msgs::Clock>();
         clockMessage.clock = messageInstance.getTime();
@@ -760,7 +786,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
 
       }else{
         ROS_ERROR("This type of clock alternative is not supported");
-        return;
+        return false;
       }
 
       //rosgraph_msgs::Clock::ConstPtr clockMessage = messageInstance.instantiate<rosgraph_msgs::Clock>();
@@ -772,7 +798,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
         // Spins once here.
         if(!readCalibrationIfNeeded()){
           ROS_ERROR("Calibration failed to read. Exiting.");
-          return;
+          return false;
         }
 
         // Align the clock and the bag time.
@@ -784,7 +810,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
             timeDiff_ = view.getBeginTime() - tracker;
           }
           
-          ROS_DEBUG_STREAM("The calculated time difference between the clock and bag is: " << timeDiff_.toNSec() / 1000000u << "ms");
+          ROS_INFO_STREAM("The calculated time difference between the clock and bag is: " << timeDiff_.toNSec() / 1000000u << "ms");
         }
 
         // Skip processes based on the required bag start time.
@@ -865,7 +891,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
             ROS_ERROR("Tracked frame and PC frame are not same. This is not supported yet." );
             ROS_ERROR_STREAM("Tracked frame: " << slam_->frames_.rangeSensorFrame << " and PC frame: " << slamInputs->pointCloud_->header.frame_id);
             ROS_ERROR("Terminating the replayer node.");
-            return;
+            return false;
           }
         }
 
@@ -895,6 +921,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
         } else {
           isInvalidMessageInBag = true;
           ROS_WARN("Invalid message found in ROS bag.");
+          return false;
         }
       }
     }else{
@@ -916,8 +943,8 @@ void RosbagRangeDataProcessorRos::processRosbag() {
             if (isFirstMessage_ && isStaticTransformFound_)
             {
 
-              std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(odomPose.pose)) << " \n" << "\033[0m";
-              std::cout << " Initial Transform time: " << "\033[92m" << toString(fromRos(message->header.stamp)) << " \n" << "\033[0m";
+              //std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(odomPose.pose)) << " \n" << "\033[0m";
+              //std::cout << " Initial Transform time: " << "\033[92m" << toString(fromRos(message->header.stamp)) << " \n" << "\033[0m";
 
               geometry_msgs::PoseStamped initialPose = odomPose_transformed;
 
@@ -927,19 +954,20 @@ void RosbagRangeDataProcessorRos::processRosbag() {
               initialPose.pose.orientation.y=0.0;
               initialPose.pose.orientation.x=0.0;
               ROS_INFO("Initial Transform is set. Nice.");
-              std::cout << " Initial Transform value: " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(initialPose.pose)) << " \n" << "\033[0m";
+              std::cout << " Initial Transform value (Rotation enforced to be Identity): " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(initialPose.pose)) << " \n" << "\033[0m";
               slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose).matrix());
               isFirstMessage_ = false;
             }
 
             if(!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose), fromRos(message->header.stamp)))){
-              ROS_WARN("Couldn't add pose to buffer. This is not unexpected, you should be concerned.");
-              return;
+              ROS_ERROR("Couldn't add pose to buffer. This is not unexpected, you should be concerned.");
+              return false;
             }
 
           } else {
             isInvalidMessageInBag = true;
             ROS_WARN("Invalid message found in Rosbag, you are allowed to panic.");
+            return false;
           }
 
         }else if (messageInstance.getDataType() == "nav_msgs/Odometry")
@@ -968,8 +996,8 @@ void RosbagRangeDataProcessorRos::processRosbag() {
               }
 
               if(!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))){
-                ROS_WARN("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
-                //return;
+                ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+                return false;
               }
 
             }else {
@@ -979,16 +1007,18 @@ void RosbagRangeDataProcessorRos::processRosbag() {
         }else
         {
           ROS_WARN("This msg type is not supported yet. Exiting.");
-          return;
+          return false;
         }
       } // else
     }
 
-    if (slam_->useSyncedPoses_){
-      // Expecting sync odometry and PC.
-      if (slamInputs && slamInputs->pointCloud_ && slamInputs->odometryPose_ &&
-          slamInputs->pointCloud_->header.stamp == slamInputs->odometryPose_->header.stamp) {
-        slamInputsBuffer.emplace_back(std::move(slamInputs));
+    if (slam_->isUsingOdometryTopic()){
+      if (slam_->useSyncedPoses_){
+        // Expecting sync odometry and PC.
+        if (slamInputs && slamInputs->pointCloud_ && slamInputs->odometryPose_ &&
+            slamInputs->pointCloud_->header.stamp == slamInputs->odometryPose_->header.stamp) {
+          slamInputsBuffer.emplace_back(std::move(slamInputs));
+        }
       }
     }
 
@@ -1030,7 +1060,7 @@ void RosbagRangeDataProcessorRos::processRosbag() {
 
   slam_->offlineFinishProcessing();
 
-  return;
+  return true;
 } 
 
 }  // namespace o3d_slam

@@ -878,7 +878,7 @@ void SlamWrapper::mappingWorker() {
       measurement.cloud_ = *undistortedCloud;
     }
     if (!odometry_->getBuffer().has(measurement.time_)) {
-      std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
+      std::cout << "[O3D_slam] Weird, the odom buffer does not seem to have the transform. Latency of odometry might be high. Still trying. \n";
       std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
       const auto& b = odometry_->getBuffer();
       std::cout << "earliest: " << toSecondsSinceFirstMeasurement(b.earliest_time()) << std::endl;

@@ -12,7 +12,7 @@
 
 namespace o3d_slam {
 
-TransformInterpolationBuffer::TransformInterpolationBuffer() : TransformInterpolationBuffer(2000) {}
+TransformInterpolationBuffer::TransformInterpolationBuffer() : TransformInterpolationBuffer(500) {}
 
 TransformInterpolationBuffer::TransformInterpolationBuffer(size_t bufferSize) {
   setSizeLimit(bufferSize);

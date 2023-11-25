@@ -301,6 +301,9 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   // Offline advanced parameters
   exportIMUdata_ = nh_->param<bool>("export_imu_data", false);
   useSyncedPoses_ = nh_->param<bool>("use_syncronized_poses_to_replay", false);
+  rePublishTf_ = nh_->param<bool>("republish_tf_topic", false);
+  
+  relativeSleepDuration_ = nh_->param<double>("relative_sleep_duration", 0.0);
   bagReplayStartTime_ = nh_->param<double>("replay_start_time_as_second", 0.0);
   bagReplayEndTime_ = nh_->param<double>("replay_end_time_as_second", 8000.0);
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
@@ -310,7 +313,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   
   if (isOfflineReplay){
     ROS_INFO_STREAM("\033[92m" << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-    ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame << "\033[0m");
+    //ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame << "\033[0m");
     ROS_INFO_STREAM( "Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
   }
   

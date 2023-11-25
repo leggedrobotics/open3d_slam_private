@@ -138,10 +138,12 @@ class SlamWrapper {
 
   // If set to true, expects odometry msgs in the replayed rosbag to be exactly synced with the pointclouds.
   bool useSyncedPoses_ = false;
+  bool rePublishTf_ = false;
 
   // The start and end time for the rosbag replay. In seconds.
   double bagReplayStartTime_ = 0.0;
-  double bagReplayEndTime_ = 0.0; 
+  double bagReplayEndTime_ = 0.0;
+  double relativeSleepDuration_ = 0.0;
 
   // The variable for asyncronized odometry pose msgs. Used for rosbag replay.
   std::string asyncOdometryTopic_{"/state_estimator/pose_in_odom"};

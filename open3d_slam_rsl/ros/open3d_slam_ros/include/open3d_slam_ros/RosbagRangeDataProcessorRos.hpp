@@ -89,7 +89,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
  private:
   void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
-  void processRosbag();
+  bool processRosbag();
 
   std::string rosbagFilename_;
 
@@ -102,7 +102,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   std::ofstream imuFile_;
   std::string asyncOdometryFrame_;
 
-  std::string buildUpLogFilename(const std::string& typeSuffix);
+  std::string buildUpLogFilename(const std::string& typeSuffix, const std::string& extension = ".txt");
   bool createOutputDirectory();
   visualization_msgs::MarkerArray convertPathToMarkerArray(const nav_msgs::Path& path);
   visualization_msgs::Marker createLineStripMarker();
@@ -151,6 +151,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   bool isStaticTransformFound_ = false;
 
   ros::Duration timeDiff_;
+  rosbag::Bag outBag;
 
   geometry_msgs::TransformStamped baseToLidarTransform_;
   std::string odometryHeader_{"/bestHeaderThereis"};

@@ -5,10 +5,14 @@
   <!-- Common Options:  -->
   <!--        /point_cloud_filter/lidar_depth_camera/point_cloud_filtered   -->
   <!--        /lidar/point_cloud  -->
+  <!--        /hesai/pandar  -->
   <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/>
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of <frame> in external odometry frame` -->
+<!-- Common Options:  -->
+  <!--   base   -->
+  <!--   zed2i_base_link  -->
   <arg name="assumed_external_odometry_tracked_frame" default="base"/>
 
   <!-- Arguments -->
@@ -19,7 +23,7 @@
   <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-  <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
+  <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
   <arg name="map_saving_folder" default="$(find open3d_slam_ros)/data/maps/"/>
   <arg name="num_accumulated_range_data" default="1"/>
