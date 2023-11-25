@@ -6,21 +6,21 @@
  */
 
 #pragma once
-#include <nav_msgs/Odometry.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <nav_msgs/Odometry.h>
+#include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 #include <memory>
 #include "open3d_slam/SlamWrapper.hpp"
+#include "open3d_slam/output.hpp"
 #include "open3d_slam_ros/DataProcessorRos.hpp"
 #include "open3d_slam_ros/ImuBuffer.hpp"
-#include "open3d_slam/output.hpp"
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/transform_broadcaster.h>
 
 namespace o3d_slam {
 
@@ -50,9 +50,9 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
   void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_ptr);
   void publishAddedImuMeas_(const Eigen::Matrix<double, 6, 1>& addedImuMeas, const ros::Time& stamp);
 
-  //std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+  // std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
   tf2_ros::Buffer tfBuffer_;
-	tf2_ros::TransformListener tfListener_;
+  tf2_ros::TransformListener tfListener_;
 
   ros::Subscriber cloudSubscriber_;
   ros::Subscriber odometrySubscriber_;
@@ -69,10 +69,9 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
   bool isStaticTransformFound_ = false;
 
   std::shared_ptr<ImuBuffer> imuBufferPtr_;
-	//tf2_ros::Buffer tfBuffer_;
-	//tf2_ros::TransformListener tfListener_;
-  //std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
-
+  // tf2_ros::Buffer tfBuffer_;
+  // tf2_ros::TransformListener tfListener_;
+  // std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
 };
 
 }  // namespace o3d_slam

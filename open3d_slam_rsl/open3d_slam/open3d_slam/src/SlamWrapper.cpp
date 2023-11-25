@@ -63,17 +63,16 @@ SlamWrapper::~SlamWrapper() {
     unifiedWorker_.join();
     std::cout << "Joined unifiedWorker_ worker \n";
   }
-  
+
   if (unifiedWorkerOdom_.joinable()) {
     unifiedWorkerOdom_.join();
     std::cout << "Joined unifiedWorkerOdom_ worker \n";
   }
 
-    if (unifiedWorkerMap_.joinable()) {
+  if (unifiedWorkerMap_.joinable()) {
     unifiedWorkerMap_.join();
     std::cout << "Joined unifiedWorkerMap_ worker \n";
   }
-
 
   std::cout << "    Scan insertion: Avg execution time: " << mapperOnlyTimer_.getAvgMeasurementMsec()
             << " msec , frequency: " << 1e3 / mapperOnlyTimer_.getAvgMeasurementMsec() << " Hz \n";
@@ -119,21 +118,19 @@ size_t SlamWrapper::getMappingBufferSizeLimit() const {
   return mappingBuffer_.size_limit();
 }
 
-void SlamWrapper::appendPoseToTrackedPath(geometry_msgs::PoseStamped transform){
+void SlamWrapper::appendPoseToTrackedPath(geometry_msgs::PoseStamped transform) {
   mapper_->trackedPath_.poses.push_back(transform);
 }
 
 bool SlamWrapper::isExternalOdometryFrameToCloudFrameCalibrationSet() {
-
   return mapper_->isCalibrationSet_;
 }
 
 Transform SlamWrapper::getExternalOdometryFrameToCloudFrameCalibration() {
-
   return mapper_->calibration_;
 }
 
-void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform){
+void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform) {
   mapper_->bestGuessPath_.poses.push_back(transform);
 }
 
@@ -162,10 +159,10 @@ bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time
     }
   }
 
-  //std::cout << "The odometry transform time I am trying to add is: " <<  o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl ;
+  // std::cout << "The odometry transform time I am trying to add is: " <<  o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl
+  // ;
   odometry_->odomToRangeSensorBuffer_.push(timestamp, transform);
   return true;
-
 }
 
 // this is a function that returns a boolean whether the use odometry topic or not using the parameters.
@@ -176,13 +173,13 @@ bool SlamWrapper::isUsingOdometryTopic() const {
 bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const Time timestamp) {
   // Set the time regardless of whats going to happen next.
   updateFirstMeasurementTime(timestamp);
-  
+
   // Doesn't make sense to add the measurement if the pose buffer is empty.
   if ((params_.odometry_.useOdometryTopic_) && (odometry_->odomToRangeSensorBuffer_.empty())) {
     std::cerr << "open3d_slam: You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
     return false;
   }
-  
+
   if (!odometryBuffer_.empty()) {
     const auto latestTime = odometryBuffer_.peek_back().time_;
     if (timestamp < latestTime) {
@@ -190,7 +187,7 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
       return false;
     }
   }
-  
+
   if (!odometry_->odomToRangeSensorBuffer_.empty()) {
     const auto earliestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.earliest_time();
     if (timestamp < earliestAvailableOdometryTime) {
@@ -203,9 +200,9 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
 
   auto removedNans = removePointsWithNonFiniteValues(cloud);
   const TimestampedPointCloud timestampedCloud{timestamp, *removedNans};
-  
+
   // Push measurement to the odometry buffer
-  //std::cout << "The scan time I am trying to add is: " <<  o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl ;
+  // std::cout << "The scan time I am trying to add is: " <<  o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl ;
 
   odometryBuffer_.push(timestampedCloud);
   return true;
@@ -230,26 +227,24 @@ std::tuple<Time, Transform> SlamWrapper::getLatestRegistrationBestGuess() const 
 }
 
 void SlamWrapper::setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform) {
-  //Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(0, 0.364, -0.1422) * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ());
-  //Not thread safe?
+  // Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(0, 0.364, -0.1422) * Eigen::AngleAxisd(M_PI / 2,
+  // Eigen::Vector3d::UnitZ()); Not thread safe?
   mapper_->calibration_ = transform.matrix();
   mapper_->isCalibrationSet_ = true;
   return;
 }
 
 TimestampedTransform SlamWrapper::getLatestMapToRangeMeasurement() const {
-
-  if (mapper_->getMapToRangeSensorBuffer().empty()){
+  if (mapper_->getMapToRangeSensorBuffer().empty()) {
     return TimestampedTransform();
   }
-  
+
   auto latestMapToRangeMeasurement_ = mapper_->getMapToRangeSensorBuffer().latest_measurement();
   return latestMapToRangeMeasurement_;
 }
 
 TimestampedTransform SlamWrapper::getLatestOdometryPoseMeasurement() const {
-
-  if (odometry_->getBuffer().empty()){
+  if (odometry_->getBuffer().empty()) {
     ROS_ERROR("Odometry buffer is empty! Returning empty transform.");
     return TimestampedTransform();
   }
@@ -301,12 +296,11 @@ void SlamWrapper::finishProcessing() {
 }
 
 void SlamWrapper::offlineFinishProcessing() {
-
   if (!mappingBuffer_.empty()) {
     std::cout << "  Waiting for the mapping buffer to be emptied \n";
     return;
   }
-  
+
   std::cout << "Finishing all submaps! \n";
   numLatesLoopClosureConstraints_ = -1;
   submaps_->forceNewSubmapCreation();
@@ -350,11 +344,11 @@ void SlamWrapper::setMapSavingDirectoryPath(const std::string& path) {
   mapSavingFolderPath_ = path;
 }
 
-void SlamWrapper::offlineTfWorker(){
+void SlamWrapper::offlineTfWorker() {
   std::cout << "Starting offline tf worker! \n";
 }
 
-void SlamWrapper::offlineVisualizationWorker(){
+void SlamWrapper::offlineVisualizationWorker() {
   std::cout << "Starting offline visualization worker! \n";
 }
 
@@ -386,7 +380,7 @@ void SlamWrapper::loadParametersAndInitialize() {
     motionCompensationMap_ = motionCompMap;
   }
 
-  // Set the buffer sizes. This is not done in the constructer 
+  // Set the buffer sizes. This is not done in the constructer
   odometryBuffer_.set_size_limit(params_.odometry_.odometryBufferSize_);
   mappingBuffer_.set_size_limit(params_.mapper_.mappingBufferSize_);
   registeredCloudBuffer_.set_size_limit(params_.odometry_.scanProcessing_.pointCloudBufferSize_);
@@ -411,56 +405,52 @@ void SlamWrapper::setInitialTransform(const Eigen::Matrix4d initialTransform) {
 }
 
 bool SlamWrapper::isInitialTransformSet() {
-
   bool total = mapper_->isNewInitialValueSet_ && odometry_->isInitialTransformSet_;
-  //std::cerr << "Mapper is set: " << mapper_->isNewInitialValueSet_<< " \n";
-  //std::cerr << "Odometry is set: " << odometry_->isInitialTransformSet_ << " \n";
+  // std::cerr << "Mapper is set: " << mapper_->isNewInitialValueSet_<< " \n";
+  // std::cerr << "Odometry is set: " << odometry_->isInitialTransformSet_ << " \n";
 
   return total;
 }
 
 void SlamWrapper::callofflineOdometryWorker() {
-
   offlineOdometryWorker();
 
   return;
 }
 
 void SlamWrapper::callofflineMappingWorker() {
-
   offlineMappingWorker();
 
   return;
 }
 
 void SlamWrapper::callofflineLoopClosureWorker() {
-
   offlineLoopClosureWorker();
 
   return;
 }
 
 void SlamWrapper::usePairForRegistration() {
-  //std::cout << " Called pair for regist" << std::endl;
+  // std::cout << " Called pair for regist" << std::endl;
   offlineOdometryWorker();
-  //std::cout << " Done with odometry" << std::endl;
+  // std::cout << " Done with odometry" << std::endl;
   offlineMappingWorker();
-  //std::cout << " Done with mapping" << std::endl;
+  // std::cout << " Done with mapping" << std::endl;
   offlineLoopClosureWorker();
-  //std::cout << " Done with loop" << std::endl;
+  // std::cout << " Done with loop" << std::endl;
 }
 
 void SlamWrapper::startWorkers() {
   // This is single threaded.
-  //unifiedWorker_ = std::thread([this]() { unifiedWorker(); });
+  // unifiedWorker_ = std::thread([this]() { unifiedWorker(); });
 
   // This is the new-multi threaded.
   unifiedWorkerOdom_ = std::thread([this]() { unifiedWorkerOdom(); });
   unifiedWorkerMap_ = std::thread([this]() { unifiedWorkerMap(); });
 
   // Old threads for reference.
-  //odometryWorker_ = std::thread([this]() { odometryWorker(); });
-  //mappingWorker_ = std::thread([this]() { mappingWorker(); });
+  // odometryWorker_ = std::thread([this]() { odometryWorker(); });
+  // mappingWorker_ = std::thread([this]() { mappingWorker(); });
   if (params_.mapper_.isAttemptLoopClosures_) {
     loopClosureWorker_ = std::thread([this]() { loopClosureWorker(); });
   }
@@ -499,7 +489,6 @@ bool SlamWrapper::isOdometryPoseBufferEmpty() {
 }
 
 void SlamWrapper::offlineOdometryWorker() {
-
   if (!odometry_->getBuffer().empty()) {
     const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
     latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
@@ -507,7 +496,7 @@ void SlamWrapper::offlineOdometryWorker() {
 
   if (odometryBuffer_.empty()) {
     // This is the point cloud measurements, not pose.
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1));
     std::cerr << "Odometry buffer empty" << std::endl;
     return;
   }
@@ -523,14 +512,14 @@ void SlamWrapper::offlineOdometryWorker() {
 
   mappingBuffer_.push(measurement);
 
-  // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of the lidar.
+  // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of
+  // the lidar.
   const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
   latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
   return;
 }
 
 void SlamWrapper::unifiedWorkerOdom() {
-
   while (isRunWorkers_) {
     // Now replicating offline workers.
 
@@ -556,15 +545,14 @@ void SlamWrapper::unifiedWorkerOdom() {
 
     mappingBuffer_.push(measurement);
 
-    // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of the lidar.
+    // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of
+    // the lidar.
     const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
     latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
   }
-
 }
 
 void SlamWrapper::unifiedWorkerMap() {
-
   while (isRunWorkers_) {
     // Mapping worker start
     if (mappingBuffer_.empty()) {
@@ -606,7 +594,6 @@ void SlamWrapper::unifiedWorkerMap() {
       bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
       bestGuess.targetFrame_ = frames_.mapFrame;
       registrationBestGuessBuffer_.push(bestGuess);
-      
     }
 
     if (params_.mapper_.isAttemptLoopClosures_) {
@@ -615,12 +602,10 @@ void SlamWrapper::unifiedWorkerMap() {
     }
 
     checkIfOptimizedGraphAvailable();
-
   }
 }
 
 void SlamWrapper::unifiedWorker() {
-
   while (isRunWorkers_) {
     if (!odometry_->getBuffer().empty()) {
       const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
@@ -644,10 +629,11 @@ void SlamWrapper::unifiedWorker() {
 
     mappingBuffer_.push(measurement);
 
-    // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of the lidar.
+    // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of
+    // the lidar.
     const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
     latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
-    
+
     // Mapping worker start
     if (mappingBuffer_.empty()) {
       continue;
@@ -680,7 +666,7 @@ void SlamWrapper::unifiedWorker() {
       registeredCloudBuffer_.push(registeredCloud);
       latestScanToMapRefinementTimestamp_ = measurement_map.time_;
 
-      if ((!mapper_->isRegistrationBestGuessBufferEmpty())){
+      if ((!mapper_->isRegistrationBestGuessBufferEmpty())) {
         ScanToMapRegistrationBestGuess bestGuess;
         bestGuess.time_ = measurement_map.time_;
         bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement_map.time_);
@@ -694,10 +680,8 @@ void SlamWrapper::unifiedWorker() {
 
 // Scan2Scan Odometry Worker
 void SlamWrapper::odometryWorker() {
-
   while (isRunWorkers_) {
-
-    //if (!odometry_->getBuffer().empty()) {
+    // if (!odometry_->getBuffer().empty()) {
     //  const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
     //  latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
     //}
@@ -707,7 +691,7 @@ void SlamWrapper::odometryWorker() {
       continue;
     }
 
-    //odometryStatisticsTimer_.startStopwatch();
+    // odometryStatisticsTimer_.startStopwatch();
     const TimestampedPointCloud measurement = odometryBuffer_.pop();
     auto undistortedCloud = motionCompensationOdom_->undistortInputPointCloud(measurement.cloud_, measurement.time_);
 
@@ -722,7 +706,8 @@ void SlamWrapper::odometryWorker() {
       continue;
     }
 
-    // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of the lidar.
+    // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of
+    // the lidar.
     const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
     latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
 
@@ -737,7 +722,6 @@ void SlamWrapper::odometryWorker() {
 }
 
 bool SlamWrapper::doesOdometrybufferHasMeasurement(const Time& t) {
-
   bool success = odometry_->getBuffer().has(t);
   if (!success) {
     std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
@@ -753,7 +737,6 @@ bool SlamWrapper::doesOdometrybufferHasMeasurement(const Time& t) {
 
 // Offline Scan2Map Mapping Worker
 void SlamWrapper::offlineMappingWorker() {
-
   if (mappingBuffer_.empty()) {
     return;
   }
@@ -773,14 +756,14 @@ void SlamWrapper::offlineMappingWorker() {
   const size_t activeSubmapIdx = mapper_->getActiveSubmap().getId();
 
   mapperOnlyTimer_.startStopwatch();
-  
+
   // Entry point to the mapper. Also does the registration.
   const bool mappingResult = mapper_->addRangeMeasurement(measurement.cloud_, measurement.time_);
 
   const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
   mapperOnlyTimer_.addMeasurementMsec(timeElapsed);
 
-  //std::cout << " Last Scan to Map registration: " << "\033[92m" << timeElapsed
+  // std::cout << " Last Scan to Map registration: " << "\033[92m" << timeElapsed
   //          << " msec , frequency: " << 1e3 / mapperOnlyTimer_.getAvgMeasurementMsec() << " Hz \n" << "\033[0m";
 
   if (mappingResult) {
@@ -793,14 +776,13 @@ void SlamWrapper::offlineMappingWorker() {
     registeredCloudBuffer_.push(registeredCloud);
     latestScanToMapRefinementTimestamp_ = measurement.time_;
 
-    if ((!mapper_->isRegistrationBestGuessBufferEmpty())){
+    if ((!mapper_->isRegistrationBestGuessBufferEmpty())) {
       ScanToMapRegistrationBestGuess bestGuess;
       bestGuess.time_ = measurement.time_;
       bestGuess.transform_ = mapper_->getRegistrationBestGuess(measurement.time_);
       bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
       bestGuess.targetFrame_ = frames_.mapFrame;
       registrationBestGuessBuffer_.push(bestGuess);
-
     }
   }
 
@@ -816,12 +798,11 @@ void SlamWrapper::offlineMappingWorker() {
 }
 
 void SlamWrapper::offlineLoopClosureWorker() {
-
   if (loopClosureCandidates_.empty() || isOptimizedGraphAvailable_) {
     return;
   }
 
-  //std::cout << "Attempting loop closures (offline)! \n";
+  // std::cout << "Attempting loop closures (offline)! \n";
 
   Constraints loopClosureConstraints;
   {
@@ -857,7 +838,6 @@ void SlamWrapper::offlineLoopClosureWorker() {
     lastLoopClosureConstraints_ = loopClosureConstraints;
     isOptimizedGraphAvailable_ = true;
   }
-
 }
 
 // Scan2Map Mapping Worker
@@ -878,7 +858,8 @@ void SlamWrapper::mappingWorker() {
       measurement.cloud_ = *undistortedCloud;
     }
     if (!odometry_->getBuffer().has(measurement.time_)) {
-      std::cout << "[O3D_slam] Weird, the odom buffer does not seem to have the transform. Latency of odometry might be high. Still trying. \n";
+      std::cout
+          << "[O3D_slam] Weird, the odom buffer does not seem to have the transform. Latency of odometry might be high. Still trying. \n";
       std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
       const auto& b = odometry_->getBuffer();
       std::cout << "earliest: " << toSecondsSinceFirstMeasurement(b.earliest_time()) << std::endl;
@@ -971,8 +952,8 @@ void SlamWrapper::denseMapWorker() {
 }
 
 void SlamWrapper::computeFeaturesIfReady() {
-  //std::cout << "Finished number of submaps: " << submaps_->numFinishedSubmaps() << std::endl;
-  //std::cout << "Is computing features: " << submaps_->isComputingFeatures() << std::endl;
+  // std::cout << "Finished number of submaps: " << submaps_->numFinishedSubmaps() << std::endl;
+  // std::cout << "Is computing features: " << submaps_->isComputingFeatures() << std::endl;
   if (submaps_->numFinishedSubmaps() > 0 && !submaps_->isComputingFeatures()) {
     computeFeaturesResult_ = std::async(std::launch::async, [this]() {
       const auto finishedSubmapIds = submaps_->popFinishedSubmapIds();
@@ -985,7 +966,7 @@ void SlamWrapper::attemptLoopClosuresIfReady() {
   const auto timeout = std::chrono::milliseconds(0);
   if (computeFeaturesResult_.valid() && computeFeaturesResult_.wait_for(timeout) == std::future_status::ready) {
     computeFeaturesResult_.get();  // consume the future
-    //std::cout << "Number of Loop closure Candidates: " << submaps_->numLoopClosureCandidates() << std::endl;
+    // std::cout << "Number of Loop closure Candidates: " << submaps_->numLoopClosureCandidates() << std::endl;
     if (submaps_->numLoopClosureCandidates() > 0) {
       const auto lcc = submaps_->popLoopClosureCandidates();
       loopClosureCandidates_.insert(lcc.begin(), lcc.end());

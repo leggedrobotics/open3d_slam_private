@@ -49,7 +49,7 @@ PointCloudPtr ScanToMapIcp::reducedPreprocess(const PointCloud& in) const {
 
   // TODO(TT) Check if the order of this operations matter this is okay or have any benefits. (Currently switched from original)
   o3d_slam::voxelize(params_.scanProcessing_.voxelSize_, croppedCloud.get());
-  
+
   // For reproducability, random rownsampling must be disabled. i.e. set the ratio to 1.0
   return croppedCloud->RandomDownSample(params_.scanProcessing_.downSamplingRatio_);
 }
@@ -86,7 +86,6 @@ PointCloudPtr ScanToMapIcp::getCroppedCloud(const PointCloudPtr& in) const {
   assert_gt<int>(narrowCropped->points_.size(), 0, "ScanToMapIcp::narrow cropped size is zero");
   return narrowCropped;
 }
-
 
 PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor) const {
   const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();

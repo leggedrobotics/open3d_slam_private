@@ -17,8 +17,8 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/MarkerArray.h>
-#include "open3d_slam/time.hpp"
 #include "open3d_slam/Transform.hpp"
+#include "open3d_slam/time.hpp"
 
 namespace o3d_slam {
 
@@ -59,12 +59,16 @@ void publishIfSubscriberExists(const Msg& msg, const ros::Publisher& pub) {
 // Repeated functionality from GraphMsfRos by Julian Nubert. Subject to its license.
 template <typename T>
 inline void printKey(const std::string& key, T value) {
-  std::cout << "\033[92m" << "Open3d SLAM " << "\033[0m" << key << "  set to: " << value << std::endl;
+  std::cout << "\033[92m"
+            << "Open3d SLAM "
+            << "\033[0m" << key << "  set to: " << value << std::endl;
 }
 
 template <>
 inline void printKey(const std::string& key, std::vector<double> vector) {
-  std::cout << "\033[92m" << "Open3d SLAM " << "\033[0m" << key << " set to: ";
+  std::cout << "\033[92m"
+            << "Open3d SLAM "
+            << "\033[0m" << key << " set to: ";
   for (const auto& element : vector) {
     std::cout << element << ",";
   }

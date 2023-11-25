@@ -6,16 +6,16 @@
  */
 
 #include "open3d_slam_ros/RosbagRangeDataProcessorRos.hpp"
-#include "open3d_conversions/open3d_conversions.h"
-#include "open3d_slam_ros/SlamWrapperRos.hpp"
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <filesystem>
 #include <open3d/io/PointCloudIO.h>
 #include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <tf2/convert.h>
 #include <tf2_eigen/tf2_eigen.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <filesystem>
+#include "open3d_conversions/open3d_conversions.h"
+#include "open3d_slam_ros/SlamWrapperRos.hpp"
 
 #include <rosbag/view.h>
 #include "open3d_slam/time.hpp"
@@ -47,15 +47,24 @@ void RosbagRangeDataProcessorRos::initialize() {
   timeDiff_ = ros::Duration(0.0);
 
   // Provide questionare.
-  ROS_INFO_STREAM( "\033[33m" << " Did you check the odometry topic frame? " << "\033[39m");
-  ROS_INFO_STREAM( "\033[33m" << " Did you check the check if loopclosure enabled? " << "\033[39m");
-  ROS_INFO_STREAM( "\033[33m" << " Is clock available in your bag? " << "\033[39m");
-  ROS_INFO_STREAM( "\033[33m" << " Did you pray this works? " << "\033[39m");
-  ROS_INFO_STREAM( "\033[33m" << " Did you check if tf_static exists in your bag? " << "\033[39m");
+  ROS_INFO_STREAM("\033[33m"
+                  << " Did you check the odometry topic frame? "
+                  << "\033[39m");
+  ROS_INFO_STREAM("\033[33m"
+                  << " Did you check the check if loopclosure enabled? "
+                  << "\033[39m");
+  ROS_INFO_STREAM("\033[33m"
+                  << " Is clock available in your bag? "
+                  << "\033[39m");
+  ROS_INFO_STREAM("\033[33m"
+                  << " Did you pray this works? "
+                  << "\033[39m");
+  ROS_INFO_STREAM("\033[33m"
+                  << " Did you check if tf_static exists in your bag? "
+                  << "\033[39m");
 
   const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(2.0)};
   ros::WallTime::sleepUntil(first);
-
 }
 
 bool RosbagRangeDataProcessorRos::createOutputDirectory() {
@@ -77,14 +86,13 @@ bool RosbagRangeDataProcessorRos::createOutputDirectory() {
 }
 
 std::string RosbagRangeDataProcessorRos::buildUpLogFilename(const std::string& typeSuffix, const std::string& extension) {
-
   ros::WallTime stamp = ros::WallTime::now();
   std::stringstream ss;
   ss << stamp.sec << "_" << stamp.nsec;
 
   // Add prefixes.
   // Not sure if adding time is the best thing to do since we dont keep a ring buffer.
-  //std::string filename = slam_->mapSavingFolderPath_ + typeSuffix + ss.str() + extension;
+  // std::string filename = slam_->mapSavingFolderPath_ + typeSuffix + ss.str() + extension;
   std::string filename = slam_->mapSavingFolderPath_ + typeSuffix + extension;
 
   return filename;
@@ -116,7 +124,7 @@ visualization_msgs::Marker RosbagRangeDataProcessorRos::createLineStripMarker() 
 }
 
 o3d_slam::PointCloud RosbagRangeDataProcessorRos::lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array,
-                                                                                  const int num_samples) {
+                                                                        const int num_samples) {
   // Create point stream
   std::vector<Eigen::Vector3d> points;
 
@@ -151,12 +159,11 @@ visualization_msgs::MarkerArray RosbagRangeDataProcessorRos::convertPathToMarker
 }
 
 void RosbagRangeDataProcessorRos::calculateSurfaceNormals(o3d_slam::PointCloud& cloud) {
-  
   if (cloud.points_.size() == 0u) {
     ROS_ERROR_STREAM("Cloud is empty. Skipping the normal calculation.");
     return;
   }
-  
+
   // Create a KD-Tree and estimate surface normals.
   open3d::geometry::KDTreeSearchParamHybrid param(5, 20);
   cloud.EstimateNormals(param);
@@ -165,7 +172,6 @@ void RosbagRangeDataProcessorRos::calculateSurfaceNormals(o3d_slam::PointCloud& 
 }
 
 void RosbagRangeDataProcessorRos::exportIMUData() {
-  
   // An auxiliary function to save the IMU data, useful for offline operations.
   std::string IMUFilename_ = buildUpLogFilename("imu");
   std::remove(IMUFilename_.c_str());
@@ -199,14 +205,15 @@ void RosbagRangeDataProcessorRos::processRosbagForIMU() {
   }
   ROS_INFO_STREAM("ROS bag '" << rosbagFilename_ << "' open.");
 
-
   if (!validateTopicsInRosbag(bag, topics)) {
     ROS_ERROR("FAILED TO SUCCESSFULLY VALIDATE THE ROSBAG.");
     bag.close();
     return;
   }
 
-  ROS_INFO_STREAM( "\033[92m" << " Exporting IMU MSGs... " << "\033[0m");
+  ROS_INFO_STREAM("\033[92m"
+                  << " Exporting IMU MSGs... "
+                  << "\033[0m");
   const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(2.0)};
   ros::WallTime::sleepUntil(first);
 
@@ -222,7 +229,6 @@ void RosbagRangeDataProcessorRos::processRosbagForIMU() {
     if (messageInstance.getTopic() == topics[0]) {
       sensor_msgs::Imu::ConstPtr message = messageInstance.instantiate<sensor_msgs::Imu>();
       if (message != nullptr) {
-
         // msg->linear_acceleration.x
         sensor_msgs::Imu imuMsg = *message;
 
@@ -239,21 +245,22 @@ void RosbagRangeDataProcessorRos::processRosbagForIMU() {
 }
 
 void RosbagRangeDataProcessorRos::startProcessing() {
-
   if (!createOutputDirectory()) {
-    std::cout << "Couldn't create the directory " << "\n";
+    std::cout << "Couldn't create the directory "
+              << "\n";
     return;
   }
 
-  if (slam_->exportIMUdata_){
-
+  if (slam_->exportIMUdata_) {
     exportIMUData();
-    std::cout << "IMU Exporting is complete" << "\n";
+    std::cout << "IMU Exporting is complete"
+              << "\n";
 
     const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(10.0)};
     ros::WallTime::sleepUntil(first);
 
-    std::cout << "Sleeping 10 seconds.." << "\n";
+    std::cout << "Sleeping 10 seconds.."
+              << "\n";
   }
 
   std::string trackedPosesFilename_ = buildUpLogFilename("slam_poses");
@@ -271,8 +278,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   outBag.open(outBagPath_, rosbag::bagmode::Write);
 
   // Iterate and process the bag.
-  if (processRosbag())
-  {
+  if (processRosbag()) {
     // Create the magical tube.
     visualization_msgs::MarkerArray lineStrip = convertPathToMarkerArray(trackedPath_);
 
@@ -327,7 +333,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     }
 
     std::string nameWithCorrectSuffix = slam_->mapSavingFolderPath_ + "robotPathAsMesh.pcd";
-    //size_t found = nameWithCorrectSuffix.find(".pcd");
+    // size_t found = nameWithCorrectSuffix.find(".pcd");
 
     open3d::io::WritePointCloudToPCD(nameWithCorrectSuffix, tube_cloud, open3d::io::WritePointCloudOption());
     ROS_INFO_STREAM("Successfully saved the poses as point cloud. Waiting for user to terminate.");
@@ -350,59 +356,58 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
   for (const auto& topic : mandatoryTopics) {
     rosbag::View topicView(bag, rosbag::TopicQuery(topic));
     if (topicView.size() == 0u) {
-
-      if (topic == clockTopic_){
+      if (topic == clockTopic_) {
         // This means this is our second time coming here. So actually the the alternative topic is not working either.
-        if (topic == slam_->asyncOdometryTopic_)
-        {
-          ROS_ERROR_STREAM(clockTopic_<< " topic does not exist in the rosbag. This is breaking.");
+        if (topic == slam_->asyncOdometryTopic_) {
+          ROS_ERROR_STREAM(clockTopic_ << " topic does not exist in the rosbag. This is breaking.");
           areMandatoryTopicsInRosbag = false;
-        }else{
-          ROS_ERROR_STREAM(clockTopic_<< " topic does not exist in the rosbag. Using alternative topic: " << slam_->asyncOdometryTopic_ << " as clock.");
+        } else {
+          ROS_ERROR_STREAM(clockTopic_ << " topic does not exist in the rosbag. Using alternative topic: " << slam_->asyncOdometryTopic_
+                                       << " as clock.");
           clockTopic_ = slam_->asyncOdometryTopic_;
         }
 
-      }else if (topic == tfTopic_)
-      {
+      } else if (topic == tfTopic_) {
         ROS_WARN_STREAM("No data under the topic: " << topic << " was found. This was optional so okay.");
         continue;
-      }else if (topic == tfStaticTopic_)
-      {
-        ROS_WARN_STREAM("No data under the topic: " << topic << " was found. This is NOT optional. But if you make tf_static available external its okay.");
+      } else if (topic == tfStaticTopic_) {
+        ROS_WARN_STREAM("No data under the topic: "
+                        << topic << " was found. This is NOT optional. But if you make tf_static available external its okay.");
         continue;
-      }else{
+      } else {
         ROS_WARN_STREAM("No data under the topic: " << topic << " was found.");
         areMandatoryTopicsInRosbag = false;
-      } 
-    }else{
+      }
+    } else {
       if (topic == slam_->asyncOdometryTopic_) {
         // Get a view for the specific topic only
         rosbag::View view(bag, rosbag::TopicQuery(topic));
         for (const auto& messageInstance : view) {
-            if (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped")
-            {
-              ROS_WARN_STREAM(" ' " << topic << "' topic does not support automatic frame detection. Msg Type: " << messageInstance.getDataType() << ". Assumed tracked odometry frame: " << slam_->frames_.assumed_external_odometry_tracked_frame);
+          if (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped") {
+            ROS_WARN_STREAM(" ' " << topic
+                                  << "' topic does not support automatic frame detection. Msg Type: " << messageInstance.getDataType()
+                                  << ". Assumed tracked odometry frame: " << slam_->frames_.assumed_external_odometry_tracked_frame);
+            break;
+          } else if (messageInstance.getDataType() == "nav_msgs/Odometry") {
+            nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
+            if (message != nullptr) {
+              slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
+              ROS_WARN_STREAM(topic << " frame_id is: " << slam_->frames_.assumed_external_odometry_tracked_frame);
               break;
-            } else if (messageInstance.getDataType() == "nav_msgs/Odometry")
-            {
-              nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
-              if (message != nullptr) {
-                slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
-                ROS_WARN_STREAM(topic << " frame_id is: " <<  slam_->frames_.assumed_external_odometry_tracked_frame );
-                break;
-              } // if
-            }else{
-              ROS_ERROR_STREAM(topic << " msg type is NOT SUPPORTED" );
-              return false;
-            }
+            }  // if
+          } else {
+            ROS_ERROR_STREAM(topic << " msg type is NOT SUPPORTED");
+            return false;
+          }
 
-        } // for
-      } // if
-    } // if
-  } // for
+        }  // for
+      }    // if
+    }      // if
+  }        // for
 
-  if (slam_->useSyncedPoses_){
-    ROS_WARN_STREAM("Sync poses are enabled. This does not support automatic frame detection. Assumed tracked odometry frame: " << slam_->frames_.assumed_external_odometry_tracked_frame);
+  if (slam_->useSyncedPoses_) {
+    ROS_WARN_STREAM("Sync poses are enabled. This does not support automatic frame detection. Assumed tracked odometry frame: "
+                    << slam_->frames_.assumed_external_odometry_tracked_frame);
   }
 
   if (!areMandatoryTopicsInRosbag) {
@@ -430,45 +435,40 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     return false;
   }
 
-  if (slam_->useSyncedPoses_){
+  if (slam_->useSyncedPoses_) {
     // Sync poses are currently is only X-ICP type. Thus not well supported.
     // Provide the pose prior
     auto& odometryPose = buffer.front()->odometryPose_;
-    geometry_msgs::Pose odomPose =odometryPose->pose;
+    geometry_msgs::Pose odomPose = odometryPose->pose;
 
-    if (isFirstMessage_)
-    {
+    if (isFirstMessage_) {
       Eigen::Isometry3d eigenTransform = Eigen::Isometry3d::Identity();
       slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
     }
 
-    if (isFirstMessage_ && isStaticTransformFound_)
-    {
+    if (isFirstMessage_ && isStaticTransformFound_) {
       geometry_msgs::Pose initialPose;
-      initialPose.position=odomPose.position;
-      initialPose.orientation.w=1.0;
-      initialPose.orientation.z=0.0;
-      initialPose.orientation.y=0.0;
-      initialPose.orientation.x=0.0;
+      initialPose.position = odomPose.position;
+      initialPose.orientation.w = 1.0;
+      initialPose.orientation.z = 0.0;
+      initialPose.orientation.y = 0.0;
+      initialPose.orientation.x = 0.0;
       slam_->setInitialTransform(o3d_slam::getTransform(initialPose).matrix());
       isFirstMessage_ = false;
-      
     }
 
     // Add to the odometry buffer.
-    if(!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose), fromRos(odometryPose->header.stamp)))){
+    if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose), fromRos(odometryPose->header.stamp)))) {
       std::cout << "Couldn't Add pose to buffer" << std::endl;
       return false;
     }
 
-  }else{
-    
+  } else {
     // Buffer is empty, means the async odometry poses did not arrive before the point cloud.
-    if (slam_->isOdometryPoseBufferEmpty()){
+    if (slam_->isOdometryPoseBufferEmpty()) {
       std::cout << "Odometry Buffer is empty!" << std::endl;
       return false;
     }
-    
   }
 
   auto& pointCloud = buffer.front()->pointCloud_;
@@ -478,20 +478,22 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   open3d_conversions::rosToOpen3d(pointCloud, cloud, false);
   const Time timestamp = fromRos(pointCloud->header.stamp);
 
-  if(!slam_->doesOdometrybufferHasMeasurement(timestamp)){
-    std::cout << "RosbagReplayer:: Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Popping the measurement." << std::endl;
+  if (!slam_->doesOdometrybufferHasMeasurement(timestamp)) {
+    std::cout << "RosbagReplayer:: Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. "
+                 "Popping the measurement."
+              << std::endl;
     buffer.pop_front();
     return false;
   }
 
   // Add the cloud to queue, internally checks if there is a matching odometry pose in the odometryBuffer
-  if(slam_->addRangeScan(cloud, timestamp)){
-    //std::cout << "Adding cloud with stamp: " << o3d_slam::toString(timestamp) << std::endl;
-    //Timer mapperOnlyTimer_;
-    //mapperOnlyTimer_.startStopwatch();
+  if (slam_->addRangeScan(cloud, timestamp)) {
+    // std::cout << "Adding cloud with stamp: " << o3d_slam::toString(timestamp) << std::endl;
+    // Timer mapperOnlyTimer_;
+    // mapperOnlyTimer_.startStopwatch();
     auto timeTuple = usePairForRegistration();
-    //const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
-  }else{
+    // const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
+  } else {
     std::cout << "RosbagReplayer:: Couldn't add range scan. Popping this measurement from the buffer." << std::endl;
     buffer.pop_front();
     return false;
@@ -522,7 +524,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   bestGuessPoseStamped.pose.orientation.y = bestGuessRotation.y();
   bestGuessPoseStamped.pose.orientation.z = bestGuessRotation.z();
   bestGuessPath_.poses.push_back(bestGuessPoseStamped);
-  bestGuessPath_.header.stamp = toRos(std::get<0>(bestGuessTimePair)); // This guess supposed to be associated with the pose we give to it.
+  bestGuessPath_.header.stamp = toRos(std::get<0>(bestGuessTimePair));  // This guess supposed to be associated with the pose we give to it.
   bestGuessPath_.header.frame_id = slam_->frames_.mapFrame;
 
   if (offlineBestGuessPathPub_.getNumSubscribers() > 0u || offlineBestGuessPathPub_.isLatched()) {
@@ -546,7 +548,8 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   const double stamp = pointCloud->header.stamp.toSec();
   poseFile_ << stamp << " ";
-  poseFile_ << calculatedTransform.translation().x() << " " << calculatedTransform.translation().y() << " " << calculatedTransform.translation().z() << " ";
+  poseFile_ << calculatedTransform.translation().x() << " " << calculatedTransform.translation().y() << " "
+            << calculatedTransform.translation().z() << " ";
   poseFile_ << rotation.x() << " " << rotation.y() << " " << rotation.z() << " " << rotation.w() << std::endl;
 
   trackedPath_.header.stamp = toRos(std::get<1>(cloudTimePair));
@@ -559,9 +562,10 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   drawLinesBetweenPoses(trackedPath_, bestGuessPath_, toRos(std::get<1>(cloudTimePair)));
 
   if (isTimeValid(std::get<1>(cloudTimePair)) && !(std::get<0>(cloudTimePair).IsEmpty())) {
-    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), registeredCloudPub_);
+    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)),
+                           registeredCloudPub_);
     ros::spinOnce();
-  }else{
+  } else {
     ROS_ERROR_STREAM("Cloud is empty or time is invalid. Skipping the cloud.");
     return false;
   }
@@ -581,7 +585,6 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 }
 
 void RosbagRangeDataProcessorRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp) {
-
   if (!offlineDifferenceLinePub_.getNumSubscribers() > 0u && !offlineDifferenceLinePub_.isLatched()) {
     return;
   }
@@ -592,35 +595,33 @@ void RosbagRangeDataProcessorRos::drawLinesBetweenPoses(const nav_msgs::Path& pa
   }
 
   visualization_msgs::Marker line_list;
-  line_list.header.frame_id = slam_->frames_.mapFrame; // Change the frame_id as per your requirement
+  line_list.header.frame_id = slam_->frames_.mapFrame;  // Change the frame_id as per your requirement
   line_list.header.stamp = stamp;
   line_list.ns = "paths";
   line_list.action = visualization_msgs::Marker::ADD;
   line_list.pose.orientation.w = 1.0;
   line_list.id = 0;
   line_list.type = visualization_msgs::Marker::LINE_LIST;
-  line_list.scale.x = 0.008; // Line width
+  line_list.scale.x = 0.008;  // Line width
 
   // Setting color for the lines (you can change color as needed)
   line_list.color.r = 0.0;
   line_list.color.g = 1.0;
   line_list.color.b = 1.0;
-  line_list.color.a = 1.0; // Alpha
+  line_list.color.a = 1.0;  // Alpha
 
-  for (size_t i = 0; i < path1.poses.size(); i++)
-  {
-      geometry_msgs::Point p_start;
-      p_start.x = path1.poses[i].pose.position.x;
-      p_start.y = path1.poses[i].pose.position.y;
-      p_start.z = path1.poses[i].pose.position.z;
-      line_list.points.push_back(p_start);
+  for (size_t i = 0; i < path1.poses.size(); i++) {
+    geometry_msgs::Point p_start;
+    p_start.x = path1.poses[i].pose.position.x;
+    p_start.y = path1.poses[i].pose.position.y;
+    p_start.z = path1.poses[i].pose.position.z;
+    line_list.points.push_back(p_start);
 
-      geometry_msgs::Point p_end;
-      p_end.x = path2.poses[i].pose.position.x;
-      p_end.y = path2.poses[i].pose.position.y;
-      p_end.z = path2.poses[i].pose.position.z;
-      line_list.points.push_back(p_end);
-
+    geometry_msgs::Point p_end;
+    p_end.x = path2.poses[i].pose.position.x;
+    p_end.y = path2.poses[i].pose.position.y;
+    p_end.z = path2.poses[i].pose.position.z;
+    line_list.points.push_back(p_end);
   }
 
   offlineDifferenceLinePub_.publish(line_list);
@@ -632,7 +633,7 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
   slam_->callofflineOdometryWorker();
 
   const auto odometryProcessingElapsed{ros::WallTime::now() - odometryProcessingStartTime};
-  //ROS_INFO_STREAM("Odometry Operations took " << "\033[92m" << odometryProcessingElapsed.toNSec() / 1000000u << "ms" << "\033[0m");
+  // ROS_INFO_STREAM("Odometry Operations took " << "\033[92m" << odometryProcessingElapsed.toNSec() / 1000000u << "ms" << "\033[0m");
 
   // Odometry is processed, now mapping
   const ros::WallTime mappingProcessingStartTime{ros::WallTime::now()};
@@ -640,7 +641,9 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
   slam_->callofflineMappingWorker();
 
   const auto mappingProcessingElapsed{ros::WallTime::now() - mappingProcessingStartTime};
-  ROS_INFO_STREAM("Mapping Operations took " << "\033[92m" << mappingProcessingElapsed.toNSec() / 1000000u << "ms" << "\033[0m");
+  ROS_INFO_STREAM("Mapping Operations took "
+                  << "\033[92m" << mappingProcessingElapsed.toNSec() / 1000000u << "ms"
+                  << "\033[0m");
 
   // Mapping is processed, now checking loop closures,
   const ros::WallTime loopclosureProcessingStartTime{ros::WallTime::now()};
@@ -648,38 +651,42 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
   slam_->callofflineLoopClosureWorker();
 
   const auto loopclosureProcessingElapsed{ros::WallTime::now() - loopclosureProcessingStartTime};
-  //ROS_INFO_STREAM("Loop closure Operations took " << "\033[92m" << loopclosureProcessingElapsed.toNSec() / 1000000u << "ms" << "\033[0m");
+  // ROS_INFO_STREAM("Loop closure Operations took " << "\033[92m" << loopclosureProcessingElapsed.toNSec() / 1000000u << "ms" <<
+  // "\033[0m");
 
   return {std::make_tuple(odometryProcessingElapsed, mappingProcessingElapsed, loopclosureProcessingElapsed)};
 }
 
-bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded(){
-
-  if (slam_->useSyncedPoses_){
+bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded() {
+  if (slam_->useSyncedPoses_) {
     Eigen::Affine3d transform = Eigen::Affine3d::Identity();
     baseToLidarTransform_ = tf2::eigenToTransform(transform);
     isStaticTransformFound_ = true;
     return true;
   }
 
-  if (!isStaticTransformFound_ && (slam_->frames_.rangeSensorFrame != slam_->frames_.assumed_external_odometry_tracked_frame)){
+  if (!isStaticTransformFound_ && (slam_->frames_.rangeSensorFrame != slam_->frames_.assumed_external_odometry_tracked_frame)) {
     try {
-
-      auto transformation = tfBuffer_->lookupTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.assumed_external_odometry_tracked_frame, tracker, ros::Duration(0.0));
+      auto transformation = tfBuffer_->lookupTransform(slam_->frames_.rangeSensorFrame,
+                                                       slam_->frames_.assumed_external_odometry_tracked_frame, tracker, ros::Duration(0.0));
       ros::spinOnce();
-      ROS_INFO_STREAM("\033[92m" << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and " << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-      ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << transformation << "\033[0m");
-      
+      ROS_INFO_STREAM("\033[92m"
+                      << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
+                      << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+      ROS_INFO_STREAM("\033[92m"
+                      << "You dont believe me? Here it is:\n " << transformation << "\033[0m");
+
       baseToLidarTransform_ = transformation;
       isStaticTransformFound_ = true;
-    
+
     } catch (const tf2::TransformException& exception) {
-      ROS_WARN_STREAM_THROTTLE(0.2,"Caught exception while looking for the transform Fingers Crossed it will appear soon: " << exception.what());
+      ROS_WARN_STREAM_THROTTLE(
+          0.2, "Caught exception while looking for the transform Fingers Crossed it will appear soon: " << exception.what());
       return true;
     }
     return true;
 
-  }else{
+  } else {
     ros::spinOnce();
     isStaticTransformFound_ = true;
     return true;
@@ -694,19 +701,21 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
   topics.push_back(cloudTopic_);
   topics.push_back(tfStaticTopic_);
 
-  if (slam_->isUsingOdometryTopic()){
-    if (slam_->useSyncedPoses_){
+  if (slam_->isUsingOdometryTopic()) {
+    if (slam_->useSyncedPoses_) {
       // This is currently very specific
       topics.push_back(poseStampedTopic_);
-    }else{
+    } else {
       // This is alternating between different common ROS msg types. I.e. poseStampedWithCovariance and Odometry
       topics.push_back(slam_->asyncOdometryTopic_);
     }
   }
-  
-  if (slam_->rePublishTf_)
-  {
-    ROS_INFO_STREAM( "\033[33m" << " So you like living risky? Tf will be republished. It is YOUR responsibility to ensure there is no frame duplication." << "\033[39m");
+
+  if (slam_->rePublishTf_) {
+    ROS_INFO_STREAM(
+        "\033[33m"
+        << " So you like living risky? Tf will be republished. It is YOUR responsibility to ensure there is no frame duplication."
+        << "\033[39m");
     topics.push_back(tfTopic_);
   }
 
@@ -727,7 +736,9 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
     return false;
   }
 
-  ROS_INFO_STREAM( "\033[92m" << " Here wo go... " << "\033[0m");
+  ROS_INFO_STREAM("\033[92m"
+                  << " Here wo go... "
+                  << "\033[0m");
   const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(2.0)};
   ros::WallTime::sleepUntil(first);
 
@@ -761,88 +772,89 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
 
     // Clock.
     if (messageInstance.getTopic() == clockTopic_) {
-
-      if (messageInstance.getDataType() == "rosgraph_msgs/Clock"){
+      if (messageInstance.getDataType() == "rosgraph_msgs/Clock") {
         rosgraph_msgs::Clock::ConstPtr clockMessage = messageInstance.instantiate<rosgraph_msgs::Clock>();
         if (clockMessage != nullptr) {
           clockPublisher_.publish(clockMessage);
           // Assign the current "time" to a global variable for async operations.
           tracker = clockMessage->clock;
-        }else{
+        } else {
           ROS_ERROR("clockMsgs not initialized something is wrong.");
           isInvalidMessageInBag = true;
           return false;
         }
 
-
-      } else if ((messageInstance.getDataType() == "nav_msgs/Odometry") || (messageInstance.getDataType()== "geometry_msgs/PoseWithCovarianceStamped")){
+      } else if ((messageInstance.getDataType() == "nav_msgs/Odometry") ||
+                 (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped")) {
         ROS_WARN_STREAM_ONCE("SHOWN ONCE: Using async odometry topic as clock master. This is sub-optimal. Topic: " << clockTopic_);
 
-        rosgraph_msgs::Clock clockMessage;// = messageInstance.instantiate<rosgraph_msgs::Clock>();
+        rosgraph_msgs::Clock clockMessage;  // = messageInstance.instantiate<rosgraph_msgs::Clock>();
         clockMessage.clock = messageInstance.getTime();
         clockPublisher_.publish(clockMessage);
         // Assign the current "time" to a global variable for async operations.
         tracker = clockMessage.clock;
 
-      }else{
+      } else {
         ROS_ERROR("This type of clock alternative is not supported");
         return false;
       }
 
-      //rosgraph_msgs::Clock::ConstPtr clockMessage = messageInstance.instantiate<rosgraph_msgs::Clock>();
-      //if (clockMessage != nullptr) {
-        //clockPublisher_.publish(clockMessage);
-        // Assign the current "time" to a global variable for async operations.
-        //tracker = clockMessage->clock;
+      // rosgraph_msgs::Clock::ConstPtr clockMessage = messageInstance.instantiate<rosgraph_msgs::Clock>();
+      // if (clockMessage != nullptr) {
+      // clockPublisher_.publish(clockMessage);
+      // Assign the current "time" to a global variable for async operations.
+      // tracker = clockMessage->clock;
 
-        // Spins once here.
-        if(!readCalibrationIfNeeded()){
-          ROS_ERROR("Calibration failed to read. Exiting.");
-          return false;
+      // Spins once here.
+      if (!readCalibrationIfNeeded()) {
+        ROS_ERROR("Calibration failed to read. Exiting.");
+        return false;
+      }
+
+      // Align the clock and the bag time.
+      if (timeDiff_ == ros::Duration(0.0)) {
+        timeDiff_ = tracker - view.getBeginTime();
+
+        // If the bag time is ahead of the clock, we need to calculate the otherway around.
+        if (timeDiff_ < ros::Duration(0.0)) {
+          timeDiff_ = view.getBeginTime() - tracker;
         }
 
-        // Align the clock and the bag time.
-        if (timeDiff_ == ros::Duration(0.0)){
-          timeDiff_ = tracker - view.getBeginTime();
+        ROS_INFO_STREAM("The calculated time difference between the clock and bag is: " << timeDiff_.toNSec() / 1000000u << "ms");
+      }
 
-          // If the bag time is ahead of the clock, we need to calculate the otherway around.
-          if (timeDiff_ < ros::Duration(0.0)){
-            timeDiff_ = view.getBeginTime() - tracker;
-          }
-          
-          ROS_INFO_STREAM("The calculated time difference between the clock and bag is: " << timeDiff_.toNSec() / 1000000u << "ms");
+      // Skip processes based on the required bag start time.
+      if ((std::abs(((tracker + timeDiff_) - view.getBeginTime()).toSec() <= slam_->bagReplayStartTime_)) &&
+          (slam_->bagReplayStartTime_ != 0.0)) {
+        ROS_INFO_STREAM("Rosbag starting: " << std::abs(((tracker + timeDiff_) - view.getBeginTime()).toSec()) << " / "
+                                            << slam_->bagReplayStartTime_ << " s");
+        isBagReadyToPlay_ = false;
+        continue;
+      } else {
+        isBagReadyToPlay_ = true;
+      }
+
+      // const ros::WallTime processingStartTime{ros::WallTime::now()};
+
+      // Process data in buffers.
+      if (processBuffers(slamInputsBuffer)) {
+        // const auto processingElapsed{ros::WallTime::now() - processingStartTime};
+        // ROS_INFO_STREAM("Processing buffer took " << processingElapsed.toNSec() / 1000000u << "ms");
+        // Display progress to the user.
+        const auto sequentialRunElapsed{ros::WallTime::now() - wallStampStartSequentialRun};
+
+        ROS_INFO_STREAM("Replay run time: " << sequentialRunElapsed.toSec()
+                                            << "s. ROS bag time: " << ((tracker + timeDiff_) - view.getBeginTime()).toSec() << " / "
+                                            << (view.getEndTime() - view.getBeginTime()) << " s");
+
+        // Play the bag until a certain time that the user decides.
+        if (((tracker + timeDiff_) - view.getBeginTime()).toSec() >= slam_->bagReplayEndTime_) {
+          break;
         }
-
-        // Skip processes based on the required bag start time.
-        if ( (std::abs( ((tracker + timeDiff_) - view.getBeginTime()).toSec() <= slam_->bagReplayStartTime_)) && (slam_->bagReplayStartTime_ != 0.0) ){
-          ROS_INFO_STREAM("Rosbag starting: " << std::abs( ((tracker + timeDiff_) - view.getBeginTime()).toSec()) << " / " << slam_->bagReplayStartTime_ << " s");
-          isBagReadyToPlay_ = false;
-          continue;
-        }else{
-          isBagReadyToPlay_ = true;
-        }
-
-        //const ros::WallTime processingStartTime{ros::WallTime::now()};
-
-        // Process data in buffers.
-        if (processBuffers(slamInputsBuffer)) {
-          //const auto processingElapsed{ros::WallTime::now() - processingStartTime};
-          //ROS_INFO_STREAM("Processing buffer took " << processingElapsed.toNSec() / 1000000u << "ms");
-          // Display progress to the user.
-          const auto sequentialRunElapsed{ros::WallTime::now() - wallStampStartSequentialRun};
-
-          ROS_INFO_STREAM("Replay run time: " << sequentialRunElapsed.toSec()
-                                                    << "s. ROS bag time: " << ((tracker + timeDiff_) - view.getBeginTime()).toSec() << " / "
-                                                    << (view.getEndTime() - view.getBeginTime()) << " s");
-
-          // Play the bag until a certain time that the user decides.
-          if (((tracker + timeDiff_) - view.getBeginTime()).toSec() >= slam_->bagReplayEndTime_){
-            break;
-          }
-        }
+      }
 
       //} else {
-        // This is where there is no clock.
+      // This is where there is no clock.
       //  isInvalidMessageInBag = true;
       //}
     }
@@ -851,7 +863,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
     if (messageInstance.getTopic() == tfStaticTopic_) {
       tf2_msgs::TFMessage::ConstPtr message = messageInstance.instantiate<tf2_msgs::TFMessage>();
       if (message != nullptr) {
-
         staticTransformBroadcaster_.sendTransform(message->transforms);
 
       } else {
@@ -865,15 +876,14 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
       tf2_msgs::TFMessage::ConstPtr message = messageInstance.instantiate<tf2_msgs::TFMessage>();
       if (message != nullptr) {
         transformBroadcaster_.sendTransform(message->transforms);
-      
+
       } else {
         isInvalidMessageInBag = true;
         ROS_WARN("Invalid message found in ROS bag.");
       }
     }
 
-    if (!isBagReadyToPlay_)
-    {
+    if (!isBagReadyToPlay_) {
       continue;
     }
 
@@ -884,33 +894,34 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
         // Add point cloud to buffer.
         slamInputs->pointCloud_ = message;
 
-        if(slamInputs->pointCloud_){
+        if (slamInputs->pointCloud_) {
           // Read the point cloud frame from the topic. Think whether having the option to change it makes sense.
           slam_->frames_.rangeSensorFrame = slamInputs->pointCloud_->header.frame_id;
-          if (slam_->frames_.rangeSensorFrame != slamInputs->pointCloud_->header.frame_id){
-            ROS_ERROR("Tracked frame and PC frame are not same. This is not supported yet." );
-            ROS_ERROR_STREAM("Tracked frame: " << slam_->frames_.rangeSensorFrame << " and PC frame: " << slamInputs->pointCloud_->header.frame_id);
+          if (slam_->frames_.rangeSensorFrame != slamInputs->pointCloud_->header.frame_id) {
+            ROS_ERROR("Tracked frame and PC frame are not same. This is not supported yet.");
+            ROS_ERROR_STREAM("Tracked frame: " << slam_->frames_.rangeSensorFrame
+                                               << " and PC frame: " << slamInputs->pointCloud_->header.frame_id);
             ROS_ERROR("Terminating the replayer node.");
             return false;
           }
         }
 
-        if (!slam_->useSyncedPoses_){
+        if (!slam_->useSyncedPoses_) {
           if (slamInputs && slamInputs->pointCloud_) {
-            //std::cout << " slamInputs IS HEALTHY adding to buffer  " << std::endl;
+            // std::cout << " slamInputs IS HEALTHY adding to buffer  " << std::endl;
             slamInputsBuffer.emplace_back(std::move(slamInputs));
-          }else{
+          } else {
             std::cout << " slamInputs IS NOT HEALTHY  " << std::endl;
           }
         }
-    
+
       } else {
         isInvalidMessageInBag = true;
         ROS_WARN("Invalid message found in ROS bag.");
       }
     }
 
-    if (slam_->useSyncedPoses_){
+    if (slam_->useSyncedPoses_) {
       // Synced odometry poses. This expects the odometry poses exactly in the same timestamp as the pc msgs.
       if (messageInstance.getTopic() == poseStampedTopic_) {
         geometry_msgs::PoseStamped::ConstPtr message = messageInstance.instantiate<geometry_msgs::PoseStamped>();
@@ -924,42 +935,44 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           return false;
         }
       }
-    }else{
+    } else {
       // Async Msgs. Currently only supports geometry_msgs::PoseWithCovarianceStamped
-       if (messageInstance.getTopic() == slam_->asyncOdometryTopic_) {
-        if (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped"){
-          geometry_msgs::PoseWithCovarianceStamped::ConstPtr message = messageInstance.instantiate<geometry_msgs::PoseWithCovarianceStamped>();
+      if (messageInstance.getTopic() == slam_->asyncOdometryTopic_) {
+        if (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped") {
+          geometry_msgs::PoseWithCovarianceStamped::ConstPtr message =
+              messageInstance.instantiate<geometry_msgs::PoseWithCovarianceStamped>();
           if (message != nullptr) {
-            
             geometry_msgs::PoseStamped odomPose;
-            odomPose.pose =message->pose.pose;
+            odomPose.pose = message->pose.pose;
 
             geometry_msgs::PoseStamped odomPose_transformed;
             Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
-            //geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
+            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
             slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
             tf2::doTransform(odomPose, odomPose_transformed, baseToLidarTransform_);
 
-            if (isFirstMessage_ && isStaticTransformFound_)
-            {
-
-              //std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(odomPose.pose)) << " \n" << "\033[0m";
-              //std::cout << " Initial Transform time: " << "\033[92m" << toString(fromRos(message->header.stamp)) << " \n" << "\033[0m";
+            if (isFirstMessage_ && isStaticTransformFound_) {
+              // std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" <<
+              // o3d_slam::asString(o3d_slam::getTransform(odomPose.pose)) << " \n" << "\033[0m"; std::cout << " Initial Transform time: "
+              // <<
+              // "\033[92m" << toString(fromRos(message->header.stamp)) << " \n" << "\033[0m";
 
               geometry_msgs::PoseStamped initialPose = odomPose_transformed;
 
-              //initialPose.position=odomPose.position;
-              initialPose.pose.orientation.w=1.0;
-              initialPose.pose.orientation.z=0.0;
-              initialPose.pose.orientation.y=0.0;
-              initialPose.pose.orientation.x=0.0;
+              // initialPose.position=odomPose.position;
+              initialPose.pose.orientation.w = 1.0;
+              initialPose.pose.orientation.z = 0.0;
+              initialPose.pose.orientation.y = 0.0;
+              initialPose.pose.orientation.x = 0.0;
               ROS_INFO("Initial Transform is set. Nice.");
-              std::cout << " Initial Transform value (Rotation enforced to be Identity): " << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(initialPose.pose)) << " \n" << "\033[0m";
+              std::cout << " Initial Transform value (Rotation enforced to be Identity): "
+                        << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(initialPose.pose)) << " \n"
+                        << "\033[0m";
               slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose).matrix());
               isFirstMessage_ = false;
             }
 
-            if(!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose), fromRos(message->header.stamp)))){
+            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose), fromRos(message->header.stamp)))) {
               ROS_ERROR("Couldn't add pose to buffer. This is not unexpected, you should be concerned.");
               return false;
             }
@@ -970,50 +983,48 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             return false;
           }
 
-        }else if (messageInstance.getDataType() == "nav_msgs/Odometry")
-        {
-            nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
-            if (message != nullptr) {
-              nav_msgs::Odometry odomPose;
-              odomPose.pose.pose =message->pose.pose;
+        } else if (messageInstance.getDataType() == "nav_msgs/Odometry") {
+          nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
+          if (message != nullptr) {
+            nav_msgs::Odometry odomPose;
+            odomPose.pose.pose = message->pose.pose;
 
-              nav_msgs::Odometry odomPose_transformed;
-              Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
-              //geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
-              slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
-              tf2::doTransform(odomPose.pose.pose, odomPose_transformed.pose.pose, baseToLidarTransform_);
+            nav_msgs::Odometry odomPose_transformed;
+            Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
+            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
+            slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
+            tf2::doTransform(odomPose.pose.pose, odomPose_transformed.pose.pose, baseToLidarTransform_);
 
-              if (isFirstMessage_ && isStaticTransformFound_){
-                nav_msgs::Odometry initialPose = odomPose_transformed;
+            if (isFirstMessage_ && isStaticTransformFound_) {
+              nav_msgs::Odometry initialPose = odomPose_transformed;
 
-                initialPose.pose.pose.orientation.w=1.0;
-                initialPose.pose.pose.orientation.z=0.0;
-                initialPose.pose.pose.orientation.y=0.0;
-                initialPose.pose.pose.orientation.x=0.0;
-                ROS_INFO("Initial Transform is set. Nice.");
-                slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose.pose).matrix());
-                isFirstMessage_ = false;
-              }
+              initialPose.pose.pose.orientation.w = 1.0;
+              initialPose.pose.pose.orientation.z = 0.0;
+              initialPose.pose.pose.orientation.y = 0.0;
+              initialPose.pose.pose.orientation.x = 0.0;
+              ROS_INFO("Initial Transform is set. Nice.");
+              slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose.pose).matrix());
+              isFirstMessage_ = false;
+            }
 
-              if(!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))){
-                ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
-                return false;
-              }
+            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))) {
+              ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+              return false;
+            }
 
-            }else {
+          } else {
             isInvalidMessageInBag = true;
             ROS_WARN("Invalid message found in Rosbag, you are allowed to panic.");
           }
-        }else
-        {
+        } else {
           ROS_WARN("This msg type is not supported yet. Exiting.");
           return false;
         }
-      } // else
+      }  // else
     }
 
-    if (slam_->isUsingOdometryTopic()){
-      if (slam_->useSyncedPoses_){
+    if (slam_->isUsingOdometryTopic()) {
+      if (slam_->useSyncedPoses_) {
         // Expecting sync odometry and PC.
         if (slamInputs && slamInputs->pointCloud_ && slamInputs->odometryPose_ &&
             slamInputs->pointCloud_->header.stamp == slamInputs->odometryPose_->header.stamp) {
@@ -1025,10 +1036,10 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
     const ros::WallDuration processingWallDurationActual{ros::WallTime::now() - wallStampLastIteration};
     const ros::Duration processingDurationActual{tracker - stampLastIteration};
     const auto rosWallTimeRatio{processingDurationActual.toSec() / processingWallDurationActual.toSec()};
-     //ROS_INFO_STREAM("Processing duration. Wall = " << processingWallDurationActual.toSec()
-     //                                               << "s ; ROS = " << processingDurationActual.toSec() << "s.");
-     //ROS_INFO_STREAM("Desired processing rate = " << slamInputsmaxProcessingRate_);
-     //ROS_INFO_STREAM("Actual Ratio ros/wall time = " << rosWallTimeRatio);
+    // ROS_INFO_STREAM("Processing duration. Wall = " << processingWallDurationActual.toSec()
+    //                                               << "s ; ROS = " << processingDurationActual.toSec() << "s.");
+    // ROS_INFO_STREAM("Desired processing rate = " << slamInputsmaxProcessingRate_);
+    // ROS_INFO_STREAM("Actual Ratio ros/wall time = " << rosWallTimeRatio);
 
     if (maxProcessingRate_ <= 0) {
       continue;
@@ -1039,7 +1050,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
       // Check if we are reaching the desired processing rate. If not, sleep in scaled wall time.
       const auto desiredProcessingPeriod{ros::WallDuration(1.0 / maxProcessingRate_)};
       const auto scaledWallSleep = rosWallTimeRatio != 0 ? desiredProcessingPeriod.toSec() / rosWallTimeRatio : 0;
-      //ROS_INFO_STREAM("Scaled sleep duration = " << scaledWallSleep);
+      // ROS_INFO_STREAM("Scaled sleep duration = " << scaledWallSleep);
       const ros::WallTime processingWallTimeExpected{ros::WallTime::now() + ros::WallDuration(scaledWallSleep)};
       ros::WallTime::sleepUntil(processingWallTimeExpected);
 
@@ -1061,6 +1072,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
   slam_->offlineFinishProcessing();
 
   return true;
-} 
+}
 
 }  // namespace o3d_slam

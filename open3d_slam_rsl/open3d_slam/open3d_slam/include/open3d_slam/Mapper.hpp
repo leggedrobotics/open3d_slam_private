@@ -18,10 +18,10 @@
 
 #include "open3d_conversions/usings.hpp"
 
+#include <nav_msgs/Path.h>
 #include <pointmatcher/PointMatcher.h>
 #include <pointmatcher_ros/PmTf.h>
 #include <pointmatcher_ros/usings.h>
-#include <nav_msgs/Path.h>
 
 namespace o3d_slam {
 
@@ -102,7 +102,6 @@ class Mapper {
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
 
   std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
-
 };
 
 } /* namespace o3d_slam */

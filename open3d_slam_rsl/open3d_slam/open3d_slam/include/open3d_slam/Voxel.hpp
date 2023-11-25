@@ -47,7 +47,7 @@ class AggregatedVoxel {
   int numAggregatedPoints_ = 0;
   Eigen::Vector3d aggregatedPosition_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d aggregatedNormal_ = Eigen::Vector3d::Zero();
-  Eigen::Vector3d aggregatedColor_ = Eigen::Vector3d::Constant(1,3,1);
+  Eigen::Vector3d aggregatedColor_ = Eigen::Vector3d::Constant(1, 3, 1);
 
  private:
   // aggregate point has to be called before aggregate normal and aggregate color!!!!

@@ -109,11 +109,10 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
   const size_t closestMapIdx = findClosestSubmap(mapToRangeSensor_);
   const Submap& closestSubmap = submaps_.at(closestMapIdx);
   const Submap& activeSubmap = submaps_.at(activeSubmapIdx_);
-  
+
   // Upper-bound of map size to limit computation. It would be crazy practical to have this adaptive based on the wallTime measurement.
-  if ((activeSubmap.getNbPoints() > params_.submaps_.maxNumPoints_))
-  {
-      isForceNewSubmapCreation_ = true; 
+  if ((activeSubmap.getNbPoints() > params_.submaps_.maxNumPoints_)) {
+    isForceNewSubmapCreation_ = true;
   }
 
   // Get the submap center in Map frame?
@@ -136,13 +135,11 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
       activeSubmapIdx_ = closestMapIdx;
 
     } else {
-
       const bool isTraveledSufficientDistance =
           (mapToRangeSensor_.translation() - activeSubmap.getMapToSubmapCenter()).norm() > params_.submaps_.radius_;
       if (isTraveledSufficientDistance) {
         createNewSubmap(mapToRangeSensor_);
       }
-
     }
   } else {
     // There is no other submap around, we are traversing to a new area so we ned to create a new submap.
@@ -193,10 +190,10 @@ bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& p
                                   const Time& timestamp) {
   mapToRangeSensor_ = mapToRangeSensor;
   timestamp_ = timestamp;
-  
+
   // Assign the bookkeeping variables.
   const size_t prevActiveSubmapIdx = activeSubmapIdx_;
-  
+
   // Creation of the submap.
   if (submaps_.empty()) {
     createNewSubmap(mapToRangeSensor_);
@@ -240,8 +237,7 @@ bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& p
     // We are still in the previously active submap.
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
     const double actualInsertiontimeElapsed = actualInsertion.elapsedMsecSinceStopwatchStart();
-    //std::cout << "Actual Scan Insertion: " << "\033[92m" << actualInsertiontimeElapsed << " msec \n " << "\033[0m";
-
+    // std::cout << "Actual Scan Insertion: " << "\033[92m" << actualInsertiontimeElapsed << " msec \n " << "\033[0m";
   }
 
   ++numScansMergedInActiveSubmap_;
@@ -266,8 +262,8 @@ void SubmapCollection::computeFeatures(const TimestampedSubmapIds& finishedSubma
   auto featureComputation = [&]() {
     //		Timer t("feature computation");
     for (const auto& id : finishedSubmapIds) {
-      			//std::cout << "computing features for submap: " << id.submapId_ << std::endl;
-      			//std::cout << "submap size: " << submaps_.at(id.submapId_).getMapPointCloud().points_.size() << std::endl;
+      // std::cout << "computing features for submap: " << id.submapId_ << std::endl;
+      // std::cout << "submap size: " << submaps_.at(id.submapId_).getMapPointCloud().points_.size() << std::endl;
       submaps_.at(id.submapId_).computeFeatures();
       loopClosureCandidatesIdxs_.push(id);
     }

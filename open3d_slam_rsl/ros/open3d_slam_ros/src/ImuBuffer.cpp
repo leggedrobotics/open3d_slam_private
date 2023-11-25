@@ -24,13 +24,11 @@ namespace o3d_slam {
 ImuBuffer::ImuBuffer() {
   // Reset IMU Buffer
   timeToImuBuffer_.clear();
-  
+
   // If low pass filter is used, initialize it
 
-  imuSignalLowPassFilterPtr_ =
-      std::make_unique<ImuSignalLowPassFilter>(60.0, 1.0 / 400.0);
+  imuSignalLowPassFilterPtr_ = std::make_unique<ImuSignalLowPassFilter>(60.0, 1.0 / 400.0);
 }
-
 
 // Public --------------------------------------------------------
 // Returns actually added IMU measurements
@@ -44,17 +42,17 @@ Eigen::Matrix<double, 6, 1> ImuBuffer::addToImuBuffer(double ts, const Eigen::Ve
   // Copy of IMU measurements
   Eigen::Matrix<double, 6, 1> filteredImuMeas;
   // Potentially low pass filter IMU measurements
-  //if (useImuSignalLowPassFilter_) {
-    //filteredImuMeas = imuSignalLowPassFilterPtr_->filter(linearAcc, angularVel);
+  // if (useImuSignalLowPassFilter_) {
+  // filteredImuMeas = imuSignalLowPassFilterPtr_->filter(linearAcc, angularVel);
   //} else {
-    filteredImuMeas << linearAcc, angularVel;
+  filteredImuMeas << linearAcc, angularVel;
   //}
 
   // Convert to gtsam type
   ImuMeasurement imuMeas;
   imuMeas.timestamp = ts;
-  //imuMeas.acceleration = filteredImuMeas.head<3>();
-  //imuMeas.angularVelocity = filteredImuMeas.tail<3>();
+  // imuMeas.acceleration = filteredImuMeas.head<3>();
+  // imuMeas.angularVelocity = filteredImuMeas.tail<3>();
 
   imuMeas.acceleration = linearAcc;
   imuMeas.angularVelocity = angularVel;
@@ -77,8 +75,9 @@ Eigen::Matrix<double, 6, 1> ImuBuffer::addToImuBuffer(double ts, const Eigen::Ve
 
   if (timeToImuBuffer_.size() > imuBufferLength_) {
     std::ostringstream errorStream;
-    errorStream <<  "o3d_SLAM-ImuBuffer" << " IMU Buffer has grown too large. It contains "
-                << timeToImuBuffer_.size() << " measurements instead of " << imuBufferLength_ << ".";
+    errorStream << "o3d_SLAM-ImuBuffer"
+                << " IMU Buffer has grown too large. It contains " << timeToImuBuffer_.size() << " measurements instead of "
+                << imuBufferLength_ << ".";
     throw std::runtime_error(errorStream.str());
   }
 
@@ -134,19 +133,20 @@ bool ImuBuffer::estimateAttitudeFromImu(Eigen::Quaterniond& initAttitude, double
     gyrBias = initGyrMean;
 
     Eigen::Matrix3d transform(initAttitude);
-    double yaw = 0.0;  
+    double yaw = 0.0;
     double pitch = -asin(transform(2, 0));
     double roll = atan2(transform(2, 1), transform(2, 2));
     yaw = atan2(transform(1, 0) / cos(pitch), transform(0, 0) / cos(pitch));
-    //std::cout << YELLOW_START << "Iinitial Attitude Estimation o3d_SLAM " << GREEN_START << " Initial Roll/Pitch/Yaw(deg):" << COLOR_END << roll * 180 / M_PI
+    // std::cout << YELLOW_START << "Iinitial Attitude Estimation o3d_SLAM " << GREEN_START << " Initial Roll/Pitch/Yaw(deg):" << COLOR_END
+    // << roll * 180 / M_PI
     //          << "," << pitch * 180 / M_PI << "," << yaw * 180 / M_PI << std::endl;
 
     // Calculate robot initial orientation using gravity vector.
     std::cout << YELLOW_START << "o3d_SLAM-ImuBuffer" << COLOR_END << " Gravity Magnitude: " << gravityMagnitude << std::endl;
     std::cout << YELLOW_START << "o3d_SLAM-ImuBuffer" << COLOR_END << " Mean IMU Acceleration Vector(x,y,z): " << initAccMean.transpose()
               << " - Gravity Unit Vector(x,y,z): " << gUnitVecInWorld.transpose() << std::endl;
-    std::cout << YELLOW_START << "o3d_SLAM-ImuBuffer" << GREEN_START
-              << " Yaw/Pitch/Roll(deg): " << yaw * (180.0 / M_PI) << ", " << pitch * (180.0 / M_PI) << ", " << roll * (180.0 / M_PI) << COLOR_END << std::endl;
+    std::cout << YELLOW_START << "o3d_SLAM-ImuBuffer" << GREEN_START << " Yaw/Pitch/Roll(deg): " << yaw * (180.0 / M_PI) << ", "
+              << pitch * (180.0 / M_PI) << ", " << roll * (180.0 / M_PI) << COLOR_END << std::endl;
     std::cout << YELLOW_START << "o3d_SLAM-ImuBuffer" << COLOR_END << "  Gyro bias(x,y,z): " << initGyrMean.transpose() << std::endl;
   }
   return true;
@@ -205,4 +205,4 @@ bool ImuBuffer::getIMUBufferIteratorsInInterval(const double& tsStart, const dou
   // If everything is good
   return true;
 }
-}
+}  // namespace o3d_slam

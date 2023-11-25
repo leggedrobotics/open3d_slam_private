@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.5)
 project(open3d_slam_ros)
 
 set(CMAKE_CXX_STANDARD 17)
+
+## Source: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+add_compile_options(-Wall -Wextra -Wpedantic -O3)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_compile_options(-O3)
 
 set(SRC_FILES
   src/helpers_ros.cpp
@@ -63,6 +66,8 @@ include_directories(
   ${OpenMP_CXX_INCLUDE_DIRS}
 )
 
+add_definitions(-std=c++17)
+
 add_library(${PROJECT_NAME}
   ${SRC_FILES}
   )
@@ -77,13 +82,25 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenMP_CXX_LIBRARIES}
   )
 
-
 add_executable(mapping_node
   src/mapping_node.cpp)
+
 target_link_libraries(mapping_node
   ${catkin_LIBRARIES}
   ${PROJECT_NAME}
   )
+
+find_package(cmake_clang_tools QUIET)
+if(cmake_clang_tools_FOUND)
+  message(STATUS "Run clang tooling for target " mapping_node)
+  add_clang_tooling(
+    TARGETS mapping_node
+    SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
+    CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+    CF_FIX
+    #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
+  )
+endif(cmake_clang_tools_FOUND)
 
 add_executable(adjacency_graph_example_node
   src/adjacency_graph_example_node.cpp

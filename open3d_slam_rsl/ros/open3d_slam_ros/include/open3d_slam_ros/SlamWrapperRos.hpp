@@ -12,19 +12,18 @@
 #include <ros/package.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2/convert.h>
 #include <tf2_eigen/tf2_eigen.h>
 
-#include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam_msgs/SaveMap.h"
@@ -64,7 +63,8 @@ class SlamWrapperRos : public SlamWrapper {
 
   ros::NodeHandlePtr nh_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
-  ros::Publisher odometryInputPub_, mappingInputPub_, submapOriginsPub_, assembledMapPub_, denseMapPub_, submapsPub_, bestGuessPathPub_, trackedPathPub_;
+  ros::Publisher odometryInputPub_, mappingInputPub_, submapOriginsPub_, assembledMapPub_, denseMapPub_, submapsPub_, bestGuessPathPub_,
+      trackedPathPub_;
   ros::Publisher differenceLinePub_;
   ros::Publisher scan2scanTransformPublisher_, scan2scanOdomPublisher_, scan2mapTransformPublisher_, scan2mapOdomPublisher_;
   ros::ServiceServer saveMapSrv_, saveSubmapsSrv_;

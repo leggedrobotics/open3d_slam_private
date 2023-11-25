@@ -8,8 +8,8 @@ Please see the LICENSE file that has been included as part of this package.
 #pragma once
 // C++
 #include <map>
-#include <mutex>
 #include <memory>
+#include <mutex>
 
 // Eigen
 #include <Eigen/Dense>
@@ -26,9 +26,7 @@ struct ImuMeasurement {
 
 // Datatypes
 // Map from time to 6D IMU measurements
-typedef std::map<double, ImuMeasurement, std::less<double>,
-                 Eigen::aligned_allocator<std::pair<const double, ImuMeasurement>>>
-    TimeToImuMap;
+typedef std::map<double, ImuMeasurement, std::less<double>, Eigen::aligned_allocator<std::pair<const double, ImuMeasurement>>> TimeToImuMap;
 
 // Actual Class
 class ImuBuffer {
@@ -69,4 +67,4 @@ class ImuBuffer {
   // Low pass filter
   std::unique_ptr<ImuSignalLowPassFilter> imuSignalLowPassFilterPtr_;
 };
-}
+}  // namespace o3d_slam

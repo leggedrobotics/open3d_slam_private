@@ -6,13 +6,13 @@
  */
 
 #include "open3d_slam_ros/DataProcessorRos.hpp"
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Path.h>
+#include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <visualization_msgs/Marker.h>
 #include "open3d_slam/magic.hpp"
 #include "open3d_slam/typedefs.hpp"
-#include <visualization_msgs/Marker.h>
 
 namespace o3d_slam {
 

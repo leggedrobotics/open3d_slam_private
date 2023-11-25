@@ -8,9 +8,9 @@
 #include "open3d_slam_ros/SlamWrapperRos.hpp"
 
 #include <open3d/Open3D.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <chrono>
 #include <fstream>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include "open3d_conversions/open3d_conversions.h"
 #include "open3d_slam/Mapper.hpp"
@@ -42,7 +42,6 @@ SlamWrapperRos::SlamWrapperRos(ros::NodeHandlePtr nh) : BASE(), nh_(nh) {
 
   prevPublishedTimeScanToScan_ = fromUniversal(0);
   prevPublishedTimeScanToMap_ = fromUniversal(0);
-
 }
 
 SlamWrapperRos::~SlamWrapperRos() {
@@ -120,10 +119,10 @@ void SlamWrapperRos::odomPublisherWorker() {
 void SlamWrapperRos::offlineTfWorker() {
   const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
   const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScan_;
-  if ((!isAlreadyPublished ) && (odometry_->hasProcessedMeasurements())) {
+  if ((!isAlreadyPublished) && (odometry_->hasProcessedMeasurements())) {
     const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
     ros::Time timestamp = toRos(latestScanToScan);
-    //o3d_slam::publishTfTransform(T.matrix(), timestamp, o3d_slam::odomFrame, frames_.rangeSensorFrame, tfBroadcaster_.get());
+    // o3d_slam::publishTfTransform(T.matrix(), timestamp, o3d_slam::odomFrame, frames_.rangeSensorFrame, tfBroadcaster_.get());
     o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.mapFrame, "raw_odom_o3d", tfBroadcaster_.get());
     prevPublishedTimeScanToScan_ = latestScanToScan;
   }
@@ -141,19 +140,19 @@ void SlamWrapperRos::tfWorker() {
   while (ros::ok()) {
     const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
     const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScan_;
-    if ((!isAlreadyPublished ) && (odometry_->hasProcessedMeasurements())) {
+    if ((!isAlreadyPublished) && (odometry_->hasProcessedMeasurements())) {
       const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
       ros::Time timestamp = toRos(latestScanToScan);
       // This distinguish the lidar frame in regular anymal tf and the re-publish by o3d.
-      //std::string appendedSensor = frames_.rangeSensorFrame + "_o3d";
+      // std::string appendedSensor = frames_.rangeSensorFrame + "_o3d";
       o3d_slam::publishTfTransform(T.matrix().inverse(), timestamp, frames_.rangeSensorFrame, frames_.odomFrame, tfBroadcaster_.get());
-      //o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.mapFrame, "raw_odom_o3d", tfBroadcaster_.get());
+      // o3d_slam::publishTfTransform(T.matrix(), timestamp, frames_.mapFrame, "raw_odom_o3d", tfBroadcaster_.get());
       prevPublishedTimeScanToScan_ = latestScanToScan;
     }
 
     const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
 
-    if (!isTimeValid(latestScanToMap)){
+    if (!isTimeValid(latestScanToMap)) {
       continue;
     }
 
@@ -184,7 +183,6 @@ void SlamWrapperRos::tfWorker() {
 }
 
 void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp) {
-
   if (!differenceLinePub_.getNumSubscribers() > 0u && !differenceLinePub_.isLatched()) {
     return;
   }
@@ -195,33 +193,33 @@ void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const na
   }
 
   visualization_msgs::Marker line_list;
-  line_list.header.frame_id = frames_.mapFrame; // Change the frame_id as per your requirement
+  line_list.header.frame_id = frames_.mapFrame;  // Change the frame_id as per your requirement
   line_list.header.stamp = stamp;
   line_list.ns = "paths";
   line_list.action = visualization_msgs::Marker::ADD;
   line_list.pose.orientation.w = 1.0;
   line_list.id = 0;
   line_list.type = visualization_msgs::Marker::LINE_LIST;
-  line_list.scale.x = 0.006; // Line width
+  line_list.scale.x = 0.006;  // Line width
 
   // Setting color for the lines (you can change color as needed)
   line_list.color.r = 0.0;
   line_list.color.g = 1.0;
   line_list.color.b = 1.0;
-  line_list.color.a = 1.0; // Alpha
+  line_list.color.a = 1.0;  // Alpha
 
-  for (size_t i = 0; i < path1.poses.size(); i++){
-      geometry_msgs::Point p_start;
-      p_start.x = path1.poses[i].pose.position.x;
-      p_start.y = path1.poses[i].pose.position.y;
-      p_start.z = path1.poses[i].pose.position.z;
-      line_list.points.push_back(p_start);
+  for (size_t i = 0; i < path1.poses.size(); i++) {
+    geometry_msgs::Point p_start;
+    p_start.x = path1.poses[i].pose.position.x;
+    p_start.y = path1.poses[i].pose.position.y;
+    p_start.z = path1.poses[i].pose.position.z;
+    line_list.points.push_back(p_start);
 
-      geometry_msgs::Point p_end;
-      p_end.x = path2.poses[i].pose.position.x;
-      p_end.y = path2.poses[i].pose.position.y;
-      p_end.z = path2.poses[i].pose.position.z;
-      line_list.points.push_back(p_end);
+    geometry_msgs::Point p_end;
+    p_end.x = path2.poses[i].pose.position.x;
+    p_end.y = path2.poses[i].pose.position.y;
+    p_end.z = path2.poses[i].pose.position.z;
+    line_list.points.push_back(p_end);
   }
 
   differenceLinePub_.publish(line_list);
@@ -231,7 +229,6 @@ void SlamWrapperRos::offlineVisualizationWorker() {
   const Time scanToScanTimestamp = latestScanToScanRegistrationTimestamp_;
   ros::Time timestamp = toRos(scanToScanTimestamp);
   o3d_slam::publishSubmapCoordinateAxes(mapper_->getSubmaps(), frames_.mapFrame, timestamp, submapOriginsPub_);
-
 }
 
 void SlamWrapperRos::visualizationWorker() {
@@ -247,10 +244,10 @@ void SlamWrapperRos::visualizationWorker() {
     if (isTimeValid(scanToMapTimestamp)) {
       publishDenseMap(scanToMapTimestamp);
       publishMaps(scanToMapTimestamp);
-			if (params_.mapper_.isUseInitialMap_){
-				// publish initial map only once
-				break;
-			}
+      if (params_.mapper_.isUseInitialMap_) {
+        // publish initial map only once
+        break;
+      }
     }
 
     ros::spinOnce();
@@ -259,7 +256,6 @@ void SlamWrapperRos::visualizationWorker() {
 }
 
 bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
-
   std::ifstream fileStream(path.c_str());
   if (!fileStream.good()) {
     ROS_ERROR_STREAM("Cannot load ICP configuration from " << path.c_str() << " .");
@@ -302,21 +298,23 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   exportIMUdata_ = nh_->param<bool>("export_imu_data", false);
   useSyncedPoses_ = nh_->param<bool>("use_syncronized_poses_to_replay", false);
   rePublishTf_ = nh_->param<bool>("republish_tf_topic", false);
-  
+
   relativeSleepDuration_ = nh_->param<double>("relative_sleep_duration", 0.0);
   bagReplayStartTime_ = nh_->param<double>("replay_start_time_as_second", 0.0);
   bagReplayEndTime_ = nh_->param<double>("replay_end_time_as_second", 8000.0);
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
 
-  frames_.rangeSensorFrame = "default"; // nh_->param<std::string>("tracked_sensor_frame", "default");
+  frames_.rangeSensorFrame = "default";  // nh_->param<std::string>("tracked_sensor_frame", "default");
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
-  
-  if (isOfflineReplay){
-    ROS_INFO_STREAM("\033[92m" << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-    //ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame << "\033[0m");
-    ROS_INFO_STREAM( "Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
+
+  if (isOfflineReplay) {
+    ROS_INFO_STREAM("\033[92m"
+                    << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+    // ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame <<
+    // "\033[0m");
+    ROS_INFO_STREAM("Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
   }
-  
+
   // Set and load the libpointmatcher config here.
   std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
   ROS_INFO_STREAM("libpointmatcherConfigPath: " << libpointmatcherConfigPath);
@@ -327,7 +325,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
   BASE::loadParametersAndInitialize();
 
-  if(!readLibpointmatcherConfig(libpointmatcherConfigPath)){
+  if (!readLibpointmatcherConfig(libpointmatcherConfigPath)) {
     std::cout << "Returning early couldnt load ICP params for libpointmatcher " << std::endl;
     return;
   }
@@ -348,18 +346,21 @@ bool SlamWrapperRos::saveSubmapsCallback(open3d_slam_msgs::SaveSubmaps::Request&
 void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
   const ros::Time timestamp = toRos(time);
   // This is commented out since the map and odonm frames published by the o3d are connected through the range sensor frame.
-  //o3d_slam::publishTfTransform(mapper_->getMapToOdom(time).matrix(), timestamp, frames_.mapFrame, frames_.odomFrame, tfBroadcaster_.get());
-  o3d_slam::publishTfTransform(mapper_->getMapToRangeSensor(time).matrix(), timestamp, frames_.mapFrame, "raw_rs_o3d", tfBroadcaster_.get());
+  // o3d_slam::publishTfTransform(mapper_->getMapToOdom(time).matrix(), timestamp, frames_.mapFrame, frames_.odomFrame,
+  // tfBroadcaster_.get());
+  o3d_slam::publishTfTransform(mapper_->getMapToRangeSensor(time).matrix(), timestamp, frames_.mapFrame, "raw_rs_o3d",
+                               tfBroadcaster_.get());
 
-  if (!(mapper_->getMapToRangeSensorBuffer().empty()))
-  {
+  if (!(mapper_->getMapToRangeSensorBuffer().empty())) {
     auto latestMapToRangeMeasurement_ = mapper_->getMapToRangeSensorBuffer().latest_measurement();
 
-    if ((isTimeValid(latestMapToRangeMeasurement_.time_))){
+    if ((isTimeValid(latestMapToRangeMeasurement_.time_))) {
       // Publish lidar to map transform.
       // Since base is the parent of lidar, we cant publish o3d_map as the parent of lidar. Hence we publish it as a child of lidar.
       std::string adaptedMapFrame = frames_.mapFrame;
-      o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(), o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, adaptedMapFrame, tfBroadcaster_.get());
+      o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(),
+                                   o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, adaptedMapFrame,
+                                   tfBroadcaster_.get());
     }
   }
 }

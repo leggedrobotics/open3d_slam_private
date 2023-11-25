@@ -57,27 +57,27 @@ void assembleColoredPointCloud(const SubmapCollection& submaps, open3d::geometry
   const int nPoints = submaps.getTotalNumPoints();
   cloud->points_.reserve(nPoints);
 
-  if (cloud->HasColors()){
-      cloud->colors_.reserve(nPoints);
-      for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
-        const Submap& submap = submaps.getSubmap(j);
-        const auto color = Color::getColor(j % (Color::numColors_ - 2) + 2);
-        const PointCloud map = submap.getMapPointCloudCopy();
-        for (size_t i = 0; i < map.points_.size(); ++i) {
-          cloud->points_.push_back(map.points_.at(i));
-          cloud->colors_.emplace_back(Eigen::Vector3d(color.r, color.g, color.b));
-        }
+  if (cloud->HasColors()) {
+    cloud->colors_.reserve(nPoints);
+    for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
+      const Submap& submap = submaps.getSubmap(j);
+      const auto color = Color::getColor(j % (Color::numColors_ - 2) + 2);
+      const PointCloud map = submap.getMapPointCloudCopy();
+      for (size_t i = 0; i < map.points_.size(); ++i) {
+        cloud->points_.push_back(map.points_.at(i));
+        cloud->colors_.emplace_back(Eigen::Vector3d(color.r, color.g, color.b));
       }
+    }
 
-  }else{
-      std::uniform_int_distribution<int> rndInt(2, 12);
-      for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
-        const Submap& submap = submaps.getSubmap(j);
-        const PointCloud map = submap.getMapPointCloudCopy();
-        for (size_t i = 0; i < map.points_.size(); ++i) {
-          cloud->points_.push_back(map.points_.at(i));
-        }
+  } else {
+    std::uniform_int_distribution<int> rndInt(2, 12);
+    for (size_t j = 0; j < submaps.getNumSubmaps(); ++j) {
+      const Submap& submap = submaps.getSubmap(j);
+      const PointCloud map = submap.getMapPointCloudCopy();
+      for (size_t i = 0; i < map.points_.size(); ++i) {
+        cloud->points_.push_back(map.points_.at(i));
       }
+    }
   }
 }
 

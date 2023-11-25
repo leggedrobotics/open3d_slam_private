@@ -6,24 +6,24 @@
  */
 
 #pragma once
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <rosgraph_msgs/Clock.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 #include <ros/ros.h>
 #include <rosbag/bag.h>
+#include <rosgraph_msgs/Clock.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-#include <memory>
 #include <deque>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam/output.hpp"
@@ -86,7 +86,6 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> usePairForRegistration();
 
-
  private:
   void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
   bool processRosbag();
@@ -107,8 +106,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   visualization_msgs::MarkerArray convertPathToMarkerArray(const nav_msgs::Path& path);
   visualization_msgs::Marker createLineStripMarker();
 
-  o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array,
-                                                                                    const int num_samples);
+  o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array, const int num_samples);
 
   void calculateSurfaceNormals(o3d_slam::PointCloud& cloud);
 
@@ -161,7 +159,6 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   std::unique_ptr<tf2_ros::TransformListener> tfListener_;
 
   bool isBagReadyToPlay_ = false;
-
 };
 
 }  // namespace o3d_slam

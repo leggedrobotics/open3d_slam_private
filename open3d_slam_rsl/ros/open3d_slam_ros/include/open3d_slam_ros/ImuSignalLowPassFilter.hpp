@@ -46,4 +46,4 @@ class ImuSignalLowPassFilter {
   Eigen::Vector3d outputAcceleration_y1_ = Eigen::Vector3d::Zero();
   Eigen::Vector3d outputAngularVel_y1_ = Eigen::Vector3d::Zero();
 };
-}
+}  // namespace o3d_slam

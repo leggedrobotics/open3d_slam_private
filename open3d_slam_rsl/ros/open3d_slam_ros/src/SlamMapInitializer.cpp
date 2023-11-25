@@ -52,7 +52,7 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
 
   PointCloud raw_map;
   std::string pcdFile = ros::package::getPath(mapInitializerParams_.pcdFilePackage_) + mapInitializerParams_.pcdFilePath_;
-    
+
   initialized_.store(false);
 
   std::cout << "Loading pointloud from: " << pcdFile << "\n";

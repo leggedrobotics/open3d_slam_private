@@ -45,7 +45,6 @@ class DataProcessorRos {
   std::string poseStampedWithCovarianceTopic_{""};
   std::string poseStampedTopic_{""};
 
-
   std::shared_ptr<SlamWrapper> slam_;
   ros::NodeHandlePtr nh_;
 };

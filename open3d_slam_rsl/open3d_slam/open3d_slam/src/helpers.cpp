@@ -153,10 +153,8 @@ std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(doubl
   // Are these loops paralizeable? (seems not)
   //#pragma omp parallel for num_threads(16)
   for (size_t i = 0; i < cloud.points_.size(); i++) {
-
     // This assumes the volume we are operating with is already voxelized and hence `finds` and adds the point accordingly.
     if (croppingVolume.isWithinVolume(cloud.points_[i])) {
-
       // This is the actual voxelization. Give arbitrary index based on the point position and assign points to similar volumes.
       const Eigen::Vector3i voxelIdx = getVoxelIdx(cloud.points_[i], invVoxelSize);
       voxelindex_to_accpoint[voxelIdx].AddPoint(cloud, i);
@@ -315,7 +313,6 @@ std::shared_ptr<open3d::geometry::PointCloud> transform(const Eigen::Matrix4d& T
       out->covariances_.emplace_back(std::move(R * cov * R.transpose()));
     }
   }
-
 
   return out;
 }

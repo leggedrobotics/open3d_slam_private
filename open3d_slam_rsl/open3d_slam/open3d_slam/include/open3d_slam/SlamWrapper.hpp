@@ -7,10 +7,10 @@
 
 #pragma once
 
+#include <geometry_msgs/PoseStamped.h>
 #include <Eigen/Dense>
 #include <future>
 #include <thread>
-#include <geometry_msgs/PoseStamped.h>
 #include "open3d_slam/CircularBuffer.hpp"
 #include "open3d_slam/Constraint.hpp"
 #include "open3d_slam/Parameters.hpp"
@@ -50,7 +50,7 @@ class SlamWrapper {
   // Moved from frame.hpp to here, while this is not optimal allows the user to set frames through parameters.
   struct Frames {
     std::string odomFrame = "odom_o3d";
-    std::string rangeSensorFrame = "default"; // This is the frame of the pointclud. AB uses base.
+    std::string rangeSensorFrame = "default";  // This is the frame of the pointclud. AB uses base.
     std::string mapFrame = "map_o3d";
     std::string imageFrame = "image_frame_o3d";
     std::string assumed_external_odometry_tracked_frame = "external_odometry_tracked_frame";
@@ -110,10 +110,10 @@ class SlamWrapper {
   // A simple worker call function for offlane replay package.
   void callofflineOdometryWorker();
 
-    // A simple worker call function for offlane replay package.
+  // A simple worker call function for offlane replay package.
   void callofflineMappingWorker();
 
-    // A simple worker call function for offlane replay package.
+  // A simple worker call function for offlane replay package.
   void callofflineLoopClosureWorker();
 
   // A simple getter function that returns if the odometry buffer is empty.
@@ -157,7 +157,7 @@ class SlamWrapper {
   void unifiedWorker();
   void unifiedWorkerOdom();
   void unifiedWorkerMap();
-  
+
   void mappingWorker();
   void offlineOdometryWorker();
   void offlineMappingWorker();
@@ -172,7 +172,7 @@ class SlamWrapper {
   // buffers
   CircularBuffer<RegisteredPointCloud> registeredCloudBuffer_;
   CircularBuffer<ScanToMapRegistrationBestGuess> registrationBestGuessBuffer_;
-  
+
   CircularBuffer<TimestampedPointCloud> odometryBuffer_, mappingBuffer_;
   ThreadSafeBuffer<TimestampedSubmapId> loopClosureCandidates_;
 

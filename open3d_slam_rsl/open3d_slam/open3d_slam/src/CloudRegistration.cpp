@@ -29,9 +29,9 @@ void RegistrationIcpGeneralized::estimateNormalsOrCovariancesIfNeeded(PointCloud
   cloud->EstimateNormals(param, true);
   cloud->NormalizeNormals();
   cloud->OrientNormalsTowardsCameraLocation();
-  
+
   // Could be advantegous for planar surfaces.
-  //cloud->OrientNormalsConsistentTangentPlane(knnNormalEstimation_);
+  // cloud->OrientNormalsConsistentTangentPlane(knnNormalEstimation_);
   //	cloud->EstimateCovariances(param);
   return;
 }

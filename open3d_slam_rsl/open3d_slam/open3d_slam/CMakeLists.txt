@@ -87,3 +87,13 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenMP_CXX_LIBRARIES}
   )
 
+find_package(cmake_clang_tools QUIET)
+if(cmake_clang_tools_FOUND)
+  add_clang_tooling(
+    SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
+    CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+    CF_FIX
+    #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
+  )
+endif(cmake_clang_tools_FOUND)
+
