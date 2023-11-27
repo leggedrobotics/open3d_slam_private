@@ -22,6 +22,7 @@ void DataProcessorRos::initCommonRosStuff() {
   cloudTopic_ = nh_->param<std::string>("cloud_topic", "");
   odometryTopic_ = nh_->param<std::string>("odometry_topic", "");
   poseStampedTopic_ = nh_->param<std::string>("pose_stamped_topic", "");
+  imuTopic_ = nh_->param<std::string>("imu_topic", "/sensors/imu");
   poseStampedWithCovarianceTopic_ = nh_->param<std::string>("pose_stamped_with_covariance_topic", "");
 
   std::cout << "Cloud topic is given as " << cloudTopic_ << std::endl;

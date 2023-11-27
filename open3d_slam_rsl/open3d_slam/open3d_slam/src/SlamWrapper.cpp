@@ -127,6 +127,11 @@ bool SlamWrapper::isExternalOdometryFrameToCloudFrameCalibrationSet() {
 }
 
 Transform SlamWrapper::getExternalOdometryFrameToCloudFrameCalibration() {
+  if (!isExternalOdometryFrameToCloudFrameCalibrationSet()) {
+    std::cout << "ASKED FOR CALIBRATION BEFORE ITS SET RETURNING IDENTITY \n";
+    return Transform::Identity();
+  }
+
   return mapper_->calibration_;
 }
 
@@ -405,8 +410,8 @@ void SlamWrapper::setInitialTransform(const Eigen::Matrix4d initialTransform) {
 }
 
 bool SlamWrapper::isInitialTransformSet() {
-  bool total = mapper_->isNewInitialValueSet_ && odometry_->isInitialTransformSet_;
-  // std::cerr << "Mapper is set: " << mapper_->isNewInitialValueSet_<< " \n";
+  bool total = mapper_->isInitialTransformSet_ && odometry_->isInitialTransformSet_;
+  // std::cerr << "Mapper is set: " << mapper_->isNewValueSetMapper_<< " \n";
   // std::cerr << "Odometry is set: " << odometry_->isInitialTransformSet_ << " \n";
 
   return total;

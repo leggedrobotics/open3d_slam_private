@@ -50,10 +50,11 @@ class SlamWrapper {
   // Moved from frame.hpp to here, while this is not optimal allows the user to set frames through parameters.
   struct Frames {
     std::string odomFrame = "odom_o3d";
-    std::string rangeSensorFrame = "default";  // This is the frame of the pointclud. AB uses base.
-    std::string mapFrame = "map_o3d";
+    std::string rangeSensorFrame = "default";  // This is the frame of the pointclud. Read from the pointcloud callback.
+    std::string mapFrame = "map_o3d";          // Already Parametrized through lua loader.
     std::string imageFrame = "image_frame_o3d";
     std::string assumed_external_odometry_tracked_frame = "external_odometry_tracked_frame";
+    std::string imuFrame = "default";  // Frame of the IMU. Read from the imu callback.
   };
 
  public:

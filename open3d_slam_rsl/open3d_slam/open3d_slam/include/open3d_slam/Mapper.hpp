@@ -64,7 +64,8 @@ class Mapper {
 
   nav_msgs::Path trackedPath_;
   nav_msgs::Path bestGuessPath_;
-  bool isNewInitialValueSet_ = false;
+  bool isNewValueSetMapper_ = false;
+  bool isInitialTransformSet_ = false;
 
   // The pointmatcher registration object.
   // The parameter loading dont have a slam_ API yet, thus object not private.

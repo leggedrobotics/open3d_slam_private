@@ -44,6 +44,7 @@ class DataProcessorRos {
   std::string odometryTopic_{""};
   std::string poseStampedWithCovarianceTopic_{""};
   std::string poseStampedTopic_{""};
+  std::string imuTopic_{""};
 
   std::shared_ptr<SlamWrapper> slam_;
   ros::NodeHandlePtr nh_;

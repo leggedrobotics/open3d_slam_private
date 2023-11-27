@@ -9,21 +9,43 @@
   <arg name="launch_tf" default="false"/>
   <arg name="load_params" default="n" doc="y , n"/>
   <arg name="robot_description_file_path" default="/home/tutuna/Music/hongg_wildcat_mission_4/2022-12-15-13-52-33_anymal-camel-lpc_mission.yaml"/>
-  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
-   <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
-  <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
-
-  <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
-  <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
-  <arg name="map_saving_folder" default="$(find open3d_slam_ros)/data/maps/"/>
-  <arg name="num_accumulated_range_data" default="1"/>
+  <!-- MANDATORY PARAMETERS TO DEFINE -->
+  <!-- Common Options:  -->
+  <!--        /point_cloud_filter/lidar_depth_camera/point_cloud_filtered   -->
+  <!--        /lidar/point_cloud  -->
+  <!--         /point_cloud_filter/lidar/point_cloud_filtered -->
+  <!--        /hesai/pandar  -->
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in external odometry frame` -->
+  <!-- Common Options:  -->
+  <!--   base   -->
+  <!--   zed2i_base_link  -->
   <arg name="assumed_external_odometry_tracked_frame" default="base"/>
+
+  <!-- Currently only used for attitude initialization -->
+  <!-- Common Options:  -->
+  <!--   /imu_perception_kit   -->
+  <!--   /sensors/imu  -->
+  <arg name="imu_topic" default="/sensors/imu"/>
+
+  <!-- Common Options:  -->
+  <!--   /zed2i/zed_node/odom  -->
+  <!--   /state_estimator/odometry  -->
+  <arg name="odometry_topic" default="/zed2i/zed_node/odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  
+  <!-- Common Options:  -->
+  <!--   /state_estimator/pose_in_odom   -->
+  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+
+  <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>
+  <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
+  <arg name="map_saving_folder" default="$(find open3d_slam_ros)/data/maps/"/>
+  <arg name="num_accumulated_range_data" default="1"/>
 
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="false"/>
@@ -49,6 +71,8 @@
 
     <param name="parameter_folder_path" type="string"
            value="$(arg parameter_folder_path)"/>
+
+    <param name="imu_topic" type="string" value="$(arg imu_topic)"/>
 
     <param name="assumed_external_odometry_tracked_frame" type="string"
            value="$(arg assumed_external_odometry_tracked_frame)"/>

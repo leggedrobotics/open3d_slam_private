@@ -142,15 +142,18 @@ void Mapper::setMapToRangeSensor(const Transform& t) {
   mapToRangeSensor_ = t;
 }
 void Mapper::setMapToRangeSensorInitial(const Transform& t) {
-  if (isNewInitialValueSet_) {
+  if (isNewValueSetMapper_) {
     return;
   }
 
-  // std::cout << " Setting initial value transform at mapper: " << "\033[92m" << asString(t) << " \n" << "\033[0m";
+  std::cout << " Setting initial value transform at mapper: "
+            << "\033[92m" << asString(t) << " \n"
+            << "\033[0m";
 
   mapToRangeSensorPrev_ = t;
   mapToRangeSensor_ = t;
-  isNewInitialValueSet_ = true;
+  isNewValueSetMapper_ = true;
+  isInitialTransformSet_ = true;
 }
 
 const PointCloud& Mapper::getPreprocessedScan() const {
@@ -222,7 +225,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   Transform mapToRangeSensorEstimate = mapToRangeSensorPrev_;
 
   // This is where we prepare the scan2map initial guess.
-  if (isOdomOkay && !isNewInitialValueSet_ && !isIgnoreOdometryPrediction_) {
+  if (isOdomOkay && !isNewValueSetMapper_ && !isIgnoreOdometryPrediction_) {
     // Get the pose at the current timestamp of the PC we are operating with.
     const Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_) * calibration_.inverse();
 
@@ -304,7 +307,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
         std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
     // std::cerr << "Passed Time: " << passedTime << std::endl;
 
-    if (isNewInitialValueSet_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)) {
+    if (isNewValueSetMapper_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)) {
       {
         std::lock_guard<std::mutex> lck(mapManipulationMutex_);
         // Create pointmatcher cloud
@@ -395,7 +398,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
-  if (isNewInitialValueSet_) {
+  if (isNewValueSetMapper_) {
     if (isTimeValid(timestamp)) {
       initTime_ = timestamp;
     }
@@ -407,7 +410,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     mapToRangeSensorPrev_ = mapToRangeSensor_;
     mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
     bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
-    isNewInitialValueSet_ = false;
+    isNewValueSetMapper_ = false;
     isIgnoreOdometryPrediction_ = true;
     return true;
   }

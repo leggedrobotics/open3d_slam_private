@@ -69,6 +69,8 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
   bool isStaticTransformFound_ = false;
 
   std::shared_ptr<ImuBuffer> imuBufferPtr_;
+  Transform lidarToImu_ = Transform::Identity();
+
   // tf2_ros::Buffer tfBuffer_;
   // tf2_ros::TransformListener tfListener_;
   // std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
