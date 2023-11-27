@@ -166,9 +166,11 @@ const ScanToMapRegistration& Mapper::getScanToMapRegistration() const {
 
 // Entry point to scan2map registration
 bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& timestamp) {
-  if (!isCalibrationSet_) {
-    std::cerr << "Calibration is not set. Returning from mapping." << std::endl;
-    return false;
+  if (!params_.isUseInitialMap_) {
+    if (!isCalibrationSet_) {
+      std::cerr << "Calibration is not set. Returning from mapping." << std::endl;
+      return false;
+    }
   }
 
   submaps_->setMapToRangeSensor(mapToRangeSensor_);
