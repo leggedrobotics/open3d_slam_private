@@ -355,6 +355,29 @@ void SlamWrapper::offlineTfWorker() {
 
 void SlamWrapper::offlineVisualizationWorker() {
   std::cout << "Starting offline visualization worker! \n";
+
+  const Time scanToMapTimestamp = latestScanToMapRefinementTimestamp_;
+  if (isTimeValid(scanToMapTimestamp)) {
+    offlinePublishMaps(scanToMapTimestamp);
+  }
+}
+
+void SlamWrapper::offlinePublishMaps(const Time& time) {
+  /*const ros::Time timestamp = toRos(time);
+  {
+    PointCloud map = mapper_->getAssembledMapPointCloud();
+    voxelize(params_.visualization_.assembledMapVoxelSize_, &map);
+    o3d_slam::publishCloud(map, frames_.mapFrame, timestamp, assembledMapPub_);
+  }
+  o3d_slam::publishCloud(mapper_->getPreprocessedScan(), frames_.rangeSensorFrame, timestamp, mappingInputPub_);
+  o3d_slam::publishSubmapCoordinateAxes(mapper_->getSubmaps(), frames_.mapFrame, timestamp, submapOriginsPub_);
+  if (submapsPub_.getNumSubscribers() > 0) {
+    open3d::geometry::PointCloud cloud;
+    o3d_slam::assembleColoredPointCloud(mapper_->getSubmaps(), &cloud);
+    voxelize(params_.visualization_.submapVoxelSize_, &cloud);
+    o3d_slam::publishCloud(cloud, frames_.mapFrame, timestamp, submapsPub_);
+  }
+  */
 }
 
 void SlamWrapper::loadParametersAndInitialize() {

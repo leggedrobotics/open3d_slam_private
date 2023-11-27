@@ -37,6 +37,15 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   open3d_slam_lua_io
   )
 
+# We pass the path of the `FindXYZ.cmake` files to `CMAKE_MODULE_PATH`
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
+
+# You can individually give the path of the libraries as well.
+#list(APPEND LIBRARIES ".....so.0")
+#list(APPEND LIBRARIES ".......so")
+
+#find_package(gflags REQUIRED)
+find_package(Glog REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP QUIET)
 if (OpenMP_FOUND)
@@ -64,6 +73,8 @@ include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIR}
   ${OpenMP_CXX_INCLUDE_DIRS}
+  ${GLOG_INCLUDE_DIRS}
+  ${gflags_INCLUDE_DIRS}
 )
 
 add_definitions(-std=c++17)
@@ -78,6 +89,8 @@ add_dependencies(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${gflags_LIBRARIES}
+  ${GLOG_LIBRARIES}
   yaml-cpp
   ${OpenMP_CXX_LIBRARIES}
   )
@@ -87,6 +100,8 @@ add_executable(mapping_node
 
 target_link_libraries(mapping_node
   ${catkin_LIBRARIES}
+  ${gflags_LIBRARIES}
+  ${GLOG_LIBRARIES}
   ${PROJECT_NAME}
   )
 
