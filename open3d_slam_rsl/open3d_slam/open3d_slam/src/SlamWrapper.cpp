@@ -391,6 +391,10 @@ void SlamWrapper::loadParametersAndInitialize() {
   registeredCloudBuffer_.set_size_limit(params_.odometry_.scanProcessing_.pointCloudBufferSize_);
 }
 
+bool SlamWrapper::isUseExistingMapEnabled() const {
+  return params_.mapper_.isUseInitialMap_;
+}
+
 void SlamWrapper::setInitialMap(const PointCloud& initialMap) {
   TimestampedPointCloud measurement{fromUniversal(0), std::move(initialMap)};
   {

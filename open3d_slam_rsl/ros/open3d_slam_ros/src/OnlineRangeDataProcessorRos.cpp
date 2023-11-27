@@ -48,8 +48,9 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
       // Waits for the transform to be available. After this we dont need to have timeout for the lookup itself
       if (!tfBuffer_.canTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.assumed_external_odometry_tracked_frame, ros::Time(0.0),
                                   ros::Duration(0.2))) {
-        ROS_WARN_STREAM("Transform not available yet: [" << slam_->frames_.rangeSensorFrame << "] to ["
-                                                         << slam_->frames_.assumed_external_odometry_tracked_frame << "].");
+        ROS_WARN_STREAM_THROTTLE(0.5, "Transform not available yet: [" << slam_->frames_.rangeSensorFrame << "] to ["
+                                                                       << slam_->frames_.assumed_external_odometry_tracked_frame
+                                                                       << "]. Thottled 0.5s");
         return false;
       }
 
@@ -181,7 +182,9 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
       // << "\033[0m"; std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" <<
       // "\033[0m";
 
-      slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
+      if (!slam_->isUseExistingMapEnabled()) {
+        slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
+      }
     }
 
     ROS_INFO("Static TF reader callback is terminated after successfully reading the transform.");
@@ -190,9 +193,11 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
 }
 
 void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
-  if (!slam_->isInitialTransformSet()) {
-    ROS_WARN_THROTTLE(1, "Initial Transform not set yet, skipping the measurement. Throttled 1s");
-    return;
+  if (!slam_->isUseExistingMapEnabled()) {
+    if (!slam_->isInitialTransformSet()) {
+      ROS_WARN_THROTTLE(1, "Initial Transform not set yet, skipping the measurement. Throttled 1s");
+      return;
+    }
   }
 
   // Add the range scan to the pointcloud processing buffer. This is actually a buffer with size 1, so no queue.
