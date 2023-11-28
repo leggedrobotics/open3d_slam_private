@@ -371,11 +371,11 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
         ROS_WARN_STREAM("No data under the topic: " << topic << " was found. This was optional so okay.");
         continue;
       } else if (topic == tfStaticTopic_) {
-        ROS_WARN_STREAM("No data under the topic: "
-                        << topic << " was found. This is NOT optional. But if you make tf_static available external its okay.");
+        ROS_ERROR_STREAM("No data under the topic: "
+                         << topic << " was found. This is NOT optional. But if you make tf_static available external its okay.");
         continue;
       } else {
-        ROS_WARN_STREAM("No data under the topic: " << topic << " was found.");
+        ROS_ERROR_STREAM("No data under the topic: " << topic << " was found.");
         areMandatoryTopicsInRosbag = false;
       }
     } else {
@@ -467,6 +467,11 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     // Buffer is empty, means the async odometry poses did not arrive before the point cloud.
     if (slam_->isOdometryPoseBufferEmpty()) {
       std::cout << "Odometry Buffer is empty!" << std::endl;
+      return false;
+    }
+
+    if (!slam_->isInitialTransformSet()) {
+      std::cout << "Initial transform not set yet! Popping the measurement." << std::endl;
       return false;
     }
   }

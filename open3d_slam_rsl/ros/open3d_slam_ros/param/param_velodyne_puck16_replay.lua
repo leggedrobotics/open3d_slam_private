@@ -25,7 +25,7 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.downsampling_ra
 params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_max = 100.0 --We don't want to crop the scans.
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 1.0 --Currently only used for surface normal estimation.
+params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 2.0 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
 
 --MAP_INITIALIZER
@@ -40,10 +40,10 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
-params.submap.submap_size = 20.0 --meters
+params.submap.submap_size = 30.0 --meters
 params.submap.adjacency_based_revisiting_min_fitness = 0.5
 params.submap.min_seconds_between_feature_computation = 5.0
-params.submap.max_num_points = 750000
+params.submap.max_num_points = 7500000
 
 --MAP_BUILDER
 params.map_builder.map_voxel_size = 0.08

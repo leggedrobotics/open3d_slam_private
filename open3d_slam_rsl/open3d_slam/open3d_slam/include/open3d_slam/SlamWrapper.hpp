@@ -100,6 +100,7 @@ class SlamWrapper {
   bool isUseExistingMapEnabled() const;
 
   bool saveMap(const std::string& directory);
+  void offlinePublishMaps(const Time& time);
   bool saveDenseSubmaps(const std::string& directory);
   bool saveSubmaps(const std::string& directory, const bool& isDenseMap = false);
 
