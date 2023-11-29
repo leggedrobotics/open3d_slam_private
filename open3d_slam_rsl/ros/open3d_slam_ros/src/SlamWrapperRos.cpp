@@ -283,9 +283,9 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   scan2mapTransformPublisher_ = nh_->advertise<geometry_msgs::TransformStamped>("scan2map_transform", 1, true);
   scan2mapOdomPublisher_ = nh_->advertise<nav_msgs::Odometry>("scan2map_odometry", 1, true);
 
-  trackedPathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path_live", 1, true);
-  bestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path_live", 1, true);
-  differenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", true);
+  trackedPathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path_live", 1, false);
+  bestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path_live", 1, false);
+  differenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", false);
 
   //	auto &logger = open3d::utility::Logger::GetInstance();
   //	logger.SetVerbosityLevel(open3d::utility::VerbosityLevel::Debug);

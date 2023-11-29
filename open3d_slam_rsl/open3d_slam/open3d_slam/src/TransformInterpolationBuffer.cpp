@@ -6,13 +6,14 @@
  */
 #include "open3d_slam/TransformInterpolationBuffer.hpp"
 #include "open3d_slam/assert.hpp"
+#include "open3d_slam/output.hpp"
 #include "open3d_slam/time.hpp"
 
 #include <iostream>
 
 namespace o3d_slam {
 
-TransformInterpolationBuffer::TransformInterpolationBuffer() : TransformInterpolationBuffer(500) {}
+TransformInterpolationBuffer::TransformInterpolationBuffer() : TransformInterpolationBuffer(20000) {}
 
 TransformInterpolationBuffer::TransformInterpolationBuffer(size_t bufferSize) {
   setSizeLimit(bufferSize);
@@ -65,8 +66,24 @@ const TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int
   if (empty()) {
     throw std::runtime_error("TransformInterpolationBuffer:: latest_measurement: Empty buffer");
   }
-  return *(std::prev(transforms_.end(), offsetFromLastElement + 1));
+  /*
+  auto it = transforms_.end();
+
+  // std::cout << "end calculated" << std::endl;
+  auto latest2 = *std::prev(it, 2);
+  std::cout << "latest2: " << toSecondsSinceFirstMeasurement(latest2.time_) << std::endl;
+  std::cout << "latest2: " << toSecondsSinceFirstMeasurement(latest2.time_) << std::endl;
+  std::cout << "latest2: " << toSecondsSinceFirstMeasurement(latest2.time_) << std::endl;
+
+  auto latest = std::prev(it, offsetFromLastElement + 1);
+
+  // std::cout << "latest time: " << toSecondsSinceFirstMeasurement(latest->time_) << std::endl;
+  // std::cout << "latest transform: " << o3d_slam::asString(latest->transform_) << std::endl;
+  */
+
+  return transforms_.back();
 }
+
 TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int offsetFromLastElement /*=0*/) {
   if (empty()) {
     throw std::runtime_error("TransformInterpolationBuffer:: latest_measurement: Empty buffer");
@@ -97,6 +114,19 @@ Transform TransformInterpolationBuffer::lookup(const Time& time) const {
   if (isIteratorValid && getMeasurement->time_ == time) {
     return getMeasurement->transform_;
   }
+
+  if (!isTimeValid(getMeasurement->time_)) {
+    const auto nexxt = std::next(getMeasurement);
+
+    if (nexxt != transforms_.end()) {
+      return nexxt->transform_;
+    } else {
+      const auto start2 = std::prev(getMeasurement);
+
+      return start2->transform_;
+    }
+  }
+
   const auto start = std::prev(getMeasurement);
 
   //  std::cout << "buffer size: " << size() << "\n";

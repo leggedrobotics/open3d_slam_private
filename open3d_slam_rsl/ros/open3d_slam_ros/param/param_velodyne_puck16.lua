@@ -40,10 +40,10 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
-params.submap.submap_size = 20.0 --meters
+params.submap.submap_size = 30.0 --meters
 params.submap.adjacency_based_revisiting_min_fitness = 0.5
 params.submap.min_seconds_between_feature_computation = 5.0
-params.submap.max_num_points = 750000
+params.submap.max_num_points = 1500000
 
 --MAP_BUILDER
 params.map_builder.map_voxel_size = 0.08

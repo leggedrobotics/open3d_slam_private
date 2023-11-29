@@ -556,7 +556,7 @@ void SlamWrapper::unifiedWorkerOdom() {
     // Now replicating offline workers.
 
     if (!odometry_->getBuffer().empty()) {
-      const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
+      const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement(0);
       latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
     }
 
@@ -579,8 +579,10 @@ void SlamWrapper::unifiedWorkerOdom() {
 
     // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of
     // the lidar.
-    const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
-    latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
+    if (!odometry_->getBuffer().empty()) {
+      const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
+      latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
+    }
   }
 }
 

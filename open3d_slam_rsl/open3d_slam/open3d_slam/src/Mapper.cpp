@@ -495,7 +495,7 @@ Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {
 
 void Mapper::checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const {
   if (isCheckTransformChainingAndPrintResult && odomToRangeSensorBuffer_.size() > 70 && mapToRangeSensorBuffer_.size() > 70) {
-    const auto odom1 = odomToRangeSensorBuffer_.latest_measurement(60).transform_;
+    /*const auto odom1 = odomToRangeSensorBuffer_.latest_measurement(60).transform_;
     const auto odom2 = odomToRangeSensorBuffer_.latest_measurement(20).transform_;
     const auto start = mapToRangeSensorBuffer_.latest_measurement(60).transform_;
     const auto gt = mapToRangeSensorBuffer_.latest_measurement(20).transform_;
@@ -504,7 +504,7 @@ void Mapper::checkTransformChainingAndPrintResult(bool isCheckTransformChainingA
     std::cout << "start      :  " << asString(start) << "\n";
     std::cout << "gt         :  " << asString(gt) << "\n";
     std::cout << "gt computed:  " << asString(start * mapMotion) << "\n";
-    std::cout << "est        : " << asString(start * odomMotion) << "\n\n";
+    std::cout << "est        : " << asString(start * odomMotion) << "\n\n";*/
   }
 }
 

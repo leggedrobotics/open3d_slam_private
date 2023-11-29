@@ -194,9 +194,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
         RF_KFE_drive:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
           Value: true
         RF_SHANK:
           Alpha: 1
@@ -617,7 +614,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 30; 85; 157
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -636,12 +633,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/tracked_path
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 25; 255; 0
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -660,7 +657,7 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/best_guess_path
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -693,7 +690,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 138; 226; 52
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -712,12 +709,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/best_guess_path_live
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 32; 74; 135
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -736,15 +733,15 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/tracked_path_live
       Unreliable: false
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /open3d_slam/differenceLines
       Name: Motion Update Markers
       Namespaces:
-        paths: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Angle Tolerance: 0
       Class: rviz/Odometry
       Covariance:
