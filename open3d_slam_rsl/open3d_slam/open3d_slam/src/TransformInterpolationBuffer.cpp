@@ -13,7 +13,7 @@
 
 namespace o3d_slam {
 
-TransformInterpolationBuffer::TransformInterpolationBuffer() : TransformInterpolationBuffer(20000) {}
+TransformInterpolationBuffer::TransformInterpolationBuffer() : TransformInterpolationBuffer(2000) {}
 
 TransformInterpolationBuffer::TransformInterpolationBuffer(size_t bufferSize) {
   setSizeLimit(bufferSize);
@@ -81,7 +81,16 @@ const TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int
   // std::cout << "latest transform: " << o3d_slam::asString(latest->transform_) << std::endl;
   */
 
-  return transforms_.back();
+  const auto prevv = std::prev(transforms_.end(), 1);
+
+  if (prevv == transforms_.end()) {
+    // throw std::runtime_error("TransformInterpolationBuffer:: prevv != transforms_.end()");
+
+    return *(std::prev(transforms_.end(), 2));
+  }
+
+  // return transforms_.back();
+  return *prevv;
 }
 
 TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int offsetFromLastElement /*=0*/) {
