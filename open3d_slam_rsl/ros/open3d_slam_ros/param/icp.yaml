@@ -47,13 +47,8 @@ ceresDegeneracyAnalysis:
     useThreeDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
     regularizationWeight: 500.0 # you need to set  .0  as double
 
-degeneracyAwareness:
-  EqualityConstraints:
-    highInformationThreshold: 250   ##       RUMLANG GICIK     
-    enoughInformationThreshold: 180  # was 150 17 sept when was 250 it crasahed. investigate
-    insufficientInformationThreshold: 35   ### RUMLANG GICIK  30
-    point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
-    point2NormalStrongAlignmentAngleThreshold: 45
+degeneracyAwareness:  
+  None:
   #EqualityConstraints:
   #  highInformationThreshold: 250   ##       RUMLANG GICIK     
   #  enoughInformationThreshold: 180  # was 150 17 sept when was 250 it crasahed. investigate

@@ -193,7 +193,7 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
 }
 
 void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
-  if (!slam_->isUseExistingMapEnabled()) {
+  if (!slam_->isUseExistingMapEnabled() && slam_->isUsingOdometryTopic()) {
     if (!slam_->isInitialTransformSet()) {
       ROS_WARN_THROTTLE(1, "Initial Transform not set yet, skipping the measurement. Throttled 1s");
       return;
