@@ -6,7 +6,7 @@
       <!--        /point_cloud_filter/lidar_depth_camera/point_cloud_filtered   -->
       <!--        /lidar/point_cloud  -->
       <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/>
+  <arg name="cloud_topic" default="/hesai/pandar"/>
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of <frame> in external odometry frame` -->

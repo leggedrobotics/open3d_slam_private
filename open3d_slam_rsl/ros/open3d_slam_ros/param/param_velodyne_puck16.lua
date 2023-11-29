@@ -8,7 +8,7 @@ params.odometry.scan_processing.voxel_size = 0.05
 params.odometry.scan_processing.downsampling_ratio = 1.0
 
 --Advanced Options.
-params.odometry.use_odometry_topic_instead_of_scan_to_scan = true --Uses Odometry topic instead of Scan2Scan registration.
+params.odometry.use_odometry_topic_instead_of_scan_to_scan = false --Uses Odometry topic instead of Scan2Scan registration.
 params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to initialize gravity aligned attitude.
 
 --MAPPER_LOCALIZER
@@ -26,7 +26,7 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.c
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 1.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 3.5 --sec
 
 --MAP_INITIALIZER
 params.map_initializer.pcd_file_package = "open3d_slam_ros"
@@ -49,7 +49,7 @@ params.submap.max_num_points = 1500000
 params.map_builder.map_voxel_size = 0.08
 params.map_builder.scan_cropping.cropping_radius_max = 100.0
 params.map_builder.scan_cropping.cropping_radius_min = 2.0
-params.map_builder.space_carving.carve_space_every_n_scans = 10
+params.map_builder.space_carving.carve_space_every_n_scans = 1
 
 --DENSE_MAP_BUILDER
 params.dense_map_builder.map_voxel_size = 0.05
