@@ -42,6 +42,7 @@ void TransformInterpolationBuffer::push(const Time& time, const Transform& tf) {
   }
   transforms_.push_back({time, tf});
   removeOldMeasurementsIfNeeded();
+  isBufferExtended = true;
 }
 
 void TransformInterpolationBuffer::applyToAllElementsInTimeInterval(const Transform& t, const Time& begin, const Time& end) {
@@ -66,31 +67,20 @@ const TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int
   if (empty()) {
     throw std::runtime_error("TransformInterpolationBuffer:: latest_measurement: Empty buffer");
   }
-  /*
-  auto it = transforms_.end();
 
-  // std::cout << "end calculated" << std::endl;
-  auto latest2 = *std::prev(it, 2);
-  std::cout << "latest2: " << toSecondsSinceFirstMeasurement(latest2.time_) << std::endl;
-  std::cout << "latest2: " << toSecondsSinceFirstMeasurement(latest2.time_) << std::endl;
-  std::cout << "latest2: " << toSecondsSinceFirstMeasurement(latest2.time_) << std::endl;
+  // TODO, regardless of if a new measurement arrives we lookup through the queue, which is not nice.
 
-  auto latest = std::prev(it, offsetFromLastElement + 1);
+  const auto lastM = std::prev(transforms_.end(), 1);
+  // std::cout << "prevv: " << toSecondsSinceFirstMeasurement(prevv->time_) << std::endl;
+  // std::cout << "prevv transform: " << o3d_slam::asString(prevv->transform_) << std::endl;
 
-  // std::cout << "latest time: " << toSecondsSinceFirstMeasurement(latest->time_) << std::endl;
-  // std::cout << "latest transform: " << o3d_slam::asString(latest->transform_) << std::endl;
-  */
-
-  const auto prevv = std::prev(transforms_.end(), 1);
-
-  if (prevv == transforms_.end()) {
-    // throw std::runtime_error("TransformInterpolationBuffer:: prevv != transforms_.end()");
-
+  if (lastM == transforms_.end()) {
+    // If for some reason we are at the end of the queue, return the second to last element.
     return *(std::prev(transforms_.end(), 2));
   }
 
   // return transforms_.back();
-  return *prevv;
+  return *lastM;
 }
 
 TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int offsetFromLastElement /*=0*/) {

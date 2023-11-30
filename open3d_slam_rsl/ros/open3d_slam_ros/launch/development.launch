@@ -8,7 +8,7 @@
   <arg name="replay_packets" default="false"/>
   <arg name="launch_tf" default="false"/>
   <arg name="load_params" default="y" doc="y , n"/>
-  <arg name="robot_description_file_path" default="/home/tutuna/Music/hongg_wildcat_mission_4/2022-12-15-13-52-33_anymal-camel-lpc_mission.yaml"/>
+  <arg name="robot_description_file_path" default="/home/tutuna/Music/20230327_ETH_Cerberus_global_localization/2023-03-27-13-48-57_anymal-cerberus-lpc_mission.yaml"/>
   
   <!-- MANDATORY PARAMETERS TO DEFINE -->
   <!-- Common Options:  -->

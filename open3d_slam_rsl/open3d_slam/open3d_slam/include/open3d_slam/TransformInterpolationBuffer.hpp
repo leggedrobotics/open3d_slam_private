@@ -6,6 +6,7 @@
  */
 
 #pragma once
+#include <atomic>
 #include <deque>
 #include <limits>
 #include <mutex>
@@ -66,6 +67,8 @@ class TransformInterpolationBuffer {
   void applyToAllElementsInTimeInterval(const Transform& t, const Time& begin, const Time& end);
 
  private:
+  TimestampedTransform latestMemory;
+  std::atomic<bool> isBufferExtended = false;
   void removeOldMeasurementsIfNeeded();
   static constexpr size_t kUnlimitedBufferSize = std::numeric_limits<size_t>::max();
 
