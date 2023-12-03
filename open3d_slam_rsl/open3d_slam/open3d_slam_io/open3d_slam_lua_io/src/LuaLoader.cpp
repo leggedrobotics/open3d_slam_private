@@ -229,6 +229,7 @@ void LuaLoader::loadParameters(const DictPtr dict, MapperParameters *p) {
 	loadBoolIfKeyDefined(dict, "is_print_timing_information", &p->isPrintTimingStatistics_);
 	loadBoolIfKeyDefined(dict, "is_refine_odometry_constraints_between_submaps", &p->isRefineOdometryConstraintsBetweenSubmaps_);
 	loadBoolIfKeyDefined(dict, "is_use_map_initialization", &p->isUseInitialMap_);
+	loadBoolIfKeyDefined(dict, "republish_the_preloaded_map", &p->republishMap_);
 	loadBoolIfKeyDefined(dict, "is_carving_enabled", &p->isCarvingEnabled_);
 	loadBoolIfKeyDefined(dict, "is_merge_scans_into_map", &p->isMergeScansIntoMap_);
 	loadBoolIfKeyDefined(dict, "ignore_minimum_refinement_fitness", &p->isIgnoreMinRefinementFitness_);

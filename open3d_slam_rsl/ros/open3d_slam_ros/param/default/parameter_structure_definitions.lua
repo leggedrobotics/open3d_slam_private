@@ -120,6 +120,7 @@ MAPPER_LOCALIZER_PARAMETERS = {
   is_build_dense_map = false,
   is_attempt_loop_closures = false,
   is_use_map_initialization = false,
+  republish_the_preloaded_map = true,
   map_merge_delay_in_seconds = 10.0,
   is_merge_scans_into_map = false,
   dump_submaps_to_file_before_after_lc = false,

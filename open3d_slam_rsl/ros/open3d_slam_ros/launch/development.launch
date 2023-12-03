@@ -5,10 +5,10 @@
   <!-- Arguments -->
   <arg name="launch_prefix" default="" doc="gdb -ex run --args , valgrind --leak-check=full"/>
   <arg name="launch_rviz" default="true"/>
-  <arg name="replay_packets" default="true"/>
-  <arg name="launch_tf" default="true"/>
-  <arg name="publish_gps_tf" default="y" doc="y , n"/>
-  <arg name="load_params" default="y" doc="y , n"/>
+  <arg name="replay_packets" default="false"/>
+  <arg name="launch_tf" default="false"/>
+  <arg name="publish_gps_tf" default="n" doc="y , n"/>
+  <arg name="load_params" default="n" doc="y , n"/>
   <arg name="robot_description_file_path" default="/home/tutuna/Music/hongg_wildcat_mission_4/2022-12-15-13-52-33_anymal-camel-lpc_mission.yaml"/>
   
   <!-- MANDATORY PARAMETERS TO DEFINE -->
@@ -25,7 +25,7 @@
   <!--   base   -->
   <!--   zed2i_base_link  -->
   <!--   imu_link   -->
-  <arg name="assumed_external_odometry_tracked_frame" default="imu_link"/>
+  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
 
   <!-- Currently only used for attitude initialization -->
   <!-- Common Options:  -->
@@ -39,11 +39,11 @@
   <!--   /state_estimator/odometry  -->
   <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
   <!-- Common Options:  -->
   <!--   /state_estimator/pose_in_odom   -->
-  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
   <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>

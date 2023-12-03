@@ -430,6 +430,13 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     // Early return before inserting the scans.
     lastMeasurementTimestamp_ = timestamp;
     mapToRangeSensorPrev_ = mapToRangeSensor_;
+
+    if (params_.isPrintTimingStatistics_) {
+      std::cout << "o3d_slam Mapper: "
+                << "\033[92m Skipping Merging to Map. \n "
+                << "\033[0m";
+    }
+
     return true;
   }
 

@@ -13,6 +13,7 @@ params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to i
 
 --MAPPER_LOCALIZER
 params.mapper_localizer.is_use_map_initialization = false
+params.mapper_localizer.republish_the_preloaded_map = true
 params.mapper_localizer.is_merge_scans_into_map = false
 params.mapper_localizer.is_build_dense_map = false
 params.mapper_localizer.is_attempt_loop_closures = false

@@ -154,6 +154,7 @@ void loadParameters(const YAML::Node &node, MapperParameters *p) {
 	p->isPrintTimingStatistics_ = node["is_print_timing_information"].as<bool>();
 	p->isRefineOdometryConstraintsBetweenSubmaps_ = node["is_refine_odometry_constraints_between_submaps"].as<bool>();
 	p->isUseInitialMap_ = node["is_use_map_initialization"].as<bool>();
+	p->republishMap_ = node["republish_the_preloaded_map"].as<bool>();
 	p->mapMergeDelayInSeconds_ = node["map_merge_delay_in_seconds"].as<double>();
 	p->isCarvingEnabled_ = node["is_carving_enabled"].as<bool>();
 	p->isMergeScansIntoMap_ = node["is_merge_scans_into_map"].as<bool>();
