@@ -3,12 +3,13 @@
 <launch>
 
   <!-- Arguments -->
-  <arg name="launch_prefix" default="gdb -ex run --args" doc="gdb -ex run --args , valgrind --leak-check=full"/>
+  <arg name="launch_prefix" default="" doc="gdb -ex run --args , valgrind --leak-check=full"/>
   <arg name="launch_rviz" default="true"/>
-  <arg name="replay_packets" default="false"/>
-  <arg name="launch_tf" default="false"/>
+  <arg name="replay_packets" default="true"/>
+  <arg name="launch_tf" default="true"/>
+  <arg name="publish_gps_tf" default="y" doc="y , n"/>
   <arg name="load_params" default="y" doc="y , n"/>
-  <arg name="robot_description_file_path" default="/home/tutuna/Music/20230327_ETH_Cerberus_global_localization/2023-03-27-13-48-57_anymal-cerberus-lpc_mission.yaml"/>
+  <arg name="robot_description_file_path" default="/home/tutuna/Music/hongg_wildcat_mission_4/2022-12-15-13-52-33_anymal-camel-lpc_mission.yaml"/>
   
   <!-- MANDATORY PARAMETERS TO DEFINE -->
   <!-- Common Options:  -->
@@ -16,14 +17,15 @@
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in external odometry frame` -->
   <!-- Common Options:  -->
   <!--   base   -->
   <!--   zed2i_base_link  -->
-  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
+  <!--   imu_link   -->
+  <arg name="assumed_external_odometry_tracked_frame" default="imu_link"/>
 
   <!-- Currently only used for attitude initialization -->
   <!-- Common Options:  -->
@@ -34,13 +36,14 @@
   <!-- Common Options:  -->
   <!--   /zed2i/zed_node/odom  -->
   <!--   /state_estimator/odometry  -->
-  <arg name="odometry_topic" default="/zed2i/zed_node/odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <!--   /state_estimator/odometry  -->
+  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
   <!-- Common Options:  -->
   <!--   /state_estimator/pose_in_odom   -->
-  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom1"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
   <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
@@ -117,5 +120,13 @@
       file="$(find open3d_slam_ros)/launch/velodyne_packets_to_clouds.launch"
       if="$(arg replay_packets)">
   </include>
+       
+  <group if="$(eval publish_gps_tf == 'y')">
+    <!-- TF for Gps Frame -->
+    <!-- x y z yaw pitch roll frame_id child_frame_id period_in_ms -->
+    <!-- x y z qx qy qz qw frame_id child_frame_id  period_in_ms-->
+    <node pkg="tf" type="static_transform_publisher" name="base_to_gps" args="0 0 0.4 0 0 0 base gps 10" />
+  </group>
+
 
 </launch>

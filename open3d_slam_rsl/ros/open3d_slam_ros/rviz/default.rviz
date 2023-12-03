@@ -27,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: RegisteredCloud
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -265,10 +265,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        base_inverted:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         battery:
           Alpha: 1
           Show Axes: false
@@ -338,20 +334,11 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        gps_anthenna_adapter:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gps_mock:
+        gps:
           Alpha: 1
           Show Axes: false
           Show Trail: false
         handle:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        hatch:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -370,10 +357,11 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        pack_imu:
+        lidar_cage:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+          Value: true
         perception_head_cage:
           Alpha: 1
           Show Axes: false
@@ -384,10 +372,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        rotating_lidar:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         top_shell:
           Alpha: 1
           Show Axes: false
@@ -491,8 +475,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 28.924274444580078
-        Min Value: -23.063905715942383
+        Max Value: 16.613862991333008
+        Min Value: -3.342238187789917
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -500,7 +484,7 @@ Visualization Manager:
       Color: 239; 41; 41
       Color Transformer: AxisColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -508,14 +492,14 @@ Visualization Manager:
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
-      Size (Pixels): 1
+      Size (Pixels): 2
       Size (m): 0.20000000298023224
       Style: Points
       Topic: /open3d_slam/assembled_map
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -561,19 +545,19 @@ Visualization Manager:
       Show Visual Aids: false
       Update Topic: /initialization_pose/update
       Value: false
-    - Alpha: 0.800000011920929
+    - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 3.445108652114868
-        Min Value: -1.0274370908737183
+        Max Value: 11.744718551635742
+        Min Value: -1.3306968212127686
         Value: true
       Axis: Z
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 252; 233; 79
       Color Transformer: AxisColor
-      Decay Time: 200
-      Enabled: false
+      Decay Time: 2000
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -588,7 +572,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Class: rviz_plugin_tutorials/Imu
       Color: 204; 51; 204
@@ -695,7 +679,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 138; 226; 52
-      Enabled: false
+      Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -714,12 +698,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/best_guess_path_live
       Unreliable: false
-      Value: false
+      Value: true
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 32; 74; 135
-      Enabled: false
+      Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -738,15 +722,15 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/tracked_path_live
       Unreliable: false
-      Value: false
+      Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /open3d_slam/differenceLines
       Name: Motion Update Markers
       Namespaces:
-        {}
+        paths: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Angle Tolerance: 0
       Class: rviz/Odometry
       Covariance:
@@ -828,7 +812,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.605504035949707
+      Distance: 8.9044189453125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -836,17 +820,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.1727182865142822
-        Y: 0.08739777654409409
-        Z: -0.6520383954048157
+        X: 0.322187215089798
+        Y: -4.157255172729492
+        Z: -0.5428845286369324
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6353985071182251
+      Pitch: 0.21539852023124695
       Target Frame: lidar
-      Yaw: 4.210399627685547
+      Yaw: 1.4553937911987305
     Saved: ~
 Window Geometry:
   Displays:

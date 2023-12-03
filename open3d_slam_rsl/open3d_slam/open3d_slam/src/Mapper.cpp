@@ -266,7 +266,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // Start auxilary time measurement.
   auxilaryTimer_.startStopwatch();
 
-  /// WORKING OLD CODE
   const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
   auto croppedCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.match_->points_.size());
   open3d_conversions::open3dToPointmatcher(*processed.match_, *croppedCloud);
