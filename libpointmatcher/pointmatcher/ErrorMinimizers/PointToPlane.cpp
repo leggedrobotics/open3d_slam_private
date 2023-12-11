@@ -215,6 +215,11 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     assert(dim == 4);
     assert(mPts.reading.features.cols() > 0);
 
+    const Vector meanReading{mPts.reading.features.topRows(dim-1).rowwise().mean()};
+    mPts.reading.features.topRows(dim-1).colwise() -= meanReading;
+    const Vector meanReference{mPts.reference.features.topRows(dim-1).rowwise().mean()};
+    mPts.reference.features.topRows(dim-1).colwise() -= meanReference;
+
     // Get the reference to the optimization matrices.
     const Matrix& A = localizabilityParametersForErrorMinimization.A_;
     const Vector& b = localizabilityParametersForErrorMinimization.b_;
@@ -261,7 +266,7 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     Matrix mOut;
     if (dim == 4 && !force2D)
     {
-        Eigen::Transform<T, 3, Eigen::Affine> transform;
+        Eigen::Transform<T, 3, Eigen::Affine> transform{Eigen::Transform<T, 3, Eigen::Affine>::Identity()};
         // PLEASE DONT USE EULAR ANGLES!!!!
         // Rotation in Eular angles follow roll-pitch-yaw (1-2-3) rule
         /*transform = Eigen::AngleAxis<T>(x(0), Eigen::Matrix<T,1,3>::UnitX())
@@ -271,7 +276,10 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
         // Normal 6DOF takes the whole rotation vector from the solution to construct the output quaternion
         if (!force4DOF)
         {
-            transform = Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized()); //x=[alpha,beta,gamma,x,y,z]
+            
+            const T rotationAngle{std::atan(x.head(3).norm())};
+            transform = Eigen::AngleAxis<T>(rotationAngle, x.head(3).stableNormalized());
+            //transform = Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized()); //x=[alpha,beta,gamma,x,y,z]
         }
         else // 4DOF needs only one number, the rotation around the Z axis
         {
