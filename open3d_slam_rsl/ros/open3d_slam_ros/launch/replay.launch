@@ -22,7 +22,7 @@
   
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="true"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/journal_results_data/all_datasets_used_for_tro/EXTRA/hongg_mission_4_replayed.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
+  <arg name="rosbag_filepath" default="/home/tutuna/journal_results_data/all_datasets_used_for_tro/EXTRA/etzel_mission_5_replayed.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="true"/>
   <arg name="republish_tf_topic" default="true"/>
   <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/> <!-- /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->

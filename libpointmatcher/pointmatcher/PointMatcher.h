@@ -729,7 +729,7 @@ struct PointMatcher
 		bool isDebugModeENabled_{false};
 
 		// Enables printing of additional localizability data.
-		bool isPrintingEnabled_{false};
+		bool isPrintingEnabled_{true};
     };
 
     //! An error minimizer will compute a transformation matrix such as to minimize the error between the reading and the reference.

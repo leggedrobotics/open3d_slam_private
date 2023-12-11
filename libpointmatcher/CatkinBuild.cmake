@@ -11,6 +11,7 @@ endif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 set(CATKIN_PACKAGE_DEPENDENCIES
   libnabo
   message_logger
+  qpmad
 )
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
@@ -20,6 +21,11 @@ find_package(catkin REQUIRED
     ${CATKIN_PACKAGE_DEPENDENCIES}
 )
 find_package(Eigen3 REQUIRED)
+find_package(Ceres REQUIRED)
+find_package(Sophus REQUIRED)
+find_package(NLOPT REQUIRED)
+find_package(BSplineInterpolation REQUIRED)
+find_package(Splinter REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS chrono date_time filesystem program_options system thread timer)
 
@@ -28,6 +34,10 @@ catkin_package(
   INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}
     ${EIGEN3_INCLUDE_DIR}
+    ${CERES_INCLUDE_DIRS}
+    ${SOPHUS_INCLUDE_DIR}
+    ${NLOPT_INCLUDE_DIRS}
+    ${Splinter_INCLUDE_DIR}
   LIBRARIES
     yaml_cpp_pm
     pointmatcher
@@ -75,9 +85,19 @@ target_include_directories(pointmatcher SYSTEM PRIVATE
   ${Boost_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${yaml_cpp_pm_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
+  ${SOPHUS_INCLUDE_DIR}
+  ${NLOPT_INCLUDE_DIRS}
+  ${BSplineInterpolation_INCLUDE_DIRS}
+  ${Splinter_INCLUDE_DIR}
 )
 target_link_libraries(pointmatcher
   ${catkin_LIBRARIES}
+  ${CERES_LIBRARIES}
+  ${SOPHUS_LIBRARIES}
+  ${NLOPT_LIBRARIES}
+  ${BSplineInterpolation_LIBRARIES}
+  ${Splinter_LIBRARIES}
   Boost::chrono
   Boost::date_time
   Boost::filesystem
