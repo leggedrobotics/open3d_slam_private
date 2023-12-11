@@ -260,11 +260,11 @@ typename PointMatcher<T>::OutlierWeights OutlierFiltersImpl<T>::SurfaceNormalOut
 				}
 
 				// Both simulation datasets uses the old version. Seemuhle also uses old and need to disable rotation fix.
-				//const Vector normalRef = normalsReference.col(idRef).normalized();
-				//const T value = anyabs(normalRead.dot(normalRef));
+				const Vector normalRef = normalsReference.col(idRef).normalized();
+				const T value = anyabs(normalRead.dot(normalRef));
 				
 				// AFAIK glattpark uses the new version (in combination with rotation fix). Ruemlang can work with new version.
-				const T value = normalRead.dot(normalsReference.col(idRef).normalized());
+				//const T value = normalRead.dot(normalsReference.col(idRef).normalized());
 
 				if(value < eps) // test to keep the points
 					w(y, x) = 0;

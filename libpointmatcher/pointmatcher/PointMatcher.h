@@ -670,14 +670,6 @@ struct PointMatcher
 
 		// inequality constraint mapping matrix
         Eigen::Matrix<float, -1, 6> constraintMappingMatrix_;
-
-
-		std::vector<double> residuals_;
-		std::vector<double> regNorms_;
-		std::vector<double> lambdas_;
-
-		int iterationNumber_{0};
-		
     };
 
     struct LocalizabilityDetectionParameters
@@ -729,7 +721,7 @@ struct PointMatcher
 		bool isDebugModeENabled_{false};
 
 		// Enables printing of additional localizability data.
-		bool isPrintingEnabled_{false};
+		bool isPrintingEnabled_{true};
     };
 
     //! An error minimizer will compute a transformation matrix such as to minimize the error between the reading and the reference.
@@ -811,20 +803,6 @@ struct PointMatcher
 		void setNumberOfEqualityConstraintSize(const int& totalSize);
 		int getNumberOfEqualityConstraints();
 		int equalityConstraintSize{0};
-
-		int coco{0};
-
-		std::vector<double> getLambdaAnalysisNorms();
-		std::vector<double> getLambdaAnalysisRegularizationNorms();
-		std::vector<double> getLambdas();
-
-		void setLambdas(const std::vector<double>& lambdas);
-		void setLambdaAnalysisRegularizationNorms(const std::vector<double>& norms);
-		void setLambdaAnalysisNorms(const std::vector<double>& norms);
-
-		std::vector<double> lambdaAnalysisNorms_;
-		std::vector<double> lambdaAnalysisRegularizationNorms_;
-		std::vector<double> lambdas_;
 
 	protected:
 		//T pointUsedRatio; //!< the ratio of how many points were used for error minimization

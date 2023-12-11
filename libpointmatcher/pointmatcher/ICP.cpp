@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "PointMatcherPrivate.h"
 #include "Timer.h"
 
+#include <ceres/ceres.h>
+
 #include "LoggerImpl.h"
 #include "TransformationsImpl.h"
 #include "DataPointsFiltersImpl.h"
@@ -47,6 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ErrorMinimizersImpl.h"
 #include "TransformationCheckersImpl.h"
 #include "InspectorsImpl.h"
+#include "point_cloud_registration.hpp"
 
 // message logger
 #include <message_logger/message_logger.hpp>
@@ -104,7 +107,7 @@ void PointMatcher<T>::ICPChainBase::setDefault()
     this->transformations.push_back(std::make_shared<typename TransformationsImpl<T>::RigidTransformation>());
     //this->readingDataPointsFilters.push_back(std::make_shared<typename DataPointsFiltersImpl<T>::RandomSamplingDataPointsFilter>());
     //this->referenceDataPointsFilters.push_back(std::make_shared<typename DataPointsFiltersImpl<T>::SamplingSurfaceNormalDataPointsFilter>());
-    this->outlierFilters.push_back(std::make_shared<typename OutlierFiltersImpl<T>::TrimmedDistOutlierFilter>());
+    //this->outlierFilters.push_back(std::make_shared<typename OutlierFiltersImpl<T>::TrimmedDistOutlierFilter>());
     this->matcher = std::make_shared<typename MatchersImpl<T>::KDTreeMatcher>();
     this->errorMinimizer = std::make_shared<PointToPlaneErrorMinimizer<T>>();
     this->transformationCheckers.push_back(std::make_shared<typename TransformationCheckersImpl<T>::CounterTransformationChecker>());
@@ -170,7 +173,7 @@ void PointMatcher<T>::ICPChainBase::loadFromYaml(std::istream& in)
     }
     else
     {
-        std::cout << "No degeneracy printing parameters are found." << std::endl;
+        std::cout << "No degeneracy printing parameters are found" << std::endl;
         usedModuleTypes.insert("degeneracyDebug");
     }
 
@@ -181,7 +184,7 @@ void PointMatcher<T>::ICPChainBase::loadFromYaml(std::istream& in)
     }
     else
     {
-        std::cout << "No ceresDegeneracyAnalysis parameters found." << std::endl;
+        std::cout << "TEST TEST No ceresDegeneracyAnalysis parameters found. TEST  TEST" << std::endl;
         usedModuleTypes.insert("ceresDegeneracyAnalysis");
     }
 
@@ -303,11 +306,12 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityDebug(const std::string& y
     else
     {
         // If not set correctly set none and return false.
-        MELO_WARN("Debug mode is to False: '%s'", methodName.c_str());
+        MELO_ERROR("Debug mode is not set or False: '%s'", methodName.c_str());
         localizabilityDetectionParameters.isDebugModeENabled_ = false;
+        return false;
     }
 
-    //MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
+    MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
 
     return true;
 }
@@ -325,17 +329,20 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityPrint(const std::string& y
     std::string methodName{ "" };
     Parametrizable::Parameters params;
     PointMatcherSupport::getNameParamsFromYAML(*reg, methodName, params);
-
-    if (methodName == "Enabled"){
+    localizabilityDetectionParameters.isPrintingEnabled_ = true;
+    /*if (methodName == "Enabled")
+    {
         localizabilityDetectionParameters.isPrintingEnabled_ = true;
-        MELO_WARN("LOCALIZABILITY Printing IS SET TO TRUE");
     }
     else
     {
         // If not set correctly set none and return false.
-        MELO_WARN("Debug Printing is to False: '%s'", methodName.c_str());
+        MELO_ERROR("Printing is not set or False: '%s'", methodName.c_str());
         localizabilityDetectionParameters.isPrintingEnabled_ = false;
-    }
+        return false;
+    }*/
+
+    MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
 
     return true;
 }
@@ -361,12 +368,12 @@ bool PointMatcher<T>::ICPChainBase::readCeresDegeneracyAnalysis(const std::strin
             if (PointMatcherSupport::lexical_cast<T>(params.at("isActive")) == T(0))
             {
                 degeneracySolverOptions_.isEnabled_ = false;
-                //MELO_WARN("================ Ceres bases solvers are DISABLED ================");
+                MELO_WARN("================ Ceres bases solvers are DISABLED ================");
                 return true;
             }
             else
             {
-                //MELO_WARN("================ Ceres bases solvers are ENABLED ================");
+                MELO_WARN("================ Ceres bases solvers are ENABLED ================");
                 degeneracySolverOptions_.isEnabled_ = true;
             }
         }
@@ -812,7 +819,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::operato
 template<typename T>
 typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute(const DataPoints& readingIn,
                                                                                  const DataPoints& referenceIn,
-                                                                                 const TransformationParameters& T_refIn_readIn,
+                                                                                 const TransformationParameters& T_refIn_dataIn,
                                                                                  const bool initializeMatcherWithInputReference)
 {
     // Ensuring minimum definition of components
@@ -840,24 +847,22 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     LOG_INFO_STREAM("PointMatcher::icp - reference pre-processing took " << t.elapsed() << " [s]");
     this->prefilteredReferencePtsCount = this->referenceFiltered.features.cols();
 
-    return computeWithTransformedReference(readingIn, this->referenceFiltered, this->T_refIn_refMean, T_refIn_readIn);
+    return computeWithTransformedReference(readingIn, this->referenceFiltered, this->T_refIn_refMean, T_refIn_dataIn);
 }
-
 template<typename T>
 bool PointMatcher<T>::ICP::initReference(const DataPoints& referenceIn)
 {
     const long int nbPtsReference{ referenceIn.features.cols() };
     if (nbPtsReference == 0)
     {
-        std::cout << "The reference point cloud is empty. (libpointmatcher)" << std::endl;
         this->matcherIsInitialized = false;
         return false;
     }
-    
+
     // Reset reference and transformation.
+    const long int dim{ referenceIn.features.rows() };
     this->referenceFiltered = referenceIn;
 
-    const long int dim{ referenceIn.features.rows() };
     // Reset transformation from reference frame to reference centroid.
     this->T_refIn_refMean = Matrix::Identity(dim, dim);
 
@@ -865,7 +870,7 @@ bool PointMatcher<T>::ICP::initReference(const DataPoints& referenceIn)
     this->referenceDataPointsFilters.init();
     this->referenceDataPointsFilters.apply(this->referenceFiltered);
 
-    /* // Create intermediate frame at the center of mass of reference pts cloud
+    // Create intermediate frame at the center of mass of reference pts cloud
     //  this helps to solve for rotations
     const long int nbPtsReferenceFiltered{ this->referenceFiltered.features.cols() };
     const Vector meanReference{ this->referenceFiltered.features.rowwise().sum() / nbPtsReferenceFiltered };
@@ -876,18 +881,6 @@ bool PointMatcher<T>::ICP::initReference(const DataPoints& referenceIn)
     // 	from here on reference is expressed in frame <refMean>
     // 	Shortcut to do T_refIn_refMean.inverse() * reference
     this->referenceFiltered.features.topRows(dim - 1).colwise() -= meanReference.head(dim - 1);
-    */
-
-	// Create intermediate frame at the center of mass of reference pts cloud
-	//  this helps to solve for rotations
-	const Vector meanReference{this->referenceFiltered.features.rowwise().mean()};
-	this->T_refIn_refMean.block(0,dim-1, dim-1, 1) = meanReference.head(dim-1);
-
-	// Readjust reference position:
-	// 	Reference was originally expressed in the frame <refIn>
-	// 	from here on reference is expressed in frame <refMean>
-	// 	Shortcut to do T_refIn_refMean.inverse() * reference
-	this->referenceFiltered.features.topRows(dim-1).colwise() -= meanReference.head(dim-1);
 
     // Init matcher with reference points centered. on its mean
     this->matcher->resetVisitCount();
@@ -903,15 +896,15 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     const DataPoints& readingIn,
     const DataPoints& reference,
     const TransformationParameters& T_refIn_refMean,
-    const TransformationParameters& T_refIn_readIn)
+    const TransformationParameters& T_refIn_dataIn)
 {
     const int dim(reference.features.rows());
 
-    if (T_refIn_readIn.cols() != T_refIn_readIn.rows())
+    if (T_refIn_dataIn.cols() != T_refIn_dataIn.rows())
     {
         throw runtime_error("The initial transformation matrix must be squared.");
     }
-    if (dim != T_refIn_readIn.cols())
+    if (dim != T_refIn_dataIn.cols())
     {
         throw runtime_error("The shape of initial transformation matrix must be NxN. "
                             "Where N is the number of rows in the read/reference scans.");
@@ -955,35 +948,19 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
     //boundingBoxFilter->inPlaceFilter(reading);
 
-	if (reading.getNbPoints() == 0) {
-		throw runtime_error("The reading point cloud is empty.");
-	}
-
-    //readingFiltered = reading;
-
-	// Create intermediate frame at the center of mass of reading pts cloud
-	//  this helps to solve for rotations
-	const Vector meanReading{reading.features.rowwise().mean()};
-	Matrix T_readIn_readMean{Matrix::Identity(dim, dim)};
-	T_readIn_readMean.block(0,dim-1, dim-1, 1) = meanReading.head(dim-1);
-
-	// Readjust reading position:
-	reading.features.topRows(dim-1).colwise() -= meanReading.head(dim-1);
+    readingFiltered = reading;
 
     // Reajust reading position: f
     // from here reading is express in frame <refMean>
-    TransformationParameters T_refMean_dataIn = T_refIn_refMean.inverse() * T_refIn_readIn;
+    TransformationParameters T_refMean_dataIn = T_refIn_refMean.inverse() * T_refIn_dataIn;
 
     //if(this->transformations.front()->checkParameters(T_refMean_dataIn) == false)
     //{
         //T_refMean_dataIn = this->transformations.front()->correctParameters(T_refMean_dataIn);
     //}
 
-    const TransformationParameters T_refMean_readIn{ this->T_refIn_refMean.inverse() * T_refIn_readIn };
-    const TransformationParameters T_refMean_readMean{ this->T_refIn_refMean.inverse() * T_refIn_readIn * T_readIn_readMean };
-    this->transformations.apply(reading, T_refMean_readMean);
 
-    //this->transformations.apply(reading, T_refMean_dataIn);
+    this->transformations.apply(reading, T_refMean_dataIn);
 
     // Prepare reading filters used in the loop
     this->readingStepDataPointsFilters.init();
@@ -1009,19 +986,17 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     std::vector<T> scalabilityVect;
     std::vector<T> NbMatchesVet;
 
-    TransformationParameters T_convert_from_base_to_lidar_mat = Matrix::Identity(4,4);
-    /*Eigen::Transform<T, 3, Eigen::Affine> T_convert_from_base_to_lidar;
+    //TransformationParameters T_convert_from_base_to_lidar_mat = Matrix::Identity(4,4);
+    Eigen::Transform<T, 3, Eigen::Affine> T_convert_from_base_to_lidar;
     Vector unitZ(3, 1);
     unitZ << 0, 0, 1;
-    //T_convert_from_base_to_lidar = Eigen::AngleAxis<T>(M_PI, unitZ);
-    T_convert_from_base_to_lidar = Eigen::AngleAxis<T>(0.0, unitZ);
+    T_convert_from_base_to_lidar = Eigen::AngleAxis<T>(M_PI, unitZ);
     Vector transMe(3, 1);
-    //transMe << -0.310, 0.000, -0.159;
-    transMe << 0.0, 0.0, 0.0 ;
-    T_convert_from_base_to_lidar.translation() = transMe;*/
-    
-    //localizabilityParametersForErrorMinimization.T_convert_from_base_to_lidar_mat = T_convert_from_base_to_lidar.matrix();
-    localizabilityParametersForErrorMinimization.T_convert_from_base_to_lidar_mat = T_convert_from_base_to_lidar_mat;
+    transMe << -0.310, 0.000, -0.159;
+    T_convert_from_base_to_lidar.translation() = transMe;
+    localizabilityParametersForErrorMinimization.T_convert_from_base_to_lidar_mat = T_convert_from_base_to_lidar.matrix();
+
+    //Eigen::Matrix<double, 6, 1> state = Eigen::Matrix<double, 6, 1>::Zero();
 
     // iterations
     while (iterate)
@@ -1039,7 +1014,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         //if(this->transformations.front()->checkParameters(T_iter) == false)
         //{
-        //    T_iter = this->transformations.front()->correctParameters(T_iter);
+            //T_iter = this->transformations.front()->correctParameters(T_iter);
         //}
 
         //-----------------------------
@@ -1153,6 +1128,37 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
                     {
                         MELO_DEBUG_THROTTLE_STREAM(10, "Early return on localizability detection. (Throttled 10s)");
                     }
+                    /*
+
+                    //if (localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_)
+                    //{
+                        MELO_DEBUG_STREAM("ICP Localizability Method: Advanced_inequality or Advanced.");
+                        MELO_INFO_STREAM(
+                            "Translation Localizability : "
+                            << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.transpose());
+                        MELO_INFO_STREAM(
+                            "Rotation Localizability : "
+                            << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.transpose());
+                    //}
+
+                        Eigen::Matrix<T, 3, 6> toPharosArrows = Matrix::Zero(3, 6);
+
+                        for (size_t j = 0; j < localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.rows(); j++){
+                            if(localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(j).value() == 0){
+                                toPharosArrows.col(j) = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(j);
+                            }
+                        }
+
+                        for (size_t j = 0; j < localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.rows(); j++){
+                            if(localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(j).value() == 0){
+                                toPharosArrows.col(j+3) = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.col(j);
+
+                            }
+                        }
+
+                        this->toPharosArrows = toPharosArrows;
+
+                        */
                 }
                 else
                 {
@@ -1200,17 +1206,77 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
                 this->ceresEigVect_.col(i).topRows(3) = this->degenerateDirectionsInMapFrame_.col(i);
             }
         }
+        //std::cout << "Registered categories " << std::endl;
+        //std::cout << "degenerateDirectionsInMapFrame_: " << this->degenerateDirectionsInMapFrame_ << std::endl;
 
+        ceres::Solver::Options options;
+
+        //options.preconditioner_type = ceres::SCHUR_JACOBI;
+        //options.linear_solver_type = ceres::DENSE_SCHUR;
+        //options.use_explicit_schur_complement=true;
+
+        options.linear_solver_type = ceres::DENSE_QR; // DENSE_SVD DENSE_QR
+        //options.trust_region_strategy_type = ceres::DOGLEG;
+        //options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+        //options.use_nonmonotonic_steps = true;  // true
+        //options.minimizer_progress_to_stdout = true;
+        options.max_num_iterations = 30; // 100
+        //options.function_tolerance = 1.0e-16;  // 1.0e-16;
+        options.num_threads = 1;
+        //options->max_solver_time_in_seconds = 12 * 60 * 60; 
+        //options.minimizer_type = ceres::LINE_SEARCH;
+        //options.gradient_tolerance = 1e-50;
+        //options.function_tolerance = 1e-50;
+        //options.parameter_tolerance = 1e-50;
+
+        //options.gradient_check_relative_precision = 1e-3;
+        //options.check_gradients = true;
+
+
+
+        // dont forget this here
         TransformationParameters real =
             this->errorMinimizer->computeFromErrorElements(matchedPoints, localizabilityParametersForErrorMinimization);
 
-        //this->errorMinimizer->setLambdaAnalysisNorms(localizabilityParametersForErrorMinimization.residuals_);
-        //this->errorMinimizer->setLambdaAnalysisRegularizationNorms(localizabilityParametersForErrorMinimization.regNorms_);
-        //this->errorMinimizer->setLambdas(localizabilityParametersForErrorMinimization.lambdas_);
-
         if (this->degeneracySolverOptions_.isEnabled_)
         {
-            T_iter = real * T_iter;
+            //MELO_INFO_STREAM(message_logger::color::white << "CERES OPTIMIZATION IS ENABLED: ");
+            ceres::Solver::Summary summary;
+            
+            Eigen::Matrix<float, -1, -1> source_normals = matchedPointsCeres.reading.getDescriptorViewByName("normals").template cast<float>();
+            Eigen::Matrix<float, -1, -1> source_points = matchedPointsCeres.reading.features.template cast<float>();
+
+            Eigen::Matrix<float, -1, -1> reference_normals =
+                matchedPointsCeres.reference.getDescriptorViewByName("normals").template cast<float>();
+            Eigen::Matrix<float, -1, -1> reference_points = matchedPointsCeres.reference.features.template cast<float>();
+
+            //Eigen::Matrix<float, -1, -1> reference_normals = matchedPoints.reading.getDescriptorViewByName("matched_reference_normals").template cast<float>();
+            PointCloudRegistrationCeres registration = PointCloudRegistrationCeres(
+                source_points, reference_points, source_normals, reference_normals, this->ceresEigVect_.template cast<float>(), this->degeneracySolverOptions_);
+
+            registration.solve(options, &summary, this->degeneracySolverOptions_, localizabilityParametersForErrorMinimization.constraintMappingMatrix_);
+            //std::cout << summary.FullReport();
+
+            //Eigen::Transform<double, 3, Eigen::Affine> resultingTransform = registration.transformationSophus();
+            //Eigen::Transform<double, 3, Eigen::Affine> resultingTransform = registration.transformation();
+            Eigen::Transform<double, 3, Eigen::Affine> resultingTransform;
+            
+            if(this->degeneracySolverOptions_.useSymmetricPointToPlane_){
+                resultingTransform = registration.transformation();
+            }else{
+                resultingTransform = registration.transformationSeparate();
+            }
+
+            //resultingTransform= registration.transformation();
+            //resultingTransform= registration.transformationSophus();
+
+            //resultingTransform = Eigen::AngleAxis<double>(state.head(3).norm(), state.head(3).normalized());
+            //resultingTransform.translation() = state.segment(3, 3);
+            //std::cout << "Resulting Transform: " << std::endl;
+            //std::cout << resultingTransform.matrix() << std::endl;
+            //Eigen::Matrix<float, -1, -1> res = resultingTransform.matrix().template cast<float>();
+            //TransformationParameters tesst = resultingTransform.matrix().template cast<T>();
+            T_iter = resultingTransform.matrix().template cast<T>() * T_iter;
         }else{
             T_iter = real * T_iter;
         }
@@ -1218,9 +1284,20 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         // Reset the detection vector to not leak data.
         this->ceresEigVect_ = Matrix::Zero(6, 6);
 
+        /*
+        MELO_INFO_STREAM("Ceres transformation vector 0: " << state.row(0));
+        MELO_INFO_STREAM("Ceres transformation vector 1: " << state.row(1));
+        MELO_INFO_STREAM("Ceres transformation vector 2: " << state.row(2));
+
+        MELO_INFO_STREAM("Ceres transformation vector 3: " << state.row(3));
+        MELO_INFO_STREAM("Ceres transformation vector 4: " << state.row(4));
+        MELO_INFO_STREAM("Ceres transformation vector 5: " << state.row(5));
+        */
+        //MELO_INFO_STREAM("PointMatcher::icp - " << iterationCount << " iterations took " << t.elapsed() << " [s]");
+
+
         //T_iter = real * T_iter;
 
-        // Do we apply the last transformation?
         if (this->localizabilityDetectionParameters.isDebugModeENabled_)
         {
             this->errorMinimizer->appendIterationResidualError(
@@ -1299,10 +1376,10 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         T scalabilityStudyInMiliSeconds = 1000.0f * scalabilityStudy.elapsed();
 
-        //NbMatchesVet.emplace_back(this->localizabilityDetectionParameters.numberOfPoints);
-        //scalabilityVect.emplace_back(scalabilityStudyInMiliSeconds);
+        NbMatchesVet.emplace_back(this->localizabilityDetectionParameters.numberOfPoints);
+        scalabilityVect.emplace_back(scalabilityStudyInMiliSeconds);
 
-        //this->errorMinimizer->appendTransformation(T_refIn_refMean * T_iter * T_refIn_refMean.inverse() * T_refIn_readIn);
+        //this->errorMinimizer->appendTransformation(T_refIn_refMean * T_iter * T_refIn_refMean.inverse() * T_refIn_dataIn);
         //this->errorMinimizer->appendErrorElements(this->errorMinimizer->getErrorElements());
 
         // std::cout << "scalabilityStudy: " << scalabilityStudyInMiliSeconds << " NbMatches: " << this->localizabilityDetectionParameters.numberOfPoints << std::endl;
@@ -1327,22 +1404,19 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     //   T_iter(i+1)_dataIn = T_iter(i+1)_iter(0) * T_iter(0)_dataIn
     // T_refIn_refMean remove the temperary frame added during initialization
 
-    //T timingSum = std::accumulate(scalabilityVect.begin(), scalabilityVect.end(), 0.0);
-    //T nbMatchesSum = std::accumulate(NbMatchesVet.begin(), NbMatchesVet.end(), 0.0);
+    T timingSum = std::accumulate(scalabilityVect.begin(), scalabilityVect.end(), 0.0);
+    T nbMatchesSum = std::accumulate(NbMatchesVet.begin(), NbMatchesVet.end(), 0.0);
     //std::cout << "Mean Extra Scalability Time: " << timingSum / scalabilityVect.size() << " Mean Matches Per Iteration: " << int(nbMatchesSum / NbMatchesVet.size()) << " [s]" << std::endl;
 
     TransformationParameters icpLocalizationInMap;
     if (localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_)
     {
-        MELO_ERROR_STREAM("###########################################################");
-        MELO_ERROR_STREAM("Pointmatcher ICP: Returning prior, ICP was not successful. ");
-        MELO_ERROR_STREAM("###########################################################");
-        icpLocalizationInMap = T_refIn_readIn;
+        MELO_WARN_STREAM("Pointmatcher ICP: Returning prior, ICP was not successful. ");
+        icpLocalizationInMap = T_refIn_dataIn;
     }
     else
     {
-        //icpLocalizationInMap = T_refIn_refMean * T_iter * T_refIn_refMean.inverse() * T_refIn_readIn;
-        icpLocalizationInMap = T_refIn_refMean * T_iter * T_refMean_readMean * T_readIn_readMean.inverse();
+        icpLocalizationInMap = T_refIn_refMean * T_iter * T_refIn_refMean.inverse() * T_refIn_dataIn;
     }
 
     return (icpLocalizationInMap);
@@ -1494,7 +1568,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICPSequence:
 //! Apply ICP to cloud cloudIn, with initial guess
 template<typename T>
 typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICPSequence::compute(const DataPoints& cloudIn,
-                                                                                         const TransformationParameters& T_refIn_readIn)
+                                                                                         const TransformationParameters& T_refIn_dataIn)
 {
     // initial keyframe
     if (!hasMap())
@@ -1506,7 +1580,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICPSequence:
 
     this->inspector->init();
 
-    return this->computeWithTransformedReference(cloudIn, mapPointCloud, this->T_refIn_refMean, T_refIn_readIn);
+    return this->computeWithTransformedReference(cloudIn, mapPointCloud, this->T_refIn_refMean, T_refIn_dataIn);
 }
 
 template<typename T>
@@ -1519,8 +1593,7 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
     BOOST_AUTO(referenceSurfaceNormals, matches.reference.getDescriptorViewByName("normals"));
 
     // Need to have proper normals.
-    assert(referenceSurfaceNormals.rows() == 3);
-    
+    assert(referenceSurfaceNormals.rows() = 3);
     // Cross is the cross product elements used for rotation subspace.
     // wF is the weighted feature matrix. 6xN
     // F is the regular feature matrix. 6xN
@@ -1531,16 +1604,16 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
     // Regular point to plane ICP cost. Directly re-used from libpointmatcher implementation.
     for (int i = 0; i < cross.rows(); i++)
     {
-        wF.row(i) = matches.weights.array() * cross.row(i).array();
+        //wF.row(i) = matches.weights.array() * cross.row(i).array();
         F.row(i) = cross.row(i);
     }
     for (int i = 0; i < referenceSurfaceNormals.rows(); i++)
     {
-        wF.row(i + cross.rows()) = matches.weights.array() * referenceSurfaceNormals.row(i).array();
+        //wF.row(i + cross.rows()) = matches.weights.array() * referenceSurfaceNormals.row(i).array();
         F.row(i + cross.rows()) = referenceSurfaceNormals.row(i);
     }
     // Unadjust covariance A = wF * F'
-    hessian = wF * F.transpose();
+    hessian = F * F.transpose();
 
     if (this->localizabilityDetectionParameters.isDebugModeENabled_)
     {
@@ -1562,7 +1635,7 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
         dotProd += (deltas.row(i).array() * referenceSurfaceNormals.row(i).array()).matrix();
     }
     // b = -(wF' * dot)
-    constraints = -(wF * dotProd.transpose());
+    constraints = -(F * dotProd.transpose());
 }
 
 template<typename T>
@@ -1623,7 +1696,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
                                                                   const Vector& eigenvalues, const T& threshold)
 {
     if(this->localizabilityDetectionParameters.isPrintingEnabled_){
-    MELO_DEBUG_STREAM("Solution Remapping projection matrix calculation.");
+    MELO_INFO_STREAM("Solution Remapping projection matrix calculation.");
     }
     bool isDegenerate{ false };
     Eigen::Matrix<T, 6, 6> eigenvectorsCopy{ eigenvectors };
@@ -2187,16 +2260,17 @@ template<typename T>
 bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
     ErrorElements& matchedPoints, LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
+    MELO_ERROR_STREAM("#############3 detectLocalizabilityWithOptimizedMethod ############");
 
     if (this->localizabilityDetectionParameters.numberOfPoints == 0u)
     {
-        MELO_DEBUG_STREAM("No points exists in the matcher This is not expected.");
+        MELO_ERROR_STREAM("No points exists in the matcher This is not expected.");
         return false;
     }
 
     if (localizabilityParametersForErrorMinimization.A_ == Eigen::Matrix<T, 6, 6>::Zero(6, 6))
     {
-        MELO_DEBUG_STREAM("Optimization hessian is zero. This is not expected.");
+        MELO_ERROR_STREAM("Optimization hessian is zero. This is not expected.");
         return false;
     }
 
@@ -2214,7 +2288,7 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
         || (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_
             == Eigen::Matrix<T, 3, 3>::Zero(3, 3)))
     {
-        MELO_DEBUG_STREAM("Eigenvectors are zero. This is not expected.");
+        MELO_ERROR_STREAM("Eigenvectors are zero. This is not expected.");
         return false;
     }
 
@@ -2239,7 +2313,7 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
     this->transformations.apply(matchedPoints.reading,
                                 localizabilityParametersForErrorMinimization.T_convert_from_base_to_lidar_mat.inverse());
 
-    MELO_DEBUG_STREAM("Step-(3) Preparation. Transform information to the base frame.");
+    MELO_ERROR_STREAM("Step-(3) Preparation. Transform information to the base frame.");
 
     // Need to get the refence again after the rotation which is done in place.
     BOOST_AUTO(normalsRef, matchedPoints.reading.getDescriptorViewByName("matched_reference_normals"));
@@ -2533,9 +2607,7 @@ void PointMatcher<T>::ICP::solveSimpleOptimizationProblemForPartialConstraints(
         Eigen::Matrix<T, 3, 3> u = lu.matrixLU().template triangularView<Eigen::Upper>();
         Eigen::Matrix<T, 3, 3> new_A = l.transpose() * l;
         Vector new_b = l.transpose() * (lu.permutationP() * partial_b);
-        //y = new_A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(new_b);
-        y = new_A.template cast<double>().jacobiSvd(Eigen::HouseholderQRPreconditioner | Eigen::ComputeThinU | Eigen::ComputeThinV).solve(new_b.template cast<double>()).template cast<T>();
-
+        y = new_A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(new_b);
         x_partial = u.inverse() * y;
 
         /*
@@ -2747,9 +2819,7 @@ void PointMatcher<T>::ICP::solveSimpleOptimizationProblemForPartialConstraints(
         Eigen::Matrix<T, 3, 3> u = lu.matrixLU().template triangularView<Eigen::Upper>();
         Eigen::Matrix<T, 3, 3> new_A = l.transpose() * l;
         Vector new_b = l.transpose() * (lu.permutationP() * partial_b);
-        //y = new_A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(new_b);
-        y = new_A.template cast<double>().jacobiSvd(Eigen::HouseholderQRPreconditioner | Eigen::ComputeThinU | Eigen::ComputeThinV).solve(new_b.template cast<double>()).template cast<T>();
-
+        y = new_A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(new_b);
         x_partial = u.inverse() * y;
 
 

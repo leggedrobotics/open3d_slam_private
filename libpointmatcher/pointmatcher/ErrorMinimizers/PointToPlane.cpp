@@ -41,7 +41,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ErrorMinimizersImpl.h"
 #include "PointMatcherPrivate.h"
 #include "Functions.h"
-#include "Timer.h"
+
+// qpmad InEqualityConstrained Opt. Module
+#include <qpmad/solver.h>
 
 // message logger
 #include <message_logger/message_logger.hpp>
@@ -109,6 +111,7 @@ PointToPlaneErrorMinimizer<T>::PointToPlaneErrorMinimizer(const ParametersDoc pa
 	}
 }
 
+
 template<typename T, typename MatrixA, typename Vector>
 void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b, Vector& x, const bool isConstrained)
 {
@@ -120,87 +123,28 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
 
     typedef typename PointMatcher<T>::Matrix Matrix;
 
-    //BOOST_AUTO(solverQR, A.householderQr());
-    //x = solverQR.solve(b);
-    //x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-    bool ispsd_=true;
+    std::cout << "Augmented A: " << std::endl << A << std::endl;
+    std::cout << "Augmented b: " << std::endl << b << std::endl;
 
-    // If we do constraint opt. it is never symmetrical.
-    /*if (!A.isApprox(A.transpose())) {
-        throw std::runtime_error("Not symmetrical?!");
-        ispsd_ =  false;
-    }
-    const auto ldlt = A.template selfadjointView<Eigen::Upper>().ldlt();
-    if (ldlt.info() == Eigen::NumericalIssue || !ldlt.isPositive()) {
-        throw std::runtime_error("Numerical issue or not PSD?!");
-        ispsd_ =  false;
-    }
-    */
+    BOOST_AUTO(solverQR, A.householderQr());
+    x = solverQR.solve(b);
 
+    std::cout << "Calculated Solution: " << std::endl << x << std::endl;
 
-    /*std::cout << "The matrix A is" << std::endl << A << std::endl;
-    Eigen::LLT<Matrix> lltOfA(A); // compute the Cholesky decomposition of A
-    if(lltOfA.info() == Eigen::NumericalIssue)
-    {
-        throw std::runtime_error("Possibly non semi-positive definitie matrix!");
-    }
-    if (!A.isApprox(A.transpose()) || lltOfA.info() == Eigen::NumericalIssue) {
-        throw std::runtime_error("Not symm. Possibly non semi-positive definitie matrix!");
-    }*/
-
-    //BOOST_AUTO(solverQR, A.householderQr());
-    if (isConstrained && ispsd_)
+    /*
+    if (isConstrained)
     {
         // TODO(ynava) Investigate the effects of using SVD directly.
 
         // Alternative to doing SVD. Note: Constrained ICP methods are not solvable with fullHouseHolderQR method since this solver does column shifting to make the problem full rank. Whereas, our augmented optimization hessian might be rank deficient practically.
-
-        //x = solverQR.solve(b);
+        BOOST_AUTO(solverQR, A.householderQr());
+        x = solverQR.solve(b);
 
         // SVD, exists for all matrices without exception. If there is a solution it will find it despite not being optimum.
-        // HouseholderQRPreconditioner
-        // ColPivHouseholderQRPreconditioner
-        // Eigen::NoQRPreconditioner
-        // FullPivHouseholderQRPreconditioner 
-
-        //std::cout << "Augmented A: " << std::endl << A << std::endl;
-        //std::cout << "Augmented b: " << std::endl << b << std::endl;
-
-        x = A.template cast<double>().jacobiSvd(HouseholderQRPreconditioner | ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-        //x = A.template cast<double>().householderQr().solve(b.template cast<double>()).template cast<T>();
-
-        //x = A.bdcSvd(ComputeThinU | ComputeThinV).solve(b);
-
-        //x = A.template cast<double>().bdcSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-
-        //std::cout << "Starting Calculaiton: " << std::endl;
-        //Eigen::JacobiSVD<Matrix, HouseholderQRPreconditioner> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-        //x = svd.solve(b);
-        //std::cout << "Calculated Solution: " << std::endl << x.head(6) << std::endl;
-        
-        //Eigen::Matrix<T, 6, 1> U = svd.matrixU();
-        //const Eigen::Matrix3f V = svd.matrixV();
-        //Eigen::Matrix3f R_ortho = U * V.transpose();
-        //Eigen::Matrix<T, 6, 1> eigens = svd.singularValues();
-
-        // The determinant of R must be 1 for it to be a valid rotation matrix
-        //if (R_ortho.determinant() < 0)
-        //{
-            //U.block<1, 3>(2, 0) = -U.block<1, 3>(2, 0); // not tested
-            //R_ortho = U * V.transpose();
-        //    std::cout << "Determinant of R is -1" << std::endl;
-        //}
+        //x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
     }
     else
-    {   
-        if (isConstrained){
-            std::cout << "######################################## " << std::endl;
-            std::cout << "######################################## " << std::endl;
-            std::cout << "  MATRIX IS NOT SEMI POISITIVE DEFINITE " << std::endl;
-            std::cout << "######################################## " << std::endl;
-            std::cout << "######################################## " << std::endl;
-        }
-
+    {
         // Regular Least Squares Optimization problem solving.
         BOOST_AUTO(Aqr, A.fullPivHouseholderQr());
         if (!Aqr.isInvertible())
@@ -248,20 +192,10 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
         else
         {
             // Cholesky decomposition, expects the problem to be invertible and full rank. Extremely fast but also fragile under a not well-conditioned problem.
-            //x = A.llt().solve(b);
-            //x = ldlt.solve(b);
-
-            //x = A.template cast<double>().householderQr().solve(b.template cast<double>()).template cast<T>();
-            x = A.template cast<double>().jacobiSvd(HouseholderQRPreconditioner | ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-
-            
+            x = A.llt().solve(b);
         }
-
-        //x = A.template cast<double>().householderQr().solve(b.template cast<double>()).template cast<T>();
-        //x = A.template cast<double>().jacobiSvd(HouseholderQRPreconditioner | ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-
     }
-    
+    */
 }
 
 template<typename T>
@@ -277,11 +211,6 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     const Eigen::Index dim{ mPts.reading.features.rows() };
     assert(dim == 4);
     assert(mPts.reading.features.cols() > 0);
-
-    const Vector meanReading{mPts.reading.features.topRows(dim-1).rowwise().mean()};
-    mPts.reading.features.topRows(dim-1).colwise() -= meanReading;
-    const Vector meanReference{mPts.reference.features.topRows(dim-1).rowwise().mean()};
-    mPts.reference.features.topRows(dim-1).colwise() -= meanReference;
 
     // Get the reference to the optimization matrices.
     const Matrix& A = localizabilityParametersForErrorMinimization.A_;
@@ -329,7 +258,7 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     Matrix mOut;
     if (dim == 4 && !force2D)
     {
-        Eigen::Transform<T, 3, Eigen::Affine> transform{Eigen::Transform<T, 3, Eigen::Affine>::Identity()};
+        Eigen::Transform<T, 3, Eigen::Affine> transform;
         // PLEASE DONT USE EULAR ANGLES!!!!
         // Rotation in Eular angles follow roll-pitch-yaw (1-2-3) rule
         /*transform = Eigen::AngleAxis<T>(x(0), Eigen::Matrix<T,1,3>::UnitX())
@@ -339,9 +268,7 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
         // Normal 6DOF takes the whole rotation vector from the solution to construct the output quaternion
         if (!force4DOF)
         {
-            const T rotationAngle{std::atan(x.head(3).norm())};
-            transform = Eigen::AngleAxis<T>(rotationAngle, x.head(3).stableNormalized());
-            //transform = Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized()); //x=[alpha,beta,gamma,x,y,z]
+            transform = Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized()); //x=[alpha,beta,gamma,x,y,z]
         }
         else // 4DOF needs only one number, the rotation around the Z axis
         {
@@ -442,18 +369,43 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
             constraintMatrix, Alb, Aub, degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
         //constraintMatrix.conservativeResize(constraintMatrix.rows(), A.rows());
         // Store the constraintMapping Matrix
+        /*
+        std::cout << "numberOfConstraints: " << numberOfConstraints << std::endl;
+        std::cout << "size: " << constraintMatrix.size() << std::endl;
+
+        std::cout << "constraintMatrix row0 : " << constraintMatrix.row(0) << std::endl;
+        std::cout << "constraintMatrix row1 : " << constraintMatrix.row(1) << std::endl;
+        std::cout << "constraintMatrix row2 : " << constraintMatrix.row(2) << std::endl;
+        std::cout << "constraintMatrix row3 : " << constraintMatrix.row(3) << std::endl;
+        std::cout << "constraintMatrix row4 : " << constraintMatrix.row(4) << std::endl;
+        std::cout << "constraintMatrix row5 : " << constraintMatrix.row(5) << std::endl;
+        */
 
         localizabilityParametersForErrorMinimization.constraintMappingMatrix_ = constraintMatrix.template cast<float>();
 
-        MELO_ERROR_STREAM("THIS METHOD HAS NOT BEEN IMPLEMENTED IN THIS REPO REVERT IMMEDIATELY.");
+        qpmad::Solver solverStandard;
+        qpmad::SolverParameters param;
+        param.hessian_type_ = qpmad::SolverParameters::HESSIAN_LOWER_TRIANGULAR;
+        //param.hessian_type_ = qpmad::SolverParameters::HessianType::HESSIAN_CHOLESKY_FACTOR;
+        //param.hessian_type_ = qpmad::SolverParameters::HessianType::HESSIAN_INVERTED_CHOLESKY_FACTOR;
+        //param.return_inverted_cholesky_factor_ = true;
+        qpmad::Solver::ReturnStatus status =
+            solverStandard.solve(xQP, HQP, hQP, Eigen::VectorXd(), Eigen::VectorXd(), constraintMatrix, Alb, Aub, param);
+
+        if (status != qpmad::Solver::OK)
+        {
+            LOG_WARNING_STREAM("Error in solving inequality constrained optimization problem with QPmad library.");
+        }
+
+        // Convert from double to float.
+        const Eigen::VectorXf xQPfloat = xQP.template cast<float>();
+        x.row(0) << xQPfloat(0);
+        x.row(1) << xQPfloat(1);
+        x.row(2) << xQPfloat(2);
+        x.row(3) << xQPfloat(3);
+        x.row(4) << xQPfloat(4);
+        x.row(5) << xQPfloat(5);
     }
-}
-
-double lambdaObjective(const std::vector<double> &x, std::vector<double> &grad, void *solver) {
-
-    double test = 0.0;
-
-    return test;
 }
 
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
@@ -461,9 +413,8 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     Vector& x,
     const Matrix& A,
     const Vector& b,
-    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
+    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
-    PointMatcherSupport::timer t;
 
     const int numberOfConstraints = A.rows()
         - (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.sum()
@@ -473,18 +424,16 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     if (!doConstraintOptimization)
     {
         // Regular vanilla ICP.
-        solvePossiblyUnderdeterminedLinearSystem<T>(A, b, x, false);
+        solvePossiblyUnderdeterminedLinearSystem<T>(A, b, x, true);
     }
     else
     {
-        //////////////// for REGULARIZATION
-        //////  Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.cols());
-
-        // Constrained optimization hessian (6+c) x (6)
-        Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.cols() + numberOfConstraints);
+        std::cout << "NUMBER OF CONSTRAINTS: " << numberOfConstraints << std::endl;
+        // Constrained optimization hessian
+        Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.rows() + numberOfConstraints);
         augmentedA.topLeftCorner(A.rows(), A.cols()) = A;
 
-        // Constrained optimization constraint vector. (6+c) x (1)
+        // Constrained optimization constraint vector.
         Vector Augmentedb(Vector::Zero(augmentedA.rows(), 1));
         Augmentedb.head(b.rows()) = b;
 
@@ -502,68 +451,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
         // Solve the constrained optimization problem.
         solvePossiblyUnderdeterminedLinearSystem<T>(augmentedA, Augmentedb, x, true);
     }
-}
-
-template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
-void generateRegularizedOptimizationProblem(Matrix& augmentedA,
-                                            Vector& augmentedb,
-                                            const std::vector<int>& degenerateDirectionIndices,
-                                            LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization, const int& nbConstraints)
-{
-    int constraintCounter{ 0 };
-    int rotationConstraintCounter{ 0 };
-    const int translationIndexOffset{ 3 };
-    const int sizeOfTheProblem{ 6 };
-
-    for (const auto& index : degenerateDirectionIndices)
-    {
-        // The first the rotation subspace is placed as the 3x3 topLeftCorner of the optimization hessian. Thus we are comparing against 3.
-        const bool inRotationSubpace = (index < translationIndexOffset) ? true : false;
-
-        if (inRotationSubpace)
-        {
-            augmentedA.row(sizeOfTheProblem + constraintCounter) =
-                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(index).transpose();
-
-
-            // Append the constraint value.
-            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) << 0.0f;
-            
-            /*augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) =
-                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                    .rotationConstraintValues_.row(index)
-                    .col(0);*/
-            ++rotationConstraintCounter;
-            
-        }
-        else{
-            // Place the eigenvector to the optimization hessian. Since hessian is symmetric positive definite, we place it symmetrically as well.
-            augmentedA.row(sizeOfTheProblem + constraintCounter) =
-                    localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.col(
-                        index - translationIndexOffset).transpose();
-
-            // Append the constraint value.
-            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) << 0.0f;
-            /*
-            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) =
-                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                    .translationConstraintValues_.row(index - translationIndexOffset)
-                    .col(0);
-                    */
-        }
-        ++constraintCounter;
-    }
-
-
-    // Set the translation coefficients to 0, since there is an issue with templated version.
-    augmentedA.block(sizeOfTheProblem, 3, sizeOfTheProblem + rotationConstraintCounter, sizeOfTheProblem) << 0.0f, 0.0f, 0.0f;
-
-    // Set the rotation coefficients to 0, since there is an issue with templated version.
-    augmentedA.block(sizeOfTheProblem + rotationConstraintCounter, 0, sizeOfTheProblem + constraintCounter, 3) << 0.0f, 0.0f, 0.0f;
-
-    // Set the rhs of the constraints to 0.
-    augmentedb.block(sizeOfTheProblem, 0, sizeOfTheProblem + constraintCounter, 1) << 0.0f;
-
 }
 
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>

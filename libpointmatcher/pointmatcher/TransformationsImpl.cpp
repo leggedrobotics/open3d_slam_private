@@ -71,8 +71,7 @@ void TransformationsImpl<T>::RigidTransformation::inPlaceCompute(
 	const TransformationParameters R(parameters.topLeftCorner(nbRows, nbCols));
 
 	if(this->checkParameters(parameters) == false){
-		//throw TransformationError("RigidTransformation: Error, rotation matrix is not orthogonal.");
-		std::cerr << "RigidTransformation: Error, rotation matrix is not orthogonal. Correcting" << std::endl;
+		throw TransformationError("RigidTransformation: Error, rotation matrix is not orthogonal.");
 		TransformationParameters correctedParameters = this->correctParameters(parameters);
 		// Apply the transformation to features.
 		// B = A * B translates to B.transpose *= A.transpose()
