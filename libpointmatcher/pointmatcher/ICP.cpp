@@ -308,7 +308,6 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityDebug(const std::string& y
         // If not set correctly set none and return false.
         MELO_ERROR("Debug mode is not set or False: '%s'", methodName.c_str());
         localizabilityDetectionParameters.isDebugModeENabled_ = false;
-        return false;
     }
 
     MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
@@ -333,6 +332,7 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityPrint(const std::string& y
     /*if (methodName == "Enabled")
     {
         localizabilityDetectionParameters.isPrintingEnabled_ = true;
+        MELO_WARN("LOCALIZABILITY Printing IS SET TO TRUE");
     }
     else
     {
@@ -341,8 +341,6 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityPrint(const std::string& y
         localizabilityDetectionParameters.isPrintingEnabled_ = false;
         return false;
     }*/
-
-    MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
 
     return true;
 }
@@ -1234,9 +1232,13 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
 
 
-        // dont forget this here
+        // dont forget this here (currently we solve double time because of this, libpointmatcher expects this func to to called)
         TransformationParameters real =
             this->errorMinimizer->computeFromErrorElements(matchedPoints, localizabilityParametersForErrorMinimization);
+
+        this->errorMinimizer->setLambdaAnalysisNorms(localizabilityParametersForErrorMinimization.residuals_);
+        this->errorMinimizer->setLambdaAnalysisRegularizationNorms(localizabilityParametersForErrorMinimization.regNorms_);
+        this->errorMinimizer->setLambdas(localizabilityParametersForErrorMinimization.lambdas_);
 
         if (this->degeneracySolverOptions_.isEnabled_)
         {
@@ -1298,6 +1300,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         //T_iter = real * T_iter;
 
+        // Do we apply the last transformation?
         if (this->localizabilityDetectionParameters.isDebugModeENabled_)
         {
             this->errorMinimizer->appendIterationResidualError(
@@ -1696,7 +1699,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
                                                                   const Vector& eigenvalues, const T& threshold)
 {
     if(this->localizabilityDetectionParameters.isPrintingEnabled_){
-    MELO_INFO_STREAM("Solution Remapping projection matrix calculation.");
+    MELO_DEBUG_STREAM("Solution Remapping projection matrix calculation.");
     }
     bool isDegenerate{ false };
     Eigen::Matrix<T, 6, 6> eigenvectorsCopy{ eigenvectors };

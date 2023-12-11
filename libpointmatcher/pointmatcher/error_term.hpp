@@ -2,7 +2,7 @@
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
-#include <pcl/point_types.h>
+//#include <pcl/point_types.h>
 #include <Eigen/Core>
 #include <sophus/se3.hpp>
 

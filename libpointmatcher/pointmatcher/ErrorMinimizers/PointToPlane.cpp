@@ -41,9 +41,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ErrorMinimizersImpl.h"
 #include "PointMatcherPrivate.h"
 #include "Functions.h"
+#include "Timer.h"
 
 // qpmad InEqualityConstrained Opt. Module
 #include <qpmad/solver.h>
+#include <nlopt.hpp>
+#include "l_curve_optimization.hpp"
 
 // message logger
 #include <message_logger/message_logger.hpp>
@@ -123,13 +126,13 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
 
     typedef typename PointMatcher<T>::Matrix Matrix;
 
-    std::cout << "Augmented A: " << std::endl << A << std::endl;
-    std::cout << "Augmented b: " << std::endl << b << std::endl;
+    //std::cout << "Augmented A: " << std::endl << A << std::endl;
+    //std::cout << "Augmented b: " << std::endl << b << std::endl;
 
     BOOST_AUTO(solverQR, A.householderQr());
     x = solverQR.solve(b);
 
-    std::cout << "Calculated Solution: " << std::endl << x << std::endl;
+    //std::cout << "Calculated Solution: " << std::endl << x << std::endl;
 
     /*
     if (isConstrained)
@@ -408,13 +411,39 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
     }
 }
 
+double lambdaObjective(const std::vector<double> &x, std::vector<double> &grad, void *solver) {
+    auto sp = reinterpret_cast<LcurveOptimizer*>(solver);
+    /**
+     * Setting regularization parameter
+     */
+    sp->setLambda(x[0]);
+    /**
+     * Finding a numerical solution
+     */
+    // Internally assign / process whatever required.
+    sp->evaluate();
+
+    if (!grad.empty()) {
+        /**
+         * Evaluate L-curve curvature gradient
+         */
+        grad[0] = sp->getLcurveCurvetureDerivative();
+    }
+    /**
+     * Return L-curve curvature
+     */
+
+    return sp->getLcurveCurveture();
+}
+
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
 void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     Vector& x,
     const Matrix& A,
     const Vector& b,
-    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
+    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
+    PointMatcherSupport::timer t;
 
     const int numberOfConstraints = A.rows()
         - (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.sum()
@@ -428,12 +457,11 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     }
     else
     {
-        std::cout << "NUMBER OF CONSTRAINTS: " << numberOfConstraints << std::endl;
         // Constrained optimization hessian
         Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.rows() + numberOfConstraints);
         augmentedA.topLeftCorner(A.rows(), A.cols()) = A;
 
-        // Constrained optimization constraint vector.
+        // Constrained optimization constraint vector. (6+c) x (1)
         Vector Augmentedb(Vector::Zero(augmentedA.rows(), 1));
         Augmentedb.head(b.rows()) = b;
 
@@ -445,12 +473,136 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
         readLocalizabilityFlags<T>(degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
 
         // Populate constrained optimization variables.
-        generateConstrainedOptimizationProblem<T>(
-            augmentedA, Augmentedb, degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
+        generateRegularizedOptimizationProblem<T>(
+            augmentedA, Augmentedb, degenerateDirectionIndices, localizabilityParametersForErrorMinimization, numberOfConstraints);
+
+        MELO_INFO_STREAM("A: ");
+        MELO_INFO_STREAM(augmentedA);
+        MELO_INFO_STREAM("b: ");
+        MELO_INFO_STREAM(Augmentedb);
+        
+        //Eigen::Matrix<float, -1, 6> myL =  augmentedA.block(A.rows(), 0, A.rows() + numberOfConstraints, A.cols()).template cast<float>();
+        //myL.block(0, 3, 1, 6) << 0.0f, 0.0f, 0.0f;
+
+        // Pass the constant
+        std::cout << " numberOfConstraints: " << numberOfConstraints << std::endl;
+        auto lcurveOptimizer = new LcurveOptimizer(augmentedA.template cast<float>(), Augmentedb.template cast<float>(), numberOfConstraints);
+
+        ////////////////////////////////////////////////////
+        //lcurveOptimizer->setLambda(2500);
+
+        t.restart();
+        lcurveOptimizer->evaluate();
+        t.elapsed();
+
+        std::cout << " ELERAPSED TIME: " << t.elapsed() << std::endl;
+        
+        int n = lcurveOptimizer->getNumberOfSamples();
+
+        localizabilityParametersForErrorMinimization.lambdas_.reserve(n);
+        localizabilityParametersForErrorMinimization.residuals_.reserve(n);
+        localizabilityParametersForErrorMinimization.regNorms_.reserve(n);
+
+        localizabilityParametersForErrorMinimization.lambdas_ = lcurveOptimizer->getLambdas();
+        localizabilityParametersForErrorMinimization.residuals_ = lcurveOptimizer->getResiduals();
+        localizabilityParametersForErrorMinimization.regNorms_ = lcurveOptimizer->getRegNorms();
+
+        // ||Ax-b||
+        /*
+        std::vector<double> z(1, 1000.0);
+        nlopt::opt opt(nlopt::LD_MMA, 1);
+        std::vector<double> lowerBounds(1, 0);
+        std::vector<double> upperBounds(1, 10000);
+        opt.set_maxeval(10);
+        opt.set_lower_bounds(lowerBounds);
+        opt.set_upper_bounds(upperBounds);
+        opt.set_min_objective(lambdaObjective, lcurveOptimizer);
+        opt.set_xtol_rel(1.e-3);
+        double minf{-1.0};
+        nlopt::result result = opt.optimize(z, minf);
+
+        if (!(nlopt::SUCCESS <= result && result <= nlopt::XTOL_REACHED)){
+            std::cout << "nlopt failed!" << std::endl;
+        }
+
+        std::cout << "lambda = " << z[0] << std::endl;
+        std::cout << "curvature = " << minf << std::endl;
+        */
+
+        ////////////////////////////////////////////////////
+
+        augmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = augmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * lcurveOptimizer->getOptimalRegularizationWeight();
+
+        // Arbitrary set the translation coefficients to 0, since there is an issue with templated version.
+        //augmentedA.block(A.rows(), 3, A.rows() + numberOfConstraints, A.cols()) << 0.0f, 0.0f, 0.0f;
+
+
 
         // Solve the constrained optimization problem.
         solvePossiblyUnderdeterminedLinearSystem<T>(augmentedA, Augmentedb, x, true);
     }
+}
+
+template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
+void generateRegularizedOptimizationProblem(Matrix& augmentedA,
+                                            Vector& augmentedb,
+                                            const std::vector<int>& degenerateDirectionIndices,
+                                            LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization, const int& nbConstraints)
+{
+    int constraintCounter{ 0 };
+    int rotationConstraintCounter{ 0 };
+    const int translationIndexOffset{ 3 };
+    const int sizeOfTheProblem{ 6 };
+
+    for (const auto& index : degenerateDirectionIndices)
+    {
+        // The first the rotation subspace is placed as the 3x3 topLeftCorner of the optimization hessian. Thus we are comparing against 3.
+        const bool inRotationSubpace = (index < translationIndexOffset) ? true : false;
+
+        if (inRotationSubpace)
+        {
+            augmentedA.row(sizeOfTheProblem + constraintCounter) =
+                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(index).transpose();
+
+
+            // Append the constraint value.
+            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) << 0.0f;
+            
+            /*augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) =
+                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                    .rotationConstraintValues_.row(index)
+                    .col(0);*/
+            ++rotationConstraintCounter;
+            
+        }
+        else{
+            // Place the eigenvector to the optimization hessian. Since hessian is symmetric positive definite, we place it symmetrically as well.
+            augmentedA.row(sizeOfTheProblem + constraintCounter) =
+                    localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.col(
+                        index - translationIndexOffset).transpose();
+
+            // Append the constraint value.
+            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) << 0.0f;
+            /*
+            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) =
+                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                    .translationConstraintValues_.row(index - translationIndexOffset)
+                    .col(0);
+                    */
+        }
+        ++constraintCounter;
+    }
+
+
+    // Set the translation coefficients to 0, since there is an issue with templated version.
+    augmentedA.block(sizeOfTheProblem, 3, sizeOfTheProblem + rotationConstraintCounter, sizeOfTheProblem) << 0.0f, 0.0f, 0.0f;
+
+    // Set the rotation coefficients to 0, since there is an issue with templated version.
+    augmentedA.block(sizeOfTheProblem + rotationConstraintCounter, 0, sizeOfTheProblem + constraintCounter, 3) << 0.0f, 0.0f, 0.0f;
+
+    // Set the rhs of the constraints to 0.
+    augmentedb.block(sizeOfTheProblem, 0, sizeOfTheProblem + constraintCounter, 1) << 0.0f;
+
 }
 
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>

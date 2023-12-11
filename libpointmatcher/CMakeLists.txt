@@ -31,6 +31,7 @@ set(POINTMATCHER_SRC
 	pointmatcher/InspectorsImpl.cpp
 	pointmatcher/point_cloud_registration.cpp
 	pointmatcher/utils.cpp
+	pointmatcher/l_curve_optimization.cpp
 #ErrorMinimizers
 	pointmatcher/ErrorMinimizers/PointToPlane.cpp
 	pointmatcher/ErrorMinimizers/PointToPlaneWithCov.cpp

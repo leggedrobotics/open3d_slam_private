@@ -100,7 +100,7 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
 void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     Vector& x, const Matrix& A, const Vector& b,
-    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
+    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
 
 // Augmented the optimization problem to incoorporate degeneracy information.
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
@@ -112,6 +112,15 @@ template<typename T, typename LocalizabilityParametersForErrorMinimization>
 void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix, Eigen::VectorXd Alb, Eigen::VectorXd Aub,
                                             const std::vector<int>& degenerateDirectionIndices,
                                             LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
+
+// Generate Regularized Least Squares problem.
+template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
+void generateRegularizedOptimizationProblem(Matrix& augmentedA,
+                                            Vector& augmentedb,
+                                            const std::vector<int>& degenerateDirectionIndices,
+                                            LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization, const int& nbConstraints);
+
+double lambdaObjective(const std::vector<double> &x, std::vector<double> &grad, void *solver);
 
 // Reads and assigns the degenerate indices for the matrix augmentation.
 template<typename T, typename LocalizabilityParametersForErrorMinimization>

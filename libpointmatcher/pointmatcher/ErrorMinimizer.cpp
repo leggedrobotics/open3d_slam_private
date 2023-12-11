@@ -296,6 +296,42 @@ void PointMatcher<T>::ErrorMinimizer::appendTransformation(const Matrix& transfo
 }
 
 template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setLambdaAnalysisNorms(const std::vector<double>& norms){
+
+	this->lambdaAnalysisNorms_ = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setLambdaAnalysisRegularizationNorms(const std::vector<double>& norms){
+
+	this->lambdaAnalysisRegularizationNorms_ = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setLambdas(const std::vector<double>& lambdas){
+
+	this->lambdas_ = lambdas;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdas(){
+
+	return this->lambdas_;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdaAnalysisRegularizationNorms(){
+
+	return this->lambdaAnalysisRegularizationNorms_;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdaAnalysisNorms(){
+
+	return this->lambdaAnalysisNorms_;
+}
+
+template<typename T>
 typename PointMatcher<T>::ErrorMinimizer::VectorErrorElements PointMatcher<T>::ErrorMinimizer::getErrorElementVector(){
 	return this->vectorizedErrorElements_;
 }
