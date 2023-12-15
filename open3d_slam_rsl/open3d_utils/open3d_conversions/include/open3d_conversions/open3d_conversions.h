@@ -69,8 +69,8 @@ void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::Po
  * @param skip_colors If true, only xyz fields will be copied
  */
 
-void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc, bool skip_colors = false);
-void rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointCloud& o3d_pc, bool skip_colors = false);
+bool rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc, bool skip_colors = false, bool copy_normals = true);
+bool rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointCloud& o3d_pc, bool skip_colors = false, bool copy_normals = true);
 /**
  *@brief Copy data from a open3d::t::geometry::PointCloud to a sensor_msgs::PointCloud2
  *

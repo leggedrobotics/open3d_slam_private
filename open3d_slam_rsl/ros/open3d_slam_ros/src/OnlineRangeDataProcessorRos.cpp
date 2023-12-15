@@ -94,12 +94,7 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
                                                                                  << slam_->frames_.assumed_external_odometry_tracked_frame
                                                                                  << "." << exception.what());
       return false;
-    } catch (const tf2::ExtrapolationException& e) {
-      ROS_WARN_STREAM_THROTTLE(1, "Caught ExtrapolationException: " << e.what() << " (Warning is throttled: 1s)");
-      return false;
     }
-    return true;
-
   } else {
     ROS_WARN_STREAM("This is unexpected, something is off.");
     return false;
@@ -237,9 +232,29 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   if (isTimeValid(std::get<1>(cloudTimePair))) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)),
                            registeredCloudPub_);
+
+    if (surfaceNormalPub_.getNumSubscribers() > 0u || surfaceNormalPub_.isLatched()) {
+      auto surfaceNormalLineMarker{
+          generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(std::get<1>(cloudTimePair)), colorMap_[ColorKey::kRed])};
+
+      if (surfaceNormalLineMarker != std::nullopt) {
+        surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
+      }
+    }
+
   } else {
     ROS_WARN("Registered Cloud will be published with original stamp. Should only happen at start-up.");
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(timestamp), registeredCloudPub_);
+
+    if (surfaceNormalPub_.getNumSubscribers() > 0u || surfaceNormalPub_.isLatched()) {
+      auto surfaceNormalLineMarker{
+          generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(timestamp), colorMap_[ColorKey::kRed])};
+
+      if (surfaceNormalLineMarker != std::nullopt) {
+        // ROS_DEBUG("Publishing point cloud surface normals for publisher '%s'.", parameters_.pointCloudPublisherTopic_.c_str());
+        surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
+      }
+    }
 
     return;
   }
@@ -292,6 +307,51 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   return;
 }
 
+std::optional<visualization_msgs::Marker> OnlineRangeDataProcessorRos::generateMarkersForSurfaceNormalVectors(
+    const open3d::geometry::PointCloud& pointCloud, const ros::Time& timestamp, const o3d_slam::RgbaColorMap::Values& color) {
+  if (pointCloud.IsEmpty()) {
+    ROS_WARN("Point cloud is empty.");
+    return {};
+  }
+  if (!pointCloud.HasNormals()) {
+    ROS_WARN("Point cloud has no normals");
+    return {};
+  }
+
+  std_msgs::ColorRGBA colorMsg;
+  colorMsg.r = color[0];
+  colorMsg.g = color[1];
+  colorMsg.b = color[2];
+  colorMsg.a = color[3];
+
+  visualization_msgs::Marker vectorsMarker;
+  vectorsMarker.header.stamp = timestamp;
+  vectorsMarker.header.frame_id = slam_->frames_.rangeSensorFrame;
+  vectorsMarker.ns = "surface_normals";
+  vectorsMarker.action = visualization_msgs::Marker::ADD;
+  vectorsMarker.type = visualization_msgs::Marker::LINE_LIST;
+  vectorsMarker.pose.orientation.w = 1.0;
+  vectorsMarker.id = 0;
+  vectorsMarker.scale.x = 0.02;
+  vectorsMarker.color = colorMsg;
+  vectorsMarker.points.resize(pointCloud.points_.size() * 2);
+
+  const auto& surfaceNormalsView = pointCloud.normals_;
+  for (size_t i = 0; i < pointCloud.points_.size(); i += 2) {
+    // The actual position of the point that the surface normal belongs to.
+    vectorsMarker.points[i].x = pointCloud.points_[i][0];
+    vectorsMarker.points[i].y = pointCloud.points_[i][1];
+    vectorsMarker.points[i].z = pointCloud.points_[i][2];
+
+    // End if arrow.
+    vectorsMarker.points[i + 1].x = pointCloud.points_[i][0] + surfaceNormalsView[i][0] * 0.09;
+    vectorsMarker.points[i + 1].y = pointCloud.points_[i][1] + surfaceNormalsView[i][1] * 0.09;
+    vectorsMarker.points[i + 1].z = pointCloud.points_[i][2] + surfaceNormalsView[i][2] * 0.09;
+  }
+
+  return vectorsMarker;
+}
+
 void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, const Time& timestamp) {
   // If we depend on external odometry.
   if (slam_->isUsingOdometryTopic()) {
@@ -325,7 +385,11 @@ void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2Co
   }*/
 
   open3d::geometry::PointCloud cloud;
-  open3d_conversions::rosToOpen3d(msg, cloud, false);
+
+  if (!open3d_conversions::rosToOpen3d(msg, cloud, false, true)) {
+    ROS_ERROR_STREAM("Conversion Failed.");
+  }
+
   const Time timestamp = fromRos(msg->header.stamp);
   accumulateAndProcessRangeData(cloud, timestamp);
 }

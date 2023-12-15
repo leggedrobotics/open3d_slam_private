@@ -33,6 +33,7 @@ void DataProcessorRos::initCommonRosStuff() {
   rawCloudPub_ = nh_->advertise<sensor_msgs::PointCloud2>("raw_cloud", 1, true);
   registeredCloudPub_ = nh_->advertise<sensor_msgs::PointCloud2>("registered_cloud", 1, true);
   offlinePathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path", 1, true);
+  surfaceNormalPub_ = nh_->advertise<visualization_msgs::Marker>("surfaceNormals", true);
   offlineDifferenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", true);
   offlineBestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path", 1, true);
   addedImuMeasPub_ = addedImuMeasPub_ = nh_->advertise<sensor_msgs::Imu>("added_imu_measurements", 40);

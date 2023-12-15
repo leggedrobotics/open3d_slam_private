@@ -4,7 +4,8 @@ project(open3d_slam_ros)
 set(CMAKE_CXX_STANDARD 17)
 
 ## Source: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
-add_compile_options(-Wall -Wextra -Wpedantic -O3)
+#add_compile_options(-Wall -Wextra -Wpedantic -O3)
+add_compile_options(-O3)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

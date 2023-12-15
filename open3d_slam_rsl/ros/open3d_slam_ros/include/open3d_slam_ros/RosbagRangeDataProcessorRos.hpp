@@ -67,6 +67,10 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   void drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp);
 
+  std::optional<visualization_msgs::Marker> generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& o3d_pc,
+                                                                                   const ros::Time& timestamp,
+                                                                                   const o3d_slam::RgbaColorMap::Values& color);
+
   /**
    * @brief Validates that essential topics required to run sequential evaluation are present in the bag file.
    *
@@ -159,6 +163,8 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   std::unique_ptr<tf2_ros::TransformListener> tfListener_;
 
   bool isBagReadyToPlay_ = false;
+
+  o3d_slam::RgbaColorMap colorMap_;
 };
 
 }  // namespace o3d_slam

@@ -50,6 +50,10 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
   void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_ptr);
   void publishAddedImuMeas_(const Eigen::Matrix<double, 6, 1>& addedImuMeas, const ros::Time& stamp);
 
+  std::optional<visualization_msgs::Marker> generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& pointCloud,
+                                                                                   const ros::Time& timestamp,
+                                                                                   const o3d_slam::RgbaColorMap::Values& color);
+
   // std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
   tf2_ros::Buffer tfBuffer_;
   tf2_ros::TransformListener tfListener_;
@@ -70,6 +74,8 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
 
   std::shared_ptr<ImuBuffer> imuBufferPtr_;
   Transform lidarToImu_ = Transform::Identity();
+
+  o3d_slam::RgbaColorMap colorMap_;
 
   // tf2_ros::Buffer tfBuffer_;
   // tf2_ros::TransformListener tfListener_;

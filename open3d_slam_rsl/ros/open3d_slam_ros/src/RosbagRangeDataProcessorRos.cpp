@@ -392,7 +392,7 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
             nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
             if (message != nullptr) {
               slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
-              ROS_WARN_STREAM(topic << " frame_id is: " << slam_->frames_.assumed_external_odometry_tracked_frame);
+              ROS_WARN_STREAM(topic << " frame_id is set to: " << slam_->frames_.assumed_external_odometry_tracked_frame);
               break;
             }  // if
           } else {
@@ -480,7 +480,12 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   // Convert to o3d cloud
   open3d::geometry::PointCloud cloud;
-  open3d_conversions::rosToOpen3d(pointCloud, cloud, false);
+
+  if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, true)) {
+    std::cout << "Couldn't convert the point cloud" << std::endl;
+    return false;
+  }
+
   const Time timestamp = fromRos(pointCloud->header.stamp);
 
   if (!slam_->doesOdometrybufferHasMeasurement(timestamp)) {
@@ -575,6 +580,16 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     return false;
   }
 
+  if (surfaceNormalPub_.getNumSubscribers() > 0u || surfaceNormalPub_.isLatched()) {
+    auto surfaceNormalLineMarker{
+        generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(std::get<1>(cloudTimePair)), colorMap_[ColorKey::kRed])};
+
+    if (surfaceNormalLineMarker != std::nullopt) {
+      // ROS_DEBUG("Publishing point cloud surface normals for publisher '%s'.", parameters_.pointCloudPublisherTopic_.c_str());
+      surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
+    }
+  }
+
   // Pop oldest input point cloud from the queue.
   buffer.pop_front();
 
@@ -587,6 +602,51 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   ros::WallTime::sleepUntil(arbitrarySleep);
 
   return true;
+}
+
+std::optional<visualization_msgs::Marker> RosbagRangeDataProcessorRos::generateMarkersForSurfaceNormalVectors(
+    const open3d::geometry::PointCloud& pointCloud, const ros::Time& timestamp, const o3d_slam::RgbaColorMap::Values& color) {
+  if (pointCloud.IsEmpty()) {
+    ROS_WARN("Point cloud is empty.");
+    return {};
+  }
+  if (!pointCloud.HasNormals()) {
+    ROS_WARN("Point cloud has no normals");
+    return {};
+  }
+
+  std_msgs::ColorRGBA colorMsg;
+  colorMsg.r = color[0];
+  colorMsg.g = color[1];
+  colorMsg.b = color[2];
+  colorMsg.a = color[3];
+
+  visualization_msgs::Marker vectorsMarker;
+  vectorsMarker.header.stamp = timestamp;
+  vectorsMarker.header.frame_id = slam_->frames_.rangeSensorFrame;
+  vectorsMarker.ns = "surface_normals";
+  vectorsMarker.action = visualization_msgs::Marker::ADD;
+  vectorsMarker.type = visualization_msgs::Marker::LINE_LIST;
+  vectorsMarker.pose.orientation.w = 1.0;
+  vectorsMarker.id = 0;
+  vectorsMarker.scale.x = 0.02;
+  vectorsMarker.color = colorMsg;
+  vectorsMarker.points.resize(pointCloud.points_.size() * 2);
+
+  const auto& surfaceNormalsView = pointCloud.normals_;
+  for (size_t i = 0; i < pointCloud.points_.size(); i += 2) {
+    // The actual position of the point that the surface normal belongs to.
+    vectorsMarker.points[i].x = pointCloud.points_[i][0];
+    vectorsMarker.points[i].y = pointCloud.points_[i][1];
+    vectorsMarker.points[i].z = pointCloud.points_[i][2];
+
+    // End if arrow.
+    vectorsMarker.points[i + 1].x = pointCloud.points_[i][0] + surfaceNormalsView[i][0] * 0.09;
+    vectorsMarker.points[i + 1].y = pointCloud.points_[i][1] + surfaceNormalsView[i][1] * 0.09;
+    vectorsMarker.points[i + 1].z = pointCloud.points_[i][2] + surfaceNormalsView[i][2] * 0.09;
+  }
+
+  return vectorsMarker;
 }
 
 void RosbagRangeDataProcessorRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp) {
@@ -896,6 +956,21 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
     if (messageInstance.getTopic() == cloudTopic_) {
       sensor_msgs::PointCloud2::ConstPtr message = messageInstance.instantiate<sensor_msgs::PointCloud2>();
       if (message != nullptr) {
+        /*ROS_ERROR_STREAM("message->fields[0].name: " << message->fields[0].name);
+        ROS_ERROR_STREAM("message->fields[1].name: " << message->fields[1].name);
+        ROS_ERROR_STREAM("message->fields[2].name: " << message->fields[2].name);
+        ROS_ERROR_STREAM("message->fields[3].name: " << message->fields[3].name);
+        ROS_ERROR_STREAM("message->fields[4].name: " << message->fields[4].name);
+        ROS_ERROR_STREAM("message->fields[5].name: " << message->fields[5].name);
+        ROS_ERROR_STREAM("message->fields[6].name: " << message->fields[6].name);
+        ROS_ERROR_STREAM("message->fields[7].name: " << message->fields[7].name);
+        ROS_ERROR_STREAM("message->fields[8].name: " << message->fields[8].name);
+        ROS_ERROR_STREAM("message->fields[9].name: " << message->fields[9].name);
+        ROS_ERROR_STREAM("message->fields[10].name: " << message->fields[10].name);
+        ROS_ERROR_STREAM("message->fields[11].name: " << message->fields[11].name);
+        ROS_ERROR_STREAM("message->fields[12].name: " << message->fields[12].name);
+        */
+
         // Add point cloud to buffer.
         slamInputs->pointCloud_ = message;
 

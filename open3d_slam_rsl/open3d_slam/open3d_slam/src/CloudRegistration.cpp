@@ -20,9 +20,15 @@ RegistrationIcpGeneralized::RegistrationResult RegistrationIcpGeneralized::regis
                                     icpConvergenceCriteria_);
 }
 
-// In the current setup, surface normal calculation is highl tightly coupled to registration. This is not ideal.
+// In the current setup, surface normal calculation is highly tightly coupled to registration. This is not ideal.
 // We are using the surface normal generation function of generalizedICP while we use libpointmatcher for registration.
 void RegistrationIcpGeneralized::estimateNormalsOrCovariancesIfNeeded(PointCloud* cloud) const {
+  // Particularly for ANYmal, we already have normals. So we skip this step.
+  if (cloud->HasNormals()) {
+    // std::cout << "Already has normals. Skipping normal estimation. \n";
+    return;
+  }
+
   assert_gt(maxRadiusNormalEstimation_, 0.0, "maxRadiusNormalEstimation_");
   assert_gt(knnNormalEstimation_, 0, "knnNormalEstimation_");
   open3d::geometry::KDTreeSearchParamHybrid param(maxRadiusNormalEstimation_, knnNormalEstimation_);
@@ -54,6 +60,12 @@ RegistrationIcpPointToPlane::RegistrationResult RegistrationIcpPointToPlane::reg
   return RegistrationICP(source, target, maxCorrespondenceDistance_, init.matrix(), pointToPlane_, icpConvergenceCriteria_);
 }
 void RegistrationIcpPointToPlane::estimateNormalsOrCovariancesIfNeeded(PointCloud* cloud) const {
+  // Particularly for ANYmal, we already have normals. So we skip this step.
+  if (cloud->HasNormals()) {
+    // std::cout << "Already has normals. Skipping normal estimation. \n";
+    return;
+  }
+
   assert_gt(maxRadiusNormalEstimation_, 0.0, "maxRadiusNormalEstimation_");
   assert_gt(knnNormalEstimation_, 0, "knnNormalEstimation_");
   open3d::geometry::KDTreeSearchParamHybrid param(maxRadiusNormalEstimation_, knnNormalEstimation_);
