@@ -176,7 +176,7 @@ struct MapperParameters {
   bool isPrintTimingStatistics_ = true;
   bool isRefineOdometryConstraintsBetweenSubmaps_ = false;
   bool isUseInitialMap_ = false;
-  bool republishMap_ = false;
+  bool republishMap_ = true;
   double mapMergeDelayInSeconds_ = 10.0;
   bool isCarvingEnabled_ = false;
   bool isMergeScansIntoMap_ = true;
