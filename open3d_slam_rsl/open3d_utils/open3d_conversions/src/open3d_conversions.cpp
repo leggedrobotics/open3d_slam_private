@@ -196,43 +196,82 @@ void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::Po
   }
 }
 
-void rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc, bool skip_colors) {
-  rosToOpen3d(*ros_pc2, o3d_pc, skip_colors);
+bool rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc, bool skip_colors,  bool copy_normals) {
+  return rosToOpen3d(*ros_pc2, o3d_pc, skip_colors, copy_normals);
 }
 
-void rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointCloud& o3d_pc, bool skip_colors) {
+bool rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointCloud& o3d_pc, bool skip_colors, bool copy_normals) {
   const auto ros_pc2 = &cloud;
+  const uint32_t num_points = ros_pc2->height * ros_pc2->width;
+
+  if (ros_pc2->fields.size() < 3) {
+    // Early exit
+    // Crushes if there are no points
+    std::cout << "ros_pc2->fields.size(): " << ros_pc2->fields.size() << " Exitting." << std::endl;
+    return false;
+  }
+
   sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_x(*ros_pc2, "x");
   sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_y(*ros_pc2, "y");
   sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_z(*ros_pc2, "z");
-  o3d_pc.points_.reserve(ros_pc2->height * ros_pc2->width);
-  if (ros_pc2->fields.size() == 3 || skip_colors == true) {
-    for (size_t i = 0; i < ros_pc2->height * ros_pc2->width; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z) {
-      o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
-    }
-  } else {
-    
-    if (ros_pc2->fields[3].name == "rgb") {
-      o3d_pc.colors_.reserve(ros_pc2->height * ros_pc2->width);
-      sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_r(*ros_pc2, "r");
-      sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_g(*ros_pc2, "g");
-      sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_b(*ros_pc2, "b");
+  o3d_pc.points_.reserve(num_points);
+  for (size_t i = 0; i < num_points; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z) {
+    o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
+  }
 
-      for (size_t i = 0; i < ros_pc2->height * ros_pc2->width;
-           ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_r, ++ros_pc2_g, ++ros_pc2_b) {
-        o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
-        o3d_pc.colors_.push_back(Eigen::Vector3d(((int)(*ros_pc2_r)) / 255.0, ((int)(*ros_pc2_g)) / 255.0, ((int)(*ros_pc2_b)) / 255.0));
+  if (copy_normals){
+    // TODO(TT) what else name could it be?
+    const std::vector<std::string> fieldNames{"normal_x"}; //, "normal_y", "normal_z" 
+    for (const auto& field : ros_pc2->fields)
+    {
+      if (std::find(fieldNames.begin(), fieldNames.end(), field.name) != fieldNames.end()){
+        // Actually there is a normal field
+        // Assuming that if one of the fields is present, all of them are present
+
+        o3d_pc.normals_.reserve(num_points);
+        sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_normal_x(*ros_pc2, "normal_x");
+        sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_normal_y(*ros_pc2, "normal_y");
+        sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_normal_z(*ros_pc2, "normal_z");
+
+        for (size_t j = 0; j < num_points; ++j, ++ros_pc2_normal_x, ++ros_pc2_normal_y, ++ros_pc2_normal_z) {
+          Eigen::Vector3d normal(*ros_pc2_normal_x, *ros_pc2_normal_y, *ros_pc2_normal_z);
+          o3d_pc.normals_.push_back(Eigen::Vector3d(*ros_pc2_normal_x, *ros_pc2_normal_y, *ros_pc2_normal_z));
+        }
       }
-    } else if (ros_pc2->fields[3].name == "intensity") {
-      sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_i(*ros_pc2, "intensity");
-      for (size_t i = 0; i < ros_pc2->height * ros_pc2->width; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_i) {
-        o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
-        // This is not okay.
-        // We need to create a custom struct to keep the intesity information. Currently this is not integrated.
-        //o3d_pc.colors_.push_back(Eigen::Vector3d(*ros_pc2_i, *ros_pc2_i, *ros_pc2_i));
-      }
+      // We don't want to repeat this operation 3 times. We just check if any of the normal fields exist.
+      // break;
     }
   }
+
+  if (skip_colors)
+  {
+    // Early exit
+    return false;
+  }
+
+  if (ros_pc2->fields[3].name == "rgb") {
+    o3d_pc.colors_.reserve(num_points);
+    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_r(*ros_pc2, "r");
+    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_g(*ros_pc2, "g");
+    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_b(*ros_pc2, "b");
+
+    for (size_t i = 0; i < num_points;
+          ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_r, ++ros_pc2_g, ++ros_pc2_b) {
+      //o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
+      o3d_pc.colors_.push_back(Eigen::Vector3d(((int)(*ros_pc2_r)) / 255.0, ((int)(*ros_pc2_g)) / 255.0, ((int)(*ros_pc2_b)) / 255.0));
+    }
+  }/* else if (ros_pc2->fields[3].name == "intensity") {
+    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_i(*ros_pc2, "intensity");
+    for (size_t i = 0; i < ros_pc2->height * ros_pc2->width; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_i) {
+      o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
+      // This is not okay.
+      // We need to create a custom struct to keep the intesity information. Currently this is not integrated.
+      //o3d_pc.colors_.push_back(Eigen::Vector3d(*ros_pc2_i, *ros_pc2_i, *ros_pc2_i));
+    }
+  }*/
+  
+  return true;
+
 }
 
 void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id,

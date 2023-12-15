@@ -13,6 +13,7 @@ params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to i
 
 --MAPPER_LOCALIZER
 params.mapper_localizer.is_use_map_initialization = false
+params.mapper_localizer.republish_the_preloaded_map = true
 params.mapper_localizer.is_merge_scans_into_map = false
 params.mapper_localizer.is_build_dense_map = false
 params.mapper_localizer.is_attempt_loop_closures = true
@@ -26,7 +27,7 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.c
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 2.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 0.1 --sec
 
 --MAP_INITIALIZER
 params.map_initializer.pcd_file_package = "open3d_slam_ros"

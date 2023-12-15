@@ -7,12 +7,36 @@
 
 #pragma once
 #include <ros/ros.h>
+#include <visualization_msgs/Marker.h>
 
+#include <std_msgs/ColorRGBA.h>
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam/time.hpp"
 #include "open3d_slam/typedefs.hpp"
 
 namespace o3d_slam {
+
+enum class ColorKey { kWhite = 0, kRed, kGreen, kBlue, kCyan, kYellow, kGold, kGrey, kLavender, kOrange, kBlack };
+
+struct RgbaColorMap {
+  using Values = std::vector<float>;
+
+  RgbaColorMap() = default;
+
+  Values operator[](const ColorKey id) const { return rgb_.at(id); }
+
+  const std::unordered_map<ColorKey, Values> rgb_ = {{ColorKey::kWhite, {1, 1, 1, 1}},
+                                                     {ColorKey::kBlue, {0, 0, 1, 1}},
+                                                     {ColorKey::kCyan, {0, 1, 1, 1}},
+                                                     {ColorKey::kRed, {1, 0, 0, 1}},
+                                                     {ColorKey::kGreen, {0, 1, 0, 1}},
+                                                     {ColorKey::kGrey, {0.705, 0.674, 0.678, 1}},
+                                                     {ColorKey::kLavender, {0.560, 0.501, 0.674, 1}},
+                                                     {ColorKey::kYellow, {1, 1, 0.2, 1}},
+                                                     {ColorKey::kGold, {0.898, 0.784, 0.462, 1}},
+                                                     {ColorKey::kOrange, {1, 0.501, 0, 1}},
+                                                     {ColorKey::kBlack, {0, 0, 0, 1}}};
+};
 
 class DataProcessorRos {
  public:
@@ -37,6 +61,7 @@ class DataProcessorRos {
   ros::Publisher rawCloudPub_;
   ros::Publisher registeredCloudPub_;
   ros::Publisher offlinePathPub_;
+  ros::Publisher surfaceNormalPub_;
   ros::Publisher offlineDifferenceLinePub_;
   ros::Publisher offlineBestGuessPathPub_;
   ros::Publisher addedImuMeasPub_;

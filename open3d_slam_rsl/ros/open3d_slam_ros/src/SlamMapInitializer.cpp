@@ -124,7 +124,7 @@ void SlamMapInitializer::pointcloudCallback(const sensor_msgs::PointCloud2& msg)
   Eigen::Isometry3d markerPose;
   tf::poseMsgToEigen(marker.pose, markerPose);
   open3d::geometry::PointCloud cloud;
-  open3d_conversions::rosToOpen3d(msg, cloud, false);
+  open3d_conversions::rosToOpen3d(msg, cloud, false, true);
   cloud.Transform(markerPose.matrix());
   o3d_slam::publishCloud(cloud, slamPtr_->frames_.mapFrame, marker.header.stamp, cloudPub_);
 }
