@@ -18,6 +18,8 @@ set(SRC_FILES
   src/DataProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
+  src/Gnss.cpp
+  src/GnssHandler.cpp
   src/ImuBuffer.cpp
   )
 

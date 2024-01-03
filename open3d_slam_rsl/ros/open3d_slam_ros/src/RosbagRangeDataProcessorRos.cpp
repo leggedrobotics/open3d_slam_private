@@ -32,6 +32,11 @@ void RosbagRangeDataProcessorRos::initialize() {
   rosbagFilename_ = nh_->param<std::string>("rosbag_filepath", "");
   ROS_INFO_STREAM("Reading from rosbag: " << rosbagFilename_);
 
+  // GNSS Handler
+  mapEnuTransform_ = Eigen::Isometry3d::Identity();
+  gnssHandlerPtr_ = std::make_shared<o3d_slam::GnssHandler>();
+  measGnss_worldGnssPathPtr_ = nav_msgs::PathPtr(new nav_msgs::Path);
+
   // Initialize the calibration Transform.
   baseToLidarTransform_.transform.rotation.w = 1.0;
   baseToLidarTransform_.transform.rotation.z = 0.0;
@@ -41,6 +46,20 @@ void RosbagRangeDataProcessorRos::initialize() {
   baseToLidarTransform_.transform.translation.z = 0.0;
   baseToLidarTransform_.transform.translation.y = 0.0;
   baseToLidarTransform_.transform.translation.x = 0.0;
+
+  // to gps_mock
+  //- Translation: [0.006, 0.455, 0.484]
+  //- Rotation: in Quaternion [0.000, 0.000, 0.707, 0.707]
+  //          in RPY (radian) [0.000, -0.000, 1.571]
+  //          in RPY (degree) [0.000, -0.000, 90.000]
+
+  gpsToLidarTransform_.transform.translation.x = 0.006;  //;0.081;
+  gpsToLidarTransform_.transform.translation.y = 0.455;
+  gpsToLidarTransform_.transform.translation.z = 0.484;  // 0.64
+  gpsToLidarTransform_.transform.rotation.x = 0.0;
+  gpsToLidarTransform_.transform.rotation.y = 0.0;
+  gpsToLidarTransform_.transform.rotation.z = 0.707;
+  gpsToLidarTransform_.transform.rotation.w = 0.707;
 
   tfBuffer_ = std::make_unique<tf2_ros::Buffer>();
   tfListener_ = std::make_unique<tf2_ros::TransformListener>(*tfBuffer_);
@@ -65,6 +84,22 @@ void RosbagRangeDataProcessorRos::initialize() {
 
   const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(2.0)};
   ros::WallTime::sleepUntil(first);
+}
+
+void RosbagRangeDataProcessorRos::addToPathMsg(nav_msgs::PathPtr pathPtr, const std::string& fixedFrameName, const ros::Time& stamp,
+                                               const Eigen::Vector3d& t, const int maxBufferLength) {
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = fixedFrameName;
+  pose.header.stamp = stamp;
+  pose.pose.position.x = t(0);
+  pose.pose.position.y = t(1);
+  pose.pose.position.z = t(2);
+  pathPtr->header.frame_id = fixedFrameName;
+  pathPtr->header.stamp = stamp;
+  pathPtr->poses.push_back(pose);
+  if (pathPtr->poses.size() > maxBufferLength) {
+    pathPtr->poses.erase(pathPtr->poses.begin());
+  }
 }
 
 bool RosbagRangeDataProcessorRos::createOutputDirectory() {
@@ -273,6 +308,15 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   poseFile_.precision(std::numeric_limits<double>::max_digits10);
   poseFile_ << poseLogFileHeader_ << std::endl;
 
+  std::string trackedgnssFilename_ = buildUpLogFilename("gnss_poses");
+  std::remove(trackedgnssFilename_.c_str());
+
+  if (slam_->useGPSforGroundTruth_) {
+    gnssFile_.open(trackedgnssFilename_, std::ios_base::app);
+    gnssFile_.precision(std::numeric_limits<double>::max_digits10);
+    gnssFile_ << poseLogFileHeader_ << std::endl;
+  }
+
   std::string outBagPath_ = buildUpLogFilename("processed_slam", ".bag");
   std::remove(outBagPath_.c_str());
   outBag.open(outBagPath_, rosbag::bagmode::Write);
@@ -342,6 +386,9 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   // Close file handle.
   poseFile_.close();
   outBag.close();
+  if (slam_->useGPSforGroundTruth_) {
+    gnssFile_.close();
+  }
 
   ros::spin();
   slam_->stopWorkers();
@@ -481,7 +528,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   // Convert to o3d cloud
   open3d::geometry::PointCloud cloud;
 
-  if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, true)) {
+  if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, false)) {
     std::cout << "Couldn't convert the point cloud" << std::endl;
     return false;
   }
@@ -515,12 +562,14 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   // Publish Submap markers
   slam_->offlineVisualizationWorker();
 
-  // Check the latest registered cloud buffer
-  std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
-  Transform calculatedTransform = std::get<2>(cloudTimePair);
-
   std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
   Transform bestGuessTransform = std::get<1>(bestGuessTimePair);
+
+  // If GNSS is used then the recorded poses are stored in GPS frame.
+  if (slam_->useGPSforGroundTruth_) {
+    Eigen::Isometry3d gpsLidareigenTransform = tf2::transformToEigen(gpsToLidarTransform_);
+    bestGuessTransform = bestGuessTransform * gpsLidareigenTransform;
+  }
 
   geometry_msgs::PoseStamped bestGuessPoseStamped;
   Eigen::Quaterniond bestGuessRotation(bestGuessTransform.rotation());
@@ -539,6 +588,16 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   if (offlineBestGuessPathPub_.getNumSubscribers() > 0u || offlineBestGuessPathPub_.isLatched()) {
     offlineBestGuessPathPub_.publish(bestGuessPath_);
+  }
+
+  // Check the latest registered cloud buffer
+  std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
+  Transform calculatedTransform = std::get<2>(cloudTimePair);
+
+  // If GNSS is used then the recorded poses are stored in GPS frame.
+  if (slam_->useGPSforGroundTruth_) {
+    Eigen::Isometry3d gpsLidareigenTransform = tf2::transformToEigen(gpsToLidarTransform_);
+    calculatedTransform = calculatedTransform * gpsLidareigenTransform;
   }
 
   geometry_msgs::PoseStamped poseStamped;
@@ -567,6 +626,15 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   if (offlinePathPub_.getNumSubscribers() > 0u || offlinePathPub_.isLatched()) {
     offlinePathPub_.publish(trackedPath_);
+  }
+
+  if (slam_->useGPSforGroundTruth_) {
+    if (pubMeasWorldGnssPath_.getNumSubscribers() > 0u || pubMeasWorldGnssPath_.isLatched()) {
+      if (measGnss_worldGnssPathPtr_->poses.size() != 0u) {
+        /// Publish path
+        pubMeasWorldGnssPath_.publish(*measGnss_worldGnssPathPtr_);
+      }
+    }
   }
 
   drawLinesBetweenPoses(trackedPath_, bestGuessPath_, toRos(std::get<1>(cloudTimePair)));
@@ -723,14 +791,39 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
 }
 
 bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded() {
-  if (slam_->useSyncedPoses_) {
+  if ((slam_->useSyncedPoses_) && (!slam_->useGPSforGroundTruth_)) {
     Eigen::Affine3d transform = Eigen::Affine3d::Identity();
     baseToLidarTransform_ = tf2::eigenToTransform(transform);
     isStaticTransformFound_ = true;
     return true;
   }
 
-  if (!isStaticTransformFound_ && (slam_->frames_.rangeSensorFrame != slam_->frames_.assumed_external_odometry_tracked_frame)) {
+  if (isStaticTransformFound_) {
+    return true;
+  }
+
+  if (slam_->useGPSforGroundTruth_) {
+    try {
+      auto transformation_gps =
+          tfBuffer_->lookupTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.gpsFrame, tracker, ros::Duration(0.0));
+      ros::spinOnce();
+
+      ROS_INFO_STREAM("\033[92m"
+                      << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and " << slam_->frames_.gpsFrame
+                      << "\033[0m");
+
+      ROS_INFO_STREAM("\033[92m"
+                      << "You dont believe me? Here it is:\n " << transformation_gps << "\033[0m");
+      gpsToLidarTransform_ = transformation_gps;
+
+    } catch (const tf2::TransformException& exception) {
+      ROS_WARN_STREAM_THROTTLE(
+          0.2, "Caught exception while looking for the transform fingers crossed it will appear soon: " << exception.what());
+      return true;
+    }
+  }
+
+  if (slam_->frames_.rangeSensorFrame != slam_->frames_.assumed_external_odometry_tracked_frame) {
     try {
       auto transformation = tfBuffer_->lookupTransform(slam_->frames_.rangeSensorFrame,
                                                        slam_->frames_.assumed_external_odometry_tracked_frame, tracker, ros::Duration(0.0));
@@ -746,9 +839,10 @@ bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded() {
 
     } catch (const tf2::TransformException& exception) {
       ROS_WARN_STREAM_THROTTLE(
-          0.2, "Caught exception while looking for the transform Fingers Crossed it will appear soon: " << exception.what());
+          0.2, "Caught exception while looking for the transform fingers crossed it will appear soon: " << exception.what());
       return true;
     }
+    // This doesn't make anysense. Fix. We always return true.
     return true;
 
   } else {
@@ -761,7 +855,14 @@ bool RosbagRangeDataProcessorRos::readCalibrationIfNeeded() {
 bool RosbagRangeDataProcessorRos::processRosbag() {
   std::vector<std::string> topics;
 
-  // Currently investigating if we really need clock or can we live without it.
+  if (slam_->useGPSforGroundTruth_) {
+    ROS_INFO_STREAM("\033[33m"
+                    << " GPS based ground truth registration is enabled. Expecting GNSS topic."
+                    << "\033[39m");
+    topics.push_back(slam_->gpsTopic_);
+  }
+
+  // We if we have clock topic fine, otherwise using the odometry topic as clock master.
   topics.push_back(clockTopic_);
   topics.push_back(cloudTopic_);
   topics.push_back(tfStaticTopic_);
@@ -924,6 +1025,112 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
       //}
     }
 
+    // Gnss message.
+    if (messageInstance.getTopic() == slam_->gpsTopic_) {
+      sensor_msgs::NavSatFix::ConstPtr message = messageInstance.instantiate<sensor_msgs::NavSatFix>();
+      if (message != nullptr) {
+        // Static method variables
+        static Eigen::Vector3d accumulatedCoordinates__(0.0, 0.0, 0.0);
+        static Eigen::Vector3d W_t_W_Gnss_km1__;
+        static int gnssCallbackCounter__ = 0;
+        Eigen::Vector3d W_t_W_Gnss;
+
+        // Start
+        ++gnssCallbackCounter__;
+        Eigen::Vector3d gnssCoord = Eigen::Vector3d(message->latitude, message->longitude, message->altitude);
+        Eigen::Vector3d estCovarianceXYZ(message->position_covariance[0], message->position_covariance[4], message->position_covariance[8]);
+
+        if (not gpsInitialized_) {
+          if (gnssCallbackCounter__ < 20 + 1) {
+            // Wait until measurements got accumulated
+            accumulatedCoordinates__ += gnssCoord;
+            if (!(gnssCallbackCounter__ % 10)) {
+              std::cout << YELLOW_START << "Offline Replayer:" << COLOR_END << " NOT ENOUGH Gnss MESSAGES ARRIVED!" << std::endl;
+            }
+            // return was here
+          } else if (gnssCallbackCounter__ == 20 + 1) {
+            gnssHandlerPtr_->initHandler(accumulatedCoordinates__ / 20);
+            ++gnssCallbackCounter__;
+
+            // Convert to cartesian coordinates
+            gnssHandlerPtr_->convertNavSatToPosition(gnssCoord, W_t_W_Gnss);
+
+            geometry_msgs::PoseStamped odomPose_transformed;
+            geometry_msgs::PoseStamped odomPose;
+            odomPose.pose.position.x = W_t_W_Gnss.x();
+            odomPose.pose.position.y = W_t_W_Gnss.y();
+            odomPose.pose.position.z = W_t_W_Gnss.z();
+            odomPose.pose.orientation.w = 1.0;
+            odomPose.pose.orientation.x = 0.0;
+            odomPose.pose.orientation.y = 0.0;
+            odomPose.pose.orientation.z = 0.0;
+            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
+
+            // ROS_WARN_STREAM("Gnss BEFORE transform " << odomPose.pose.position.x << " " << odomPose.pose.position.y << " "
+            //                                         << odomPose.pose.position.z);
+
+            Eigen::Affine3d transform = Eigen::Affine3d::Identity();
+            // baseToLidarTransform_ = tf2::eigenToTransform(transform); // gpsToLidarTransform_
+            tf2::doTransform(odomPose, odomPose_transformed, tf2::eigenToTransform(transform));
+
+            // ROS_WARN_STREAM("Gnss AFTER transform " << odomPose_transformed.pose.position.x << " " <<
+            // odomPose_transformed.pose.position.y
+            //                                        << " " << odomPose_transformed.pose.position.z);
+
+            // TODO: Clean up
+            double initYawEnuLidar = 0.0;
+            gnssHandlerPtr_->setInitYaw(initYawEnuLidar);
+            gpsInitialized_ = true;
+
+            gnssHandlerPtr_->initHandler(gnssHandlerPtr_->getInitYaw());
+
+            const double stamp = message->header.stamp.toSec();
+            gnssFile_ << stamp << " ";
+            gnssFile_ << odomPose_transformed.pose.position.x << " " << odomPose_transformed.pose.position.y << " "
+                      << odomPose_transformed.pose.position.z << " ";
+            gnssFile_ << odomPose_transformed.pose.orientation.x << " " << odomPose_transformed.pose.orientation.y << " "
+                      << odomPose_transformed.pose.orientation.z << " " << odomPose.pose.orientation.w << std::endl;
+          }
+
+        } else {
+          if (std::to_string(message->status.status) != "2") {
+            ROS_WARN_STREAM("Navsat Status: " << std::to_string(message->status.status));
+          } else {
+            // Convert to cartesian coordinates
+            gnssHandlerPtr_->convertNavSatToPosition(gnssCoord, W_t_W_Gnss);
+
+            geometry_msgs::PoseStamped odomPose_transformed;
+            geometry_msgs::PoseStamped odomPose;
+            odomPose.pose.position.x = W_t_W_Gnss.x();
+            odomPose.pose.position.y = W_t_W_Gnss.y();
+            odomPose.pose.position.z = W_t_W_Gnss.z();
+            odomPose.pose.orientation.w = 1.0;
+            odomPose.pose.orientation.x = 0.0;
+            odomPose.pose.orientation.y = 0.0;
+            odomPose.pose.orientation.z = 0.0;
+            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
+
+            Eigen::Affine3d transform = Eigen::Affine3d::Identity();  // gpsToLidarTransform_
+            tf2::doTransform(odomPose, odomPose_transformed, tf2::eigenToTransform(transform));
+            // W_t_W_Gnss << odomPose_transformed.pose.position.x, odomPose_transformed.pose.position.y,
+            // odomPose_transformed.pose.position.z;
+            /// Add GNSS to Path
+            addToPathMsg(measGnss_worldGnssPathPtr_, "enu", message->header.stamp, W_t_W_Gnss, 800 * 4);  // this is not map_o3d but enu
+            const double stamp = message->header.stamp.toSec();
+            gnssFile_ << stamp << " ";
+            gnssFile_ << odomPose_transformed.pose.position.x << " " << odomPose_transformed.pose.position.y << " "
+                      << odomPose_transformed.pose.position.z << " ";
+            gnssFile_ << odomPose_transformed.pose.orientation.x << " " << odomPose_transformed.pose.orientation.y << " "
+                      << odomPose_transformed.pose.orientation.z << " " << odomPose_transformed.pose.orientation.w << std::endl;
+          }
+        }
+
+      } else {
+        isInvalidMessageInBag = true;
+        ROS_WARN("Invalid message found in ROS bag.");
+      }
+    }
+
     // Tf static.
     if (messageInstance.getTopic() == tfStaticTopic_) {
       tf2_msgs::TFMessage::ConstPtr message = messageInstance.instantiate<tf2_msgs::TFMessage>();
@@ -941,6 +1148,15 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
       tf2_msgs::TFMessage::ConstPtr message = messageInstance.instantiate<tf2_msgs::TFMessage>();
       if (message != nullptr) {
         transformBroadcaster_.sendTransform(message->transforms);
+
+        if (slam_->useGPSforGroundTruth_) {
+          geometry_msgs::TransformStamped transformStamped = tf2::eigenToTransform(mapEnuTransform_);
+          transformStamped.header.stamp = tracker;
+          transformStamped.header.frame_id = slam_->frames_.mapFrame;
+          transformStamped.child_frame_id = "enu";
+          // geometry_msgs::TransformStamped transformStamped = o3d_slam::toRos(Mat, time, slam_->frames_.mapFrame, "enu");
+          transformBroadcaster_.sendTransform(transformStamped);
+        }
 
       } else {
         isInvalidMessageInBag = true;

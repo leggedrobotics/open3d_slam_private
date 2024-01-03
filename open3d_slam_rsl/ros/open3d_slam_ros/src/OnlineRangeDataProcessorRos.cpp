@@ -27,6 +27,12 @@ void OnlineRangeDataProcessorRos::initialize() {
   imuBufferPtr_ = std::make_shared<ImuBuffer>();
   // If this is calling the ros wrapper version. Which overrides the base. The base function is later called within the overridden version.
   slam_->loadParametersAndInitialize();
+
+  if (slam_->useGPSforGroundTruth_) {
+    // GNSS Handler
+    gnssHandlerPtr_ = std::make_shared<o3d_slam::GnssHandler>();
+    measGnss_worldGnssPathPtr_ = nav_msgs::PathPtr(new nav_msgs::Path);
+  }
 }
 
 bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
@@ -106,6 +112,11 @@ void OnlineRangeDataProcessorRos::startProcessing() {
 
   // The point cloud subscriber
   cloudSubscriber_ = nh_->subscribe(cloudTopic_, 2, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
+
+  if (slam_->useGPSforGroundTruth_) {
+    gnssSubscriber_ =
+        nh_->subscribe(slam_->gpsTopic_, 40, &OnlineRangeDataProcessorRos::gnssCallback_, this, ros::TransportHints().tcpNoDelay());
+  }
 
   // Redundant listening of pose topics. It is really tiresome to the developer to keep the support for all types.
   poseStampedSubscriber_ =
@@ -373,6 +384,67 @@ void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, co
 
     ROS_DEBUG_STREAM("Odometry is processed at time: " << toString(timestamp));
   }
+}
+
+void OnlineRangeDataProcessorRos::addToPathMsg(nav_msgs::PathPtr pathPtr, const std::string& fixedFrameName, const ros::Time& stamp,
+                                               const Eigen::Vector3d& t, const int maxBufferLength) {
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = fixedFrameName;
+  pose.header.stamp = stamp;
+  pose.pose.position.x = t(0);
+  pose.pose.position.y = t(1);
+  pose.pose.position.z = t(2);
+  pathPtr->header.frame_id = fixedFrameName;
+  pathPtr->header.stamp = stamp;
+  pathPtr->poses.push_back(pose);
+  if (pathPtr->poses.size() > maxBufferLength) {
+    pathPtr->poses.erase(pathPtr->poses.begin());
+  }
+}
+
+void OnlineRangeDataProcessorRos::gnssCallback_(const sensor_msgs::NavSatFix::ConstPtr& gnssMsgPtr) {
+  // Static method variables
+  static Eigen::Vector3d accumulatedCoordinates__(0.0, 0.0, 0.0);
+  static Eigen::Vector3d W_t_W_Gnss_km1__;
+  static int gnssCallbackCounter__ = 0;
+  Eigen::Vector3d W_t_W_Gnss;
+
+  // Start
+  ++gnssCallbackCounter__;
+  Eigen::Vector3d gnssCoord = Eigen::Vector3d(gnssMsgPtr->latitude, gnssMsgPtr->longitude, gnssMsgPtr->altitude);
+  Eigen::Vector3d estCovarianceXYZ(gnssMsgPtr->position_covariance[0], gnssMsgPtr->position_covariance[4],
+                                   gnssMsgPtr->position_covariance[8]);
+
+  if (not gpsInitialized_) {
+    if (gnssCallbackCounter__ < 20 + 1) {
+      // Wait until measurements got accumulated
+      accumulatedCoordinates__ += gnssCoord;
+      if (!(gnssCallbackCounter__ % 10)) {
+        std::cout << YELLOW_START << "AnymalEstimator" << COLOR_END << " NOT ENOUGH Gnss MESSAGES ARRIVED!" << std::endl;
+      }
+      return;
+    } else if (gnssCallbackCounter__ == 20 + 1) {
+      gnssHandlerPtr_->initHandler(accumulatedCoordinates__ / 20);
+      ++gnssCallbackCounter__;
+    }
+    // Convert to cartesian coordinates
+    gnssHandlerPtr_->convertNavSatToPosition(gnssCoord, W_t_W_Gnss);
+
+    // TODO: Clean up
+    double initYawEnuLidar = 0.0;
+    gnssHandlerPtr_->setInitYaw(initYawEnuLidar);
+    gpsInitialized_ = true;
+
+    gnssHandlerPtr_->initHandler(gnssHandlerPtr_->getInitYaw());
+  }
+
+  // Convert to cartesian coordinates
+  gnssHandlerPtr_->convertNavSatToPosition(gnssCoord, W_t_W_Gnss);
+
+  /// Add GNSS to Path
+  addToPathMsg(measGnss_worldGnssPathPtr_, "enu", gnssMsgPtr->header.stamp, W_t_W_Gnss, 800 * 4);
+  /// Publish path
+  pubMeasWorldGnssPath_.publish(measGnss_worldGnssPathPtr_);
 }
 
 void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {

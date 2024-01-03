@@ -24,5 +24,4 @@
     <arg name="organize_cloud" value="$(arg organize_cloud)"/>
   </include>
 
-
 </launch>

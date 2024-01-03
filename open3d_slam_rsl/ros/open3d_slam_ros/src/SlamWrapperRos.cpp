@@ -271,12 +271,8 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   mappingInputPub_ = nh_->advertise<sensor_msgs::PointCloud2>("mapping_input", 1, true);
   assembledMapPub_ = nh_->advertise<sensor_msgs::PointCloud2>("assembled_map", 1, true);
   denseMapPub_ = nh_->advertise<sensor_msgs::PointCloud2>("dense_map", 1, true);
-
   submapsPub_ = nh_->advertise<sensor_msgs::PointCloud2>("submaps", 1, true);
   submapOriginsPub_ = nh_->advertise<visualization_msgs::MarkerArray>("submap_origins", 1, true);
-
-  saveMapSrv_ = nh_->advertiseService("save_map", &SlamWrapperRos::saveMapCallback, this);
-  saveSubmapsSrv_ = nh_->advertiseService("save_submaps", &SlamWrapperRos::saveSubmapsCallback, this);
 
   scan2scanTransformPublisher_ = nh_->advertise<geometry_msgs::TransformStamped>("scan2scan_transform", 1, true);
   scan2scanOdomPublisher_ = nh_->advertise<nav_msgs::Odometry>("scan2scan_odometry", 1, true);
@@ -287,8 +283,12 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   bestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path_live", 1, false);
   differenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", false);
 
-  //	auto &logger = open3d::utility::Logger::GetInstance();
-  //	logger.SetVerbosityLevel(open3d::utility::VerbosityLevel::Debug);
+  saveMapSrv_ = nh_->advertiseService("save_map", &SlamWrapperRos::saveMapCallback, this);
+  saveSubmapsSrv_ = nh_->advertiseService("save_submaps", &SlamWrapperRos::saveSubmapsCallback, this);
+
+  // auto &logger = open3d::utility::Logger::GetInstance();
+  // logger.SetVerbosityLevel(open3d::utility::VerbosityLevel::Debug);
+  // Read Parameters
   const bool isOfflineReplay = o3d_slam::tryGetParam<bool>("is_read_from_rosbag", *nh_);
 
   folderPath_ = ros::package::getPath("open3d_slam_ros") + "/data/";
@@ -303,9 +303,15 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   bagReplayStartTime_ = nh_->param<double>("replay_start_time_as_second", 0.0);
   bagReplayEndTime_ = nh_->param<double>("replay_end_time_as_second", 8000.0);
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
+  gpsTopic_ = nh_->param<std::string>("gps_topic", "");
+  // Read whether subscribe to GPS.
+  useGPSforGroundTruth_ = nh_->param<bool>("use_gps_for_ground_truth", false);
 
-  frames_.rangeSensorFrame = "default";  // nh_->param<std::string>("tracked_sensor_frame", "default");
+  // We read this from the pointcloud header. We dont support frame moving yet.
+  // TODO do I need this?
+  frames_.rangeSensorFrame = "default";
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
+  frames_.gpsFrame = nh_->param<std::string>("gps_frame", "default");
 
   if (isOfflineReplay) {
     ROS_INFO_STREAM("\033[92m"
@@ -315,18 +321,18 @@ void SlamWrapperRos::loadParametersAndInitialize() {
     ROS_INFO_STREAM("Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
   }
 
-  // Set and load the libpointmatcher config here.
-  std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
-  ROS_INFO_STREAM("libpointmatcherConfigPath: " << libpointmatcherConfigPath);
-
   const std::string paramFolderPath = nh_->param<std::string>("parameter_folder_path", "");
   const std::string paramFilename = nh_->param<std::string>("parameter_filename", "");
   SlamParameters params;
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
   BASE::loadParametersAndInitialize();
 
+  // Set and load the libpointmatcher config here.
+  std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
+  ROS_INFO_STREAM("libpointmatcherConfigPath: " << libpointmatcherConfigPath);
+
   if (!readLibpointmatcherConfig(libpointmatcherConfigPath)) {
-    std::cout << "Returning early couldnt load ICP params for libpointmatcher " << std::endl;
+    ROS_ERROR_STREAM("Returning early couldnt load ICP params for libpointmatcher ");
     return;
   }
 }

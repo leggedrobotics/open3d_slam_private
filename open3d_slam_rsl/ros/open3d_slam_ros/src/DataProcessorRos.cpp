@@ -30,15 +30,23 @@ void DataProcessorRos::initCommonRosStuff() {
   std::cout << "Pose Stamped topic is given as " << poseStampedTopic_ << std::endl;
   std::cout << "Pose Stamped With Covariance topic is given as " << poseStampedWithCovarianceTopic_ << std::endl;
 
+  const bool localReadGps = nh_->param<bool>("use_gps_for_ground_truth", false);
+  if (localReadGps) {
+    pubMeasWorldGnssPath_ = nh_->advertise<nav_msgs::Path>("measGnss_path_world_gnss", 1, true);
+  }
   rawCloudPub_ = nh_->advertise<sensor_msgs::PointCloud2>("raw_cloud", 1, true);
   registeredCloudPub_ = nh_->advertise<sensor_msgs::PointCloud2>("registered_cloud", 1, true);
-  offlinePathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path", 1, true);
+
+  const bool localOfflineReplay = nh_->param<bool>("is_read_from_rosbag", false);
+  if (localOfflineReplay) {
+    offlineBestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path", 1, true);
+    offlinePathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path", 1, true);
+    offlineDifferenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", true);
+  }
+
   surfaceNormalPub_ = nh_->advertise<visualization_msgs::Marker>("surfaceNormals", true);
-  offlineDifferenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", true);
-  offlineBestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path", 1, true);
   addedImuMeasPub_ = addedImuMeasPub_ = nh_->advertise<sensor_msgs::Imu>("added_imu_measurements", 40);
   numAccumulatedRangeDataDesired_ = nh_->param<int>("num_accumulated_range_data", 1);
-  std::cout << "Num accumulated range data: " << numAccumulatedRangeDataDesired_ << std::endl;
 }
 
 void DataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {

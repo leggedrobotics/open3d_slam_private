@@ -13,6 +13,8 @@
 #include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosgraph_msgs/Clock.h>
+#include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/NavSatStatus.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -21,6 +23,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "open3d_slam_ros/GnssHandler.hpp"
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -102,6 +105,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   nav_msgs::Path trackedPath_;
   nav_msgs::Path bestGuessPath_;
   std::ofstream poseFile_;
+  std::ofstream gnssFile_;
   std::ofstream imuFile_;
   std::string asyncOdometryFrame_;
 
@@ -118,6 +122,9 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   void exportIMUData();
 
+  void addToPathMsg(nav_msgs::PathPtr pathPtr, const std::string& frameName, const ros::Time& stamp, const Eigen::Vector3d& t,
+                    const int maxBufferLength);
+
   //! Publishers.
   ros::Publisher clockPublisher_;
   ros::Publisher inputPointCloudPublisher_;
@@ -128,6 +135,14 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   ros::ServiceServer sleepServer_;
 
   sensor_msgs::PointCloud2 registeredCloud_;
+
+  // GNSS Handler
+  std::shared_ptr<o3d_slam::GnssHandler> gnssHandlerPtr_;
+
+  nav_msgs::PathPtr measGnss_worldGnssPathPtr_;
+
+  // Initialization
+  bool gpsInitialized_ = false;
 
   //! Tf2.
   tf2_ros::TransformBroadcaster transformBroadcaster_;
@@ -156,8 +171,10 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   rosbag::Bag outBag;
 
   geometry_msgs::TransformStamped baseToLidarTransform_;
+  geometry_msgs::TransformStamped gpsToLidarTransform_;
   std::string odometryHeader_{"/bestHeaderThereis"};
   std::vector<geometry_msgs::TransformStamped> staticTransforms_;
+  o3d_slam::Transform mapEnuTransform_;
 
   std::unique_ptr<tf2_ros::Buffer> tfBuffer_;
   std::unique_ptr<tf2_ros::TransformListener> tfListener_;

@@ -8,6 +8,11 @@
 #pragma once
 #include <std_msgs/ColorRGBA.h>
 
+// Defined macros
+#define GREEN_START "\033[92m"
+#define YELLOW_START "\033[33m"
+#define COLOR_END "\033[0m"
+
 namespace o3d_slam {
 
 class Color : public std_msgs::ColorRGBA {

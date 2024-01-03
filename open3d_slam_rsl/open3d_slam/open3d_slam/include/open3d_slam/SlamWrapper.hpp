@@ -55,6 +55,7 @@ class SlamWrapper {
     std::string imageFrame = "image_frame_o3d";
     std::string assumed_external_odometry_tracked_frame = "external_odometry_tracked_frame";
     std::string imuFrame = "default";  // Frame of the IMU. Read from the imu callback.
+    std::string gpsFrame = "default";  // Frame of the GPS. Read from the gps navsatfix callback.
   };
 
  public:
@@ -128,6 +129,7 @@ class SlamWrapper {
   // Returns a boolean value whether the static transformation between the odometry and range sensor is set.
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
 
+  // Returns whether external odometry is used for prior.
   bool isUsingOdometryTopic() const;
 
   // Return the acquired the static transformation between the odometry and range sensor. If not available returns empty transform.
@@ -138,6 +140,7 @@ class SlamWrapper {
   std::string mapSavingFolderPath_{""};
   TimestampedTransform latestMapToRangeMeasurement_;
   bool exportIMUdata_{false};
+  bool useGPSforGroundTruth_{false};
 
   // If set to true, expects odometry msgs in the replayed rosbag to be exactly synced with the pointclouds.
   bool useSyncedPoses_ = false;
@@ -150,6 +153,9 @@ class SlamWrapper {
 
   // The variable for asyncronized odometry pose msgs. Used for rosbag replay.
   std::string asyncOdometryTopic_{"/state_estimator/pose_in_odom"};
+
+  // GPS topic name. Used for rosbag replay and live viz.
+  std::string gpsTopic_{""};
 
   // Initialize the frames struct, accessible through the slamWrapper object.
   Frames frames_;

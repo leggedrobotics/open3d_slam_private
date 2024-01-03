@@ -59,6 +59,7 @@ class DataProcessorRos {
   PointCloud accumulatedCloud_;
 
   ros::Publisher rawCloudPub_;
+  ros::Publisher pubMeasWorldGnssPath_;
   ros::Publisher registeredCloudPub_;
   ros::Publisher offlinePathPub_;
   ros::Publisher surfaceNormalPub_;

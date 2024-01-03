@@ -3,7 +3,8 @@ project(pointmatcher_ros)
 
 # Set compiler flags
 set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wall -Wextra -Wpedantic)
+#add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_options(-O3)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
