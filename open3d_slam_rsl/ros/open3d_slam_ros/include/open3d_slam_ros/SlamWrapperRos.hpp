@@ -63,6 +63,7 @@ class SlamWrapperRos : public SlamWrapper {
 
   ros::NodeHandlePtr nh_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tfStaticBroadcaster_;
   ros::Publisher odometryInputPub_, mappingInputPub_, submapOriginsPub_, assembledMapPub_, denseMapPub_, submapsPub_, bestGuessPathPub_,
       trackedPathPub_;
   ros::Publisher differenceLinePub_;

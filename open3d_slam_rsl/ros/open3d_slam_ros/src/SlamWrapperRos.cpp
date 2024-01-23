@@ -39,6 +39,7 @@ namespace {
 
 SlamWrapperRos::SlamWrapperRos(ros::NodeHandlePtr nh) : BASE(), nh_(nh) {
   tfBroadcaster_.reset(new tf2_ros::TransformBroadcaster());
+  tfStaticBroadcaster_.reset(new tf2_ros::StaticTransformBroadcaster());
 
   prevPublishedTimeScanToScan_ = fromUniversal(0);
   prevPublishedTimeScanToMap_ = fromUniversal(0);
@@ -60,7 +61,19 @@ SlamWrapperRos::~SlamWrapperRos() {
 }
 
 void SlamWrapperRos::startWorkers() {
-  //tfWorker_ = std::thread([this]() { tfWorker(); });
+  // tfWorker_ = std::thread([this]() { tfWorker(); });
+  geometry_msgs::TransformStamped tfMapO3dToIntegrated;
+  tfMapO3dToIntegrated.header.stamp = ros::Time::now();
+  tfMapO3dToIntegrated.header.frame_id = "map_o3d_integrated";
+  tfMapO3dToIntegrated.child_frame_id = "map_o3d";
+  tfMapO3dToIntegrated.transform.translation.x = 0.0;
+  tfMapO3dToIntegrated.transform.translation.y = 0.0;
+  tfMapO3dToIntegrated.transform.translation.z = 0.0;
+  tfMapO3dToIntegrated.transform.rotation.x = 0.0;
+  tfMapO3dToIntegrated.transform.rotation.y = 0.0;
+  tfMapO3dToIntegrated.transform.rotation.z = 0.0;
+  tfMapO3dToIntegrated.transform.rotation.w = 1.0;
+  tfStaticBroadcaster_->sendTransform(tfMapO3dToIntegrated);
   visualizationWorker_ = std::thread([this]() { visualizationWorker(); });
   if (params_.odometry_.isPublishOdometryMsgs_) {
     odomPublisherWorker_ = std::thread([this]() { odomPublisherWorker(); });
