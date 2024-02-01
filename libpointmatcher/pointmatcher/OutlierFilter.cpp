@@ -85,16 +85,31 @@ typename PointMatcher<T>::OutlierWeights PointMatcher<T>::OutlierFilters::comput
 	}
 	else
 	{
-		// apply filters, they should take care of infinite distances
-		//LOG_INFO_STREAM("Applying " << this->size() << " Outlier filters" );
-		OutlierWeights w = (*this->begin())->compute(filteredReading, filteredReference, input);
-		//LOG_INFO_STREAM("* " << (*this->begin())->className );
-		if (this->size() > 1)
+		// we do not have any filter, therefore we must put 0 weights for infinite distances
+		OutlierWeights w(input.dists.rows(), input.dists.cols());
+		for (int x = 0; x < w.cols(); ++x)
 		{
-			for (OutlierFiltersConstIt it = (this->begin() + 1); it != this->end(); ++it)
+			for (int y = 0; y < w.rows(); ++y)
+			{
+				if (input.dists(y, x) == numeric_limits<T>::infinity())
+					w(y, x) = 0;
+				else
+					w(y, x) = 1;
+			}
+		}
+
+		// apply filters, they should take care of infinite distances
+		//std::cout << "Applying " << this->size() << " Outlier filters" << std::endl;
+		// Operate the first filter.
+		//OutlierWeights w = (*this->begin())->compute(filteredReading, filteredReference, input);
+		//std::cout << "* " << (*this->begin())->className << std::endl;
+		if (this->size() >= 1)
+		{
+			// Operate the rest of the filters.
+			for (OutlierFiltersConstIt it = (this->begin()); it != this->end(); ++it)
 			{
 				w = w.array() * (*it)->compute(filteredReading, filteredReference, input).array();
-				//LOG_INFO_STREAM("* " << (*it)->className );
+				//std::cout << "* " << (*it)->className << std::endl;
 			}
 		}
 

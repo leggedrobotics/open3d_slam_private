@@ -107,7 +107,9 @@ void PointMatcher<T>::ICPChainBase::setDefault()
     this->transformations.push_back(std::make_shared<typename TransformationsImpl<T>::RigidTransformation>());
     //this->readingDataPointsFilters.push_back(std::make_shared<typename DataPointsFiltersImpl<T>::RandomSamplingDataPointsFilter>());
     //this->referenceDataPointsFilters.push_back(std::make_shared<typename DataPointsFiltersImpl<T>::SamplingSurfaceNormalDataPointsFilter>());
-    this->outlierFilters.push_back(std::make_shared<typename OutlierFiltersImpl<T>::TrimmedDistOutlierFilter>());
+
+    // DONT EVER ENABLE THIS
+    //this->outlierFilters.push_back(std::make_shared<typename OutlierFiltersImpl<T>::TrimmedDistOutlierFilter>());
     this->matcher = std::make_shared<typename MatchersImpl<T>::KDTreeMatcher>();
     this->errorMinimizer = std::make_shared<PointToPlaneErrorMinimizer<T>>();
     this->transformationCheckers.push_back(std::make_shared<typename TransformationCheckersImpl<T>::CounterTransformationChecker>());
@@ -166,6 +168,17 @@ void PointMatcher<T>::ICPChainBase::loadFromYaml(std::istream& in)
         usedModuleTypes.insert("degeneracyDebug");
     }
 
+    // Read regularization parameters.
+    if (readRegularization("regularization", doc))
+    {
+        usedModuleTypes.insert("regularization");
+    }
+    else
+    {
+        std::cout << "No degeneracy regularization parameters found." << std::endl;
+        usedModuleTypes.insert("regularization");
+    }
+
     // Read localizability print parameters.
     if (readLocalizabilityPrint("printingDegeneracy", doc))
     {
@@ -184,7 +197,7 @@ void PointMatcher<T>::ICPChainBase::loadFromYaml(std::istream& in)
     }
     else
     {
-        std::cout << "TEST TEST No ceresDegeneracyAnalysis parameters found. TEST  TEST" << std::endl;
+        std::cout << "ceresDegeneracyAnalysis parameters has NOT been found." << std::endl;
         usedModuleTypes.insert("ceresDegeneracyAnalysis");
     }
 
@@ -310,7 +323,37 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityDebug(const std::string& y
         localizabilityDetectionParameters.isDebugModeENabled_ = false;
     }
 
-    MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
+    //MELO_INFO("Degeneracy awareness method: '%s'", methodName.c_str());
+
+    return true;
+}
+
+template<typename T>
+bool PointMatcher<T>::ICPChainBase::readRegularization(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc)
+{
+    const YAML::Node* reg = doc.FindValue(yamlKey);
+    if (reg == nullptr)
+    {
+        MELO_WARN("Regularization params NOT SET");
+        return false;
+    }
+
+    std::string methodName{ "" };
+    Parametrizable::Parameters params;
+    PointMatcherSupport::getNameParamsFromYAML(*reg, methodName, params);
+
+    if (methodName == "Enabled")
+    {
+        localizabilityDetectionParameters.enableStandardWeightRegularization_ = true;
+    }
+    else
+    {
+        // If not set correctly set none and return false.
+        MELO_ERROR("Regularization is not set or False: '%s'", methodName.c_str());
+        localizabilityDetectionParameters.enableStandardWeightRegularization_ = false;
+    }
+
+    MELO_INFO("Regularization: '%s'", methodName.c_str());
 
     return true;
 }
@@ -568,6 +611,7 @@ bool PointMatcher<T>::ICPChainBase::readCeresDegeneracyAnalysis(const std::strin
                 MELO_WARN("================ Regularization Weight is SET ================");
                 degeneracySolverOptions_.regularizationWeight_ = PointMatcherSupport::lexical_cast<float>(params.at("regularizationWeight"));
             }else{
+                MELO_ERROR("================ Regularization Weight is NOT SET ================");
                 return false;
             }
         }else
@@ -925,6 +969,9 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     localizabilityParametersForErrorMinimization.degeneracyAwarenessMethod =
         this->localizabilityDetectionParameters.degeneracyAwarenessMethod;
 
+    localizabilityParametersForErrorMinimization.enableStandardWeightRegularization_ =
+        this->localizabilityDetectionParameters.enableStandardWeightRegularization_;
+
     // Print how long take the algo
     timer t;
     std::shared_ptr<PointMatcher<T>::DataPointsFilter> boundingBoxFilter;
@@ -1054,7 +1101,13 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         // Get the matches
         ErrorElements matchedPoints(stepReading, reference, this->outlierWeights, this->matches);
-        ErrorElements matchedPointsCeres(stepReading, reference, this->outlierWeights, this->matches);
+        ErrorElements matchedPointsCeres;
+        
+        if (this->degeneracySolverOptions_.isEnabled_)
+        {
+            matchedPointsCeres = ErrorElements(stepReading, reference, this->outlierWeights, this->matches);
+        }
+        
         MELO_DEBUG_STREAM("Number of matches : " << matchedPoints.reading.getNbPoints() << " At iteration: " << iterationCount);
 
         this->nbMatches_ = matchedPoints.reading.getNbPoints();

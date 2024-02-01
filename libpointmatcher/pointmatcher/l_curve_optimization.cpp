@@ -15,6 +15,9 @@ void LcurveOptimizer::solveState(Eigen::Matrix<float, -1, 6> A_copy, Eigen::Matr
   x_ = A_copy.template cast<double>().jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b_copy.template cast<double>());
   //std::cout << "x_lambda solution FOUND: " << x_ << std::endl;
 
+  //BOOST_AUTO(solverQR, A_copy.householderQr());
+  //x_ = solverQR.solve(b_copy);
+
 }
 
 void LcurveOptimizer::evaluate() {

@@ -26,7 +26,7 @@ struct DegeneracySolverOptions
 {
 bool isEnabled_{ true };
 
-    bool useSophusParametrization_{ false };
+bool useSophusParametrization_{ false };
 bool useSophusAutoDiffParametrization_{ false };
 bool useAngleAxisParametrization_{ true };
 

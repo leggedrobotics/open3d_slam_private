@@ -3,10 +3,17 @@
 readingDataPointsFilters:
 #  - RandomSamplingDataPointsFilter:
 #      prob: 0.35
+#  - SimpleSensorNoiseDataPointsFilter:
+#       gain: 2
 
 referenceDataPointsFilters:
 #  - RandomSamplingDataPointsFilter:
 #      prob: 0.25
+#  - SamplingSurfaceNormalDataPointsFilter:
+#      knn: 10
+#      ratio: 0.666666
+#      samplingMethod: 1
+#      averageExistingDescriptors: 0
 
 matcher:
   KDTreeMatcher:
@@ -15,21 +22,24 @@ matcher:
     epsilon: 0.01       # 0.01
 
 outlierFilters:
+#  - RobustOutlierFilter:
+#      robustFct: huber   # huber, cauchy, tukey, welsch, sc
+#      scaleEstimator: std    #std, mad, berg
+#      tuning: 1.375      # 1.375
+  - TrimmedDistOutlierFilter:
+     ratio: 0.70         # 0.9
+  - SurfaceNormalOutlierFilter:
+     maxAngle: 0.57   # 1.57 == 90 deg,  0.57 == 30 deg
 #  - MaxDistOutlierFilter:
 #     maxDist: 1.0
-  - TrimmedDistOutlierFilter:
-     ratio: 0.90         # 0.9
-  - SurfaceNormalOutlierFilter:
-     maxAngle: 1.57     # 1.57
-
-errorMinimizer:
-  PointToPlaneErrorMinimizer
-#  PointToPlaneWithCovErrorMinimizer
 
 degeneracyDebug:
-  Disabled: # "Enabled" or "Disabled
+  Enabled: # "Enabled" or "Disabled
 
 printingDegeneracy:
+  Enabled: # "Enabled" or "Disabled
+
+regularization:
   Disabled: # "Enabled" or "Disabled
 
 ceresDegeneracyAnalysis:
@@ -48,17 +58,9 @@ ceresDegeneracyAnalysis:
     regularizationWeight: 500.0 # you need to set  .0  as double
 
 degeneracyAwareness:
-  OptimizedEqualityConstraints:
-    enoughInformationThreshold: 250   #new 250  300
-    insufficientInformationThreshold: 180  #new 180 150
-    point2NormalMinimalAlignmentAngleThreshold: 80
-    point2NormalStrongAlignmentAngleThreshold: 45
-  #EqualityConstraints:
-  #  highInformationThreshold: 250   ##       RUMLANG GICIK     
-  #  enoughInformationThreshold: 180  # was 150 17 sept when was 250 it crasahed. investigate
-  #  insufficientInformationThreshold: 35   ### RUMLANG GICIK  30
-  #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
-  #  point2NormalStrongAlignmentAngleThreshold: 45
+  SolutionRemapping:
+    threshold: 80
+    use2019: 0
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
   #  enoughInformationThreshold: 150  #  850
@@ -86,13 +88,16 @@ degeneracyAwareness:
 transformationCheckers:
   - DifferentialTransformationChecker:
       minDiffRotErr: 0.001    # 0.001
-      minDiffTransErr: 0.008   # 0.01
+      minDiffTransErr: 0.01   # 0.01
       smoothLength: 3         # 3
   - CounterTransformationChecker:
       maxIterationCount: 30   # 30 
 #  - BoundTransformationChecker:
 #      maxRotationNorm: 0.80
 #      maxTranslationNorm: 5.0
+#  - BoundTransformationChecker:
+#      maxRotationNorm: 0.26
+#      maxTranslationNorm: 0.25
 
 inspector:
 #  VTKFileInspector
@@ -101,3 +106,7 @@ inspector:
 logger:
 #  FileLogger
   NullLogger
+
+errorMinimizer:
+  PointToPlaneErrorMinimizer
+#  PointToPlaneWithCovErrorMinimizer

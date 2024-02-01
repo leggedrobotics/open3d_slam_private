@@ -671,13 +671,16 @@ struct PointMatcher
 		// inequality constraint mapping matrix
         Eigen::Matrix<float, -1, 6> constraintMappingMatrix_;
 
-
+		// L-Curve vectors
 		std::vector<double> residuals_;
 		std::vector<double> regNorms_;
 		std::vector<double> lambdas_;
 
 		int iterationNumber_{0};
-		
+
+		// Enables weighted regularization.
+		bool enableStandardWeightRegularization_{false};
+
     };
 
     struct LocalizabilityDetectionParameters
@@ -730,6 +733,10 @@ struct PointMatcher
 
 		// Enables printing of additional localizability data.
 		bool isPrintingEnabled_{true};
+
+		// Enables weighted regularization.
+		bool enableStandardWeightRegularization_{false};
+
     };
 
     //! An error minimizer will compute a transformation matrix such as to minimize the error between the reading and the reference.
@@ -1010,6 +1017,7 @@ struct PointMatcher
 
 		//! Read localizability debug parameters from a given YAML file.
 		bool readLocalizabilityDebug(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
+		bool readRegularization(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 		bool readLocalizabilityPrint(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 
 		bool readCeresDegeneracyAnalysis(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
