@@ -7,9 +7,9 @@
   <arg name="launch_rviz" default="true"/>
   <arg name="use_sim_time" default="true"/>
   <arg name="replay_packets" default="true"/>
-  <arg name="launch_tf" default="true"/>
+  <arg name="launch_tf" default="false"/>
   <arg name="publish_gps_tf" default="n" doc="y , n"/>
-  <arg name="load_params" default="y" doc="y , n"/>
+  <arg name="load_params" default="n" doc="y , n"/>
   <arg name="robot_description_file_path" default="/home/tutuna/Music/hongg_wildcat_mission_4/2022-12-15-13-52-33_anymal-camel-lpc_mission.yaml"/>
   
   <!-- MANDATORY PARAMETERS TO DEFINE -->
@@ -18,7 +18,7 @@
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in the external odometry frame` -->
@@ -64,6 +64,14 @@
 
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="false"/>
+  <arg name="rosbag_filepath" default="/home/tutuna/Music/hongg_wildcat_mission_4/2023-12-22-10-04-07.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
+  <arg name="use_syncronized_poses_to_replay" default="false"/>
+  <arg name="republish_tf_topic" default="false"/>
+  <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/> <!-- /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
+  <arg name="relative_sleep_duration" default="0.0"/>
+  <arg name="replay_start_time_as_second" default="0.0"/>
+  <arg name="replay_end_time_as_second" default="380.0"/> <!-- 380  for hongg anymal-->
+  <arg name="export_imu_data" default="false"/> <!-- This is used to export the IMU data from the rosbag. Also sleeps 10s. -->
 
   <!-- ROS Param -->
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>

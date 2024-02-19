@@ -35,7 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <iostream>
 
-#include "Eigen/SVD"
+#include <Eigen/SVD>
 #include <Eigen/Eigenvalues>
 
 #include "ErrorMinimizersImpl.h"
@@ -47,6 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <qpmad/solver.h>
 #include <nlopt.hpp>
 #include "l_curve_optimization.hpp"
+#include "TruncatedSVD.hpp"
 
 // message logger
 #include <message_logger/message_logger.hpp>
@@ -126,11 +127,42 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
 
     typedef typename PointMatcher<T>::Matrix Matrix;
 
+    TruncatedSVD<Matrix> tsvd;
+
+    //tsvd.setEigenValueThreshold(120);
+    //tsvd.compute(A);
+    //tsvd.solve(b, x);
+    //std::cout << "numTruncatedSingularValues: " << std::endl << tsvd.numTruncatedSingularValues() << std::endl;
+
     //std::cout << "Augmented A: " << std::endl << A << std::endl;
     //std::cout << "Augmented b: " << std::endl << b << std::endl;
 
     BOOST_AUTO(solverQR, A.householderQr());
     x = solverQR.solve(b);
+
+
+    /// Compute SVD  - check sorting ORDER
+    /*Eigen::JacobiSVD<MatrixA> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);  
+    std::cout << "\neigen vals:\n" << svd.singularValues() << std::endl;  
+    std::cout << "\nU\n:" << svd.matrixU() << std::endl;  
+    std::cout << "\nV\n:" << svd.matrixV() << std::endl;  
+
+    Vector x_test = svd.solve(b);  
+    std::cout << "\nx = pseudoInv(A)*b:\n" << x_test << std::endl;  
+    std::cout << std::setprecision(12) << "\n|| Ax-b ||/|| b || = " << (A*x_test - b).norm() / b.norm() << std::endl;  
+
+    const Eigen::JacobiSVD<MatrixA>::SingularValuesType &S = svd.singularValues();  
+    Matrix S_Regularized(6, 6);  
+    S_Regularized = Matrix::Zero( 6, 6);  
+    for(int i = 0; i < S.size(); ++i)  {
+        S_Regularized(i,i) = S(i) < 120.0f ? 0.0 : 1.0f/S(i);  
+    }
+    std::cout << "\nRegularized inverse eigen vals:\n" << S_Regularized << std::endl;  
+    x = svd.matrixV()*S_Regularized*svd.matrixU().inverse()*b;  
+    std::cout << "\nx_n = V*SReg_Inv*U_Inv*b:\n" << x << std::endl;  
+    std::cout << std::setprecision(12) << "\n|| Ax-b ||/|| b || = " << (A*x - b).norm() / b.norm() << std::endl;  
+    */
+
 
     //std::cout << "Calculated Solution: " << std::endl << x << std::endl;
 
@@ -336,6 +368,8 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     }
     return mOut;
 }
+
+
 
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
 void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(

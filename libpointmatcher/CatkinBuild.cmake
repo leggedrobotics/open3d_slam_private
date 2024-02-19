@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_definitions(-O3)
+  # add_definitions(-O3 -msse2 -msse3 -msse4 -mavx -mfma)
 endif(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 # Set catkin package dependencies

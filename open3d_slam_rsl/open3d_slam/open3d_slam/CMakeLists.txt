@@ -3,7 +3,7 @@ project(open3d_slam)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_compile_options(-O3)
+add_compile_options(-O3) # -DNDEBUG)
 
 
 set(SRC_FILES

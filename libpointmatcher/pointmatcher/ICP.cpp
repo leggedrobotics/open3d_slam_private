@@ -2341,7 +2341,7 @@ template<typename T>
 bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
     ErrorElements& matchedPoints, LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
-    //MELO_ERROR_STREAM("#############3 detectLocalizabilityWithOptimizedMethod ############");
+    //MELO_ERROR_STREAM("############# detectLocalizabilityWithOptimizedMethod ############");
 
     if (this->localizabilityDetectionParameters.numberOfPoints == 0u)
     {
@@ -2373,12 +2373,13 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
         return false;
     }
 
-    if (!localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_)
+    // COMMENTED ON 13.02.2024 FOR RESEARCH PURPOSES
+    /*if (!localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_)
     {
         MELO_DEBUG_STREAM("Early return from optimized localizability detection since this is not the first iteration.");
         // This is expected behavior, return true.
         return true;
-    }
+    }*/
 
     // Assign reference normals to the reading point cloud since if we are going to sample, we sample that information together.
     {
@@ -2484,7 +2485,7 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
                     .col(0)
                 << 0.0f;
                 if(this->localizabilityDetectionParameters.isPrintingEnabled_){
-            MELO_INFO_STREAM("Not Enough Information: " << sumOfLowerAndHigherAlignmentRegion << " < "
+            MELO_INFO_STREAM(message_logger::color::blue << "Not Enough Information: " << sumOfLowerAndHigherAlignmentRegion << " < "
                                                         << this->localizabilityDetectionParameters.enoughInformationThreshold << " and "
                                                         << " Upper: " << sumOfHigherAlignmentRegion << " < "
                                                         << this->localizabilityDetectionParameters.insufficientInformationThreshold << "\n"
@@ -2531,7 +2532,7 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
                     .col(0)
                 << 0.0f;
             if(this->localizabilityDetectionParameters.isPrintingEnabled_){
-            MELO_INFO_STREAM("Not Enough Information: " << sumOfLowerAndHigherAlignmentRegion << " < "
+            MELO_INFO_STREAM(message_logger::color::blue << "Not Enough Information: " << sumOfLowerAndHigherAlignmentRegion << " < "
                                                         << this->localizabilityDetectionParameters.enoughInformationThreshold << " and "
                                                         << " Upper: " << sumOfHigherAlignmentRegion << " < "
                                                         << this->localizabilityDetectionParameters.insufficientInformationThreshold << "\n"
@@ -2543,7 +2544,6 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithOptimizedMethod(
         // Plotting
         this->totalContribution_.row(eigenvectorIndex).col(0) << sumOfLowerAndHigherAlignmentRegion;
         this->highContribution_.row(eigenvectorIndex).col(0) << sumOfHigherAlignmentRegion;
-
 
         sumOfLowerAndHigherAlignmentRegion = 0.0f;
         sumOfHigherAlignmentRegion = 0.0f;

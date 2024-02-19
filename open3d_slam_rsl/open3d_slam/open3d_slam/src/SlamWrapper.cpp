@@ -306,11 +306,16 @@ void SlamWrapper::offlineFinishProcessing() {
     return;
   }
 
+
+  // DISABLED FOR RESEARCH
   std::cout << "Finishing all submaps! \n";
-  numLatesLoopClosureConstraints_ = -1;
-  submaps_->forceNewSubmapCreation();
+  // numLatesLoopClosureConstraints_ = -1;
+  // submaps_->forceNewSubmapCreation();
 
   if (params_.mapper_.isAttemptLoopClosures_) {
+    numLatesLoopClosureConstraints_ = -1;
+    submaps_->forceNewSubmapCreation();
+
     // In the current setup the async thread is not helping.
     computeFeaturesIfReady();
     attemptLoopClosuresIfReady();

@@ -353,6 +353,9 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       open3d_conversions::PmStampedPointCloud emptyPlaceholder;
       correctedTransform =
           icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
+      auto degenDirections = icp_.getDegenerateDirections();
+      auto totalContributions = icp_.getTotalContribution();
+      auto highContributions = icp_.getHighContribution();
     }
 
     if (firstRefinement_) {

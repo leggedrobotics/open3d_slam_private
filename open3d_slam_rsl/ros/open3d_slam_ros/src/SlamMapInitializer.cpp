@@ -60,6 +60,10 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
     std::cerr << "[Error] Initialization pointcloud not loaded" << std::endl;
   }
 
+  std::cout << "The size of the loaded map: " << raw_map.points_.size() << std::endl;
+  std::cout << "Loaded map has colors?: " << raw_map.HasColors() << std::endl;
+  std::cout << "Loaded map has normals?: " << raw_map.HasNormals() << std::endl;
+
   Transform initPose = params.initialPose_;
   slamPtr_->setInitialMap(raw_map);
   slamPtr_->setInitialTransform(initPose.matrix());

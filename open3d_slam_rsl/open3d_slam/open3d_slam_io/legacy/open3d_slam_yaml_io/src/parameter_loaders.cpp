@@ -253,6 +253,8 @@ void loadParameters(const YAML::Node& node, Eigen::Isometry3d* T) {
 		}
 		const Eigen::Quaterniond q = fromRPY(roll,pitch,yaw).normalized();
 		retVal = makeTransform(Eigen::Vector3d::Zero(), q);
+		Eigen::Vector3d rpy = toRPY(q);
+		std::cout << "rpy " << rpy.transpose() << "\n";
 	}
 	if (node["position"].IsDefined()){
 		const auto &n = node["position"];

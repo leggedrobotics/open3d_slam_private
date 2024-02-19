@@ -666,6 +666,23 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   outCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
   outBag.write("/registered_cloud", toRos(std::get<1>(cloudTimePair)), outCloud);
 
+  // Convert geometry_msgs::PoseStamped to geometry_msgs::TransformStamped
+  geometry_msgs::TransformStamped transformStamped;
+  transformStamped.header.stamp = poseStamped.header.stamp;
+  transformStamped.header.frame_id = poseStamped.header.frame_id;
+  transformStamped.child_frame_id = "robot_frame";  // The child frame_id should be your robot's frame
+  transformStamped.transform.translation.x = poseStamped.pose.position.x;
+  transformStamped.transform.translation.y = poseStamped.pose.position.y;
+  transformStamped.transform.translation.z = poseStamped.pose.position.z;
+  transformStamped.transform.rotation = poseStamped.pose.orientation;
+
+  // Encapsulate geometry_msgs::TransformStamped into tf2_msgs/TFMessage
+  tf2_msgs::TFMessage tfMessage;
+  tfMessage.transforms.push_back(transformStamped);
+
+  // Write the TFMessage to the bag
+  outBag.write("/tf", toRos(std::get<1>(cloudTimePair)), tfMessage);
+
   const ros::WallTime arbitrarySleep{ros::WallTime::now() + ros::WallDuration(slam_->relativeSleepDuration_)};
   ros::WallTime::sleepUntil(arbitrarySleep);
 

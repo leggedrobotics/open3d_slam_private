@@ -131,4 +131,29 @@ void readLocalizabilityFlags(std::vector<int>& degenerateIndices,
 template<typename T, typename MatrixA, typename Vector>
 void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b, Vector& x, const bool isConstrained);
 
+// Eigen suggestion for pseudo inverse using SVD and not orthogonal decomposition.
+template<typename T, typename Matrix>
+Matrix pseudoInverse(const Matrix &a, double epsilon = std::numeric_limits<double>::epsilon())
+{
+  //using WorkingMatType = Eigen::Matrix<typename MatType::Scalar, Eigen::Dynamic, Eigen::Dynamic, 0, MatType::MaxRowsAtCompileTime, MatType::MaxColsAtCompileTime>;
+  Eigen::BDCSVD<Matrix> svd(a, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  svd.setThreshold(epsilon*std::max(a.cols(), a.rows()));
+  Eigen::Index rank = svd.rank();
+  //Eigen::Matrix<typename MatType::Scalar, Eigen::Dynamic, MatType::RowsAtCompileTime,
+  //              0, Eigen::BDCSVD<Matrix>::MaxDiagSizeAtCompileTime, MatType::MaxRowsAtCompileTime>
+  Matrix tmp = svd.matrixU().leftCols(rank).adjoint();
+  tmp = svd.singularValues().head(rank).asDiagonal().inverse() * tmp;
+  return svd.matrixV().leftCols(rank) * tmp;
+}
+
+/*inline Mat3 ClosestSVDRotationMatrix(const Mat3 & rotMat)
+{
+  // Closest orthogonal matrix
+  Eigen::JacobiSVD<Mat3> svd(rotMat,Eigen::ComputeFullV|Eigen::ComputeFullU);
+  Mat3 U = svd.matrixU();
+  Mat3 V = svd.matrixV();
+  return U*V.transpose();
+}
+*/
+
 #endif
