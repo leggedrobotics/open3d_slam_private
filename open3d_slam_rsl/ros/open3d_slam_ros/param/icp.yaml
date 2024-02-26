@@ -23,15 +23,15 @@ matcher:
 
 outlierFilters:
 #  - RobustOutlierFilter:
-#      robustFct: huber   # huber, cauchy, tukey, welsch, sc
-#      scaleEstimator: std    #std, mad, berg
-#      tuning: 1.375      # 1.375
+#      robustFct: gm   # huber, cauchy, tukey, welsch, sc
+#      scaleEstimator: mad    #std, mad, berg
+#      tuning: 1.0      # 1.375
   - TrimmedDistOutlierFilter:
      ratio: 0.90         # 0.9
   - SurfaceNormalOutlierFilter:
      maxAngle: 1.57   # 1.57 == 90 deg,  0.57 == 30 deg
 #  - MaxDistOutlierFilter:
-#     maxDist: 1.0
+#     maxDist: 200.0
 
 degeneracyDebug:
   Enabled: # "Enabled" or "Disabled
@@ -58,11 +58,19 @@ ceresDegeneracyAnalysis:
     regularizationWeight: 500.0 # you need to set  .0  as double
 
 degeneracyAwareness:
-  OptimizedEqualityConstraints:
-    enoughInformationThreshold: 250   #new 250  300
-    insufficientInformationThreshold: 180  #new 180 150
-    point2NormalMinimalAlignmentAngleThreshold: 80
+  InequalityConstraints:
+    highInformationThreshold: 450   ##       RUMLANG GICIK     
+    enoughInformationThreshold: 450  # was 150 17 sept when was 250 it crasahed. investigate
+    insufficientInformationThreshold: 250   ### RUMLANG GICIK  30
+    point2NormalMinimalAlignmentAngleThreshold: 60 # OUSTER 60  
     point2NormalStrongAlignmentAngleThreshold: 45
+    inequalityboundmultiplier: 80
+  #None:
+  #OptimizedEqualityConstraints:
+  #  enoughInformationThreshold: 450   #tunnel 400
+  #  insufficientInformationThreshold: 250  #250 (225 also works)
+  #  point2NormalMinimalAlignmentAngleThreshold: 60 # tunnel 60
+  #  point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
   #  enoughInformationThreshold: 150  #  850
@@ -73,14 +81,14 @@ degeneracyAwareness:
   #  threshold: 120
   #  use2019: 0
   #OptimizedEqualityConstraints:
-  #  enoughInformationThreshold: 250   #new 250  300
-  #  insufficientInformationThreshold: 180  #new 180 150
-  #  point2NormalMinimalAlignmentAngleThreshold: 80
+  #  enoughInformationThreshold: 250   #tunnel 400 and 450 works
+  #  insufficientInformationThreshold: 180  #250 (225 also works)
+  #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 60
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #InequalityConstraints:
-  #  highInformationThreshold: 350   ##       RUMLANG GICIK     
-  #  enoughInformationThreshold: 180  # was 150 17 sept when was 250 it crasahed. investigate
-  #  insufficientInformationThreshold: 45   ### RUMLANG GICIK  30
+  #  highInformationThreshold: 450   ##       RUMLANG GICIK     
+  #  enoughInformationThreshold: 450  # was 150 17 sept when was 250 it crasahed. investigate
+  #  insufficientInformationThreshold: 250   ### RUMLANG GICIK  30
   #  point2NormalMinimalAlignmentAngleThreshold: 60 # OUSTER 60  
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 8

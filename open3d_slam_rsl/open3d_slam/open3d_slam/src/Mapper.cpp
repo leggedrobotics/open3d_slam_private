@@ -351,6 +351,13 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
       // We are explicitly setting the reference cloud above. Hence the empty placeholder.
       open3d_conversions::PmStampedPointCloud emptyPlaceholder;
+
+      // std::cout << "croppedCloud->dataPoints_ rows: " << croppedCloud->dataPoints_.features.rows() << std::endl;
+      // const auto& normals = croppedCloud->dataPoints_.getDescriptorViewByName("normals");
+      // std::cout << "normals cols: " << normals.cols() << std::endl;
+      // std::cout << "croppedCloud->dataPoints_ cols: " << croppedCloud->dataPoints_.features.cols() << std::endl;
+      // std::cout << "croppedCloud->data point: " << croppedCloud->dataPoints_.features.col(3).transpose() << std::endl;
+
       correctedTransform =
           icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
       auto degenDirections = icp_.getDegenerateDirections();

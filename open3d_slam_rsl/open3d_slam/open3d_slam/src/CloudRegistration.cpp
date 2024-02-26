@@ -25,7 +25,7 @@ RegistrationIcpGeneralized::RegistrationResult RegistrationIcpGeneralized::regis
 void RegistrationIcpGeneralized::estimateNormalsOrCovariancesIfNeeded(PointCloud* cloud) const {
   // Particularly for ANYmal, we already have normals. So we skip this step.
   if (cloud->HasNormals()) {
-    // std::cout << "Already has normals. Skipping normal estimation. \n";
+    std::cout << "Already has normals. Skipping normal estimation. \n";
     return;
   }
 

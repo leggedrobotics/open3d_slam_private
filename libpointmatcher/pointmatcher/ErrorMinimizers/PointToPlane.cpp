@@ -127,8 +127,7 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
 
     typedef typename PointMatcher<T>::Matrix Matrix;
 
-    TruncatedSVD<Matrix> tsvd;
-
+    //TruncatedSVD<Matrix> tsvd;
     //tsvd.setEigenValueThreshold(120);
     //tsvd.compute(A);
     //tsvd.solve(b, x);
@@ -284,8 +283,19 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
         }
         break;
         case PointMatcher<T>::DegeneracyAwarenessMethod::kInequalityConstraints: {
+
             // Do inequality constrained optimization with quadratic programming.
-            solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints<T>(x, A, b, localizabilityParametersForErrorMinimization);
+            int activeInequalityConstraints{-1};
+            int numberOfEqualityConstraints{-1};
+            int totalNumberOfConstraints{-1};
+
+            // Do inequality constrained optimization with quadratic programming.
+            solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints<T>(x, activeInequalityConstraints, numberOfEqualityConstraints, totalNumberOfConstraints, A, b, localizabilityParametersForErrorMinimization);
+
+            PointToPlaneErrorMinimizer::setActiveInequalityConstraintSize(activeInequalityConstraints);
+            PointToPlaneErrorMinimizer::setTotalNumberOfConstraintSize(totalNumberOfConstraints);
+            PointToPlaneErrorMinimizer::setNumberOfEqualityConstraintSize(numberOfEqualityConstraints);
+
         }
         break;
         default: {
@@ -374,13 +384,18 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
 void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
     Vector& x,
+    int& activeInequalityConstraints,
+    int& numberOfEqualityConstraints,
+    int& totalNumberOfConstraints,
     const Matrix& A,
     const Vector& b,
-    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
+    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
     const int numberOfConstraints = A.rows()
         - (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.sum()
            + localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.sum());
+
+    totalNumberOfConstraints = numberOfConstraints;
     const bool doConstraintOptimization = (numberOfConstraints != 0) ? true : false;
 
     if (!doConstraintOptimization)
@@ -408,10 +423,13 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
         // Read localizability flags to indices.
         std::vector<int> degenerateDirectionIndices;
         readLocalizabilityFlags<T>(degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
-
+        int numberOfEqConstraints{0};
+        
         // Populate constrained optimization variables.
         generateConstrainedOptimizationProblem<T>(
-            constraintMatrix, Alb, Aub, degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
+            constraintMatrix, Alb, Aub, numberOfEqConstraints, degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
+
+        numberOfEqualityConstraints = numberOfEqConstraints;
         //constraintMatrix.conservativeResize(constraintMatrix.rows(), A.rows());
         // Store the constraintMapping Matrix
         /*
@@ -426,7 +444,8 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
         std::cout << "constraintMatrix row5 : " << constraintMatrix.row(5) << std::endl;
         */
 
-        localizabilityParametersForErrorMinimization.constraintMappingMatrix_ = constraintMatrix.template cast<float>();
+        ///////// DO I NEED THIS BACK?
+        //localizabilityParametersForErrorMinimization.constraintMappingMatrix_ = constraintMatrix.template cast<float>();
 
         qpmad::Solver solverStandard;
         qpmad::SolverParameters param;
@@ -441,6 +460,17 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
         {
             LOG_WARNING_STREAM("Error in solving inequality constrained optimization problem with QPmad library.");
         }
+
+        Eigen::VectorXd dual;
+        Eigen::Matrix<qpmad::MatrixIndex, Eigen::Dynamic, 1> indices;
+        Eigen::Matrix<bool, Eigen::Dynamic, 1> is_lower;
+        int activeInequalityConstraintSize = 0;
+        solverStandard.getInequalityDual(dual, indices, is_lower);
+        std::cout << "Active Inquality Constraints: " << dual.size() << std::endl;
+        activeInequalityConstraints = dual.size();
+
+        std::cout << "Does Constraints satisfied?" << std::endl;
+        std::cout << constraintMatrix*xQP << std::endl;
 
         // Convert from double to float.
         const Eigen::VectorXf xQPfloat = xQP.template cast<float>();
@@ -717,6 +747,7 @@ template<typename T, typename LocalizabilityParametersForErrorMinimization>
 void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                                             Eigen::VectorXd Alb,
                                             Eigen::VectorXd Aub,
+                                            int& numberOfEqualityConstraints,
                                             const std::vector<int>& degenerateDirectionIndices,
                                             LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
@@ -729,6 +760,9 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
 
         if (inRotationSubpace)
         {
+            T velocityAlignment = localizabilityParametersForErrorMinimization.angularVelocityVector_.normalized().dot(localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(index));
+            MELO_INFO_STREAM(message_logger::color::yellow << "Rotation Velocity alignment of index:" <<index << " is " << velocityAlignment);
+            MELO_INFO_STREAM(message_logger::color::yellow << "The InequalityMultipler: " << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
 
             for (Eigen::Index i = 0; i < 3; i++)
             {
@@ -749,6 +783,7 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                     .value()
                 == 0.0f)
             {
+                ++numberOfEqualityConstraints;
                 // These constraints simply prevents optimization to update in the given direction.
                 Alb.row(constraintCount).col(0) << 0.0;
                 Aub.row(constraintCount).col(0) << 0.0;
@@ -769,8 +804,16 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                                                 .localizabilityConstraints_.rotationConstraintValues_.row(index)
                                                 .col(0)
                                                 .value());
-                    Alb.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
-                    Aub.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
+                    Alb.row(constraintCount).col(0) << constraintValue + (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ *2.0f);
+                    Aub.row(constraintCount).col(0) << constraintValue - (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ *2.0f);
+
+                    //Alb.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
+                    //Aub.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
+
+                    MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (rotation)------");
+                    MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << constraintValue);
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Lower Bound (Rotation): " << Alb.row(constraintCount).col(0));
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Upper Bound (Rotation): " << Aub.row(constraintCount).col(0));
                 }
                 else
                 {
@@ -780,8 +823,17 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                                                 .localizabilityConstraints_.rotationConstraintValues_.row(index)
                                                 .col(0)
                                                 .value());
-                    Alb.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
-                    Aub.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
+                    
+                    Alb.row(constraintCount).col(0) << constraintValue - (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_* 2.0f);
+                    Aub.row(constraintCount).col(0) << constraintValue + (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_*2.0f);
+
+                    //Alb.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
+                    //Aub.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
+
+                    MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (rotation)------");
+                    MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << constraintValue);
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Lower Bound (Rotation): " << Alb.row(constraintCount).col(0));
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Upper Bound (Rotation): " << Aub.row(constraintCount).col(0));
                 }
             }
         }
@@ -796,18 +848,23 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                         .template cast<double>();
             }
 
+
             if ((localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
                      .translationConstraintValues_.row(index - translationIndexOffset)
                      .col(0)
                      .value()
                  == 0.0f))
             {
+                ++numberOfEqualityConstraints;
                 Alb.row(constraintCount).col(0) << 0.0;
                 Aub.row(constraintCount).col(0) << 0.0;
             }
             else
             {
                 // Partial constraints were in place.
+
+                T velocityAlignment = localizabilityParametersForErrorMinimization.linearVelocityVector_.normalized().dot(localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.col(index - translationIndexOffset));
+                MELO_INFO_STREAM(message_logger::color::yellow << "TRANS Velocity alignment of index:" <<index << " is " << velocityAlignment);
 
                 if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
                         .translationConstraintValues_.row(index - translationIndexOffset)
@@ -820,9 +877,20 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                                                 .localizabilityConstraints_.translationConstraintValues_.row(index - translationIndexOffset)
                                                 .col(0)
                                                 .value());
+
+
+                    Alb.row(constraintCount).col(0) << constraintValue + (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
+                    Aub.row(constraintCount).col(0) << constraintValue - (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
+
+
                     // If the original shift is negative it should be a lower bound.
-                    Alb.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
-                    Aub.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
+                    //Alb.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
+                    //Aub.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
+
+                    MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (Translation)------");
+                    MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << constraintValue);
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Lower Bound (Translation): " << Alb.row(constraintCount).col(0));
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Upper Bound (Translation): " << Aub.row(constraintCount).col(0));
                 }
                 else
                 {
@@ -832,8 +900,17 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                                                 .localizabilityConstraints_.translationConstraintValues_.row(index - translationIndexOffset)
                                                 .col(0)
                                                 .value());
-                    Alb.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
-                    Aub.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
+                    
+                    Alb.row(constraintCount).col(0) << constraintValue - (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
+                    Aub.row(constraintCount).col(0) << constraintValue + (constraintValue * localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
+
+                    //Alb.row(constraintCount).col(0) << 0.0; //val - (val * 0.1);
+                    //Aub.row(constraintCount).col(0) << constraintValue; // + (val * 0.1);
+
+                    MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (Translation)------");
+                    MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << constraintValue);
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Lower Bound (Translation): " << Alb.row(constraintCount).col(0));
+                    MELO_INFO_STREAM(message_logger::color::white << "Calculated Upper Bound (Translation): " << Aub.row(constraintCount).col(0));
                 }
             }
         }

@@ -63,9 +63,14 @@ PointMatcher<T>::ErrorMinimizer::ErrorElements::ErrorElements(const DataPoints& 
 	
 	assert(matches.ids.rows() > 0);
 	assert(matches.ids.cols() > 0);
+	//std::cout << "matches.ids.rows() = " << matches.ids.rows() << std::endl;
+	//std::cout << "matches.ids.cols() = " << matches.ids.cols() << std::endl;
 	assert(matches.ids.cols() == requestedPts.features.cols()); //nbpts
 	assert(outlierWeights.rows() == matches.ids.rows());  // knn
-	
+
+	//std::cout << "outlierWeights.row(0) = " << outlierWeights.row(0) << std::endl;
+	//std::cout << "outlierWeights.col(0) = " << outlierWeights.col(0) << std::endl;
+		
 	const int knn = outlierWeights.rows();
 	const int dimFeat = requestedPts.features.rows();
 	const int dimReqDesc = requestedPts.descriptors.rows();
@@ -73,6 +78,7 @@ PointMatcher<T>::ErrorMinimizer::ErrorElements::ErrorElements(const DataPoints& 
 
 	// Count points with no weights
 	const int pointsCount = (outlierWeights.array() != 0.0).count();
+	//std::cout << "pointsCount = " << pointsCount << std::endl;
 	if (pointsCount == 0)
 		throw ConvergenceError("ErrorMnimizer: no point to minimize");
 
@@ -334,6 +340,36 @@ std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdaAnalysisNorms(){
 template<typename T>
 typename PointMatcher<T>::ErrorMinimizer::VectorErrorElements PointMatcher<T>::ErrorMinimizer::getErrorElementVector(){
 	return this->vectorizedErrorElements_;
+}
+
+template<typename T>
+int PointMatcher<T>::ErrorMinimizer::getActiveInequalityConstraints(){
+	return this->activeInequalityConstraintSize;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setActiveInequalityConstraintSize(const int& activeSize){
+	this->activeInequalityConstraintSize=activeSize;
+}
+
+template<typename T>
+int PointMatcher<T>::ErrorMinimizer::getTotalNumberOfConstraints(){
+	return this->totalConstraintSize;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setTotalNumberOfConstraintSize(const int& totalSize){
+	this->totalConstraintSize=totalSize;
+}
+
+template<typename T>
+int PointMatcher<T>::ErrorMinimizer::getNumberOfEqualityConstraints(){
+	return this->equalityConstraintSize;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setNumberOfEqualityConstraintSize(const int& totalSize){
+	this->equalityConstraintSize=totalSize;
 }
 
 template<typename T>

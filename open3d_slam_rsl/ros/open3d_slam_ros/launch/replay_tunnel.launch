@@ -15,10 +15,10 @@
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/point_cloud_filter/lidar_depth_camera/point_cloud_filtered"/> <!-- /hesai/pandar /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/cloud_registered_body"/> <!-- /hesai/pandar /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
    <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
-  <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
@@ -29,19 +29,22 @@
   
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="true"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/journal_results_data/all_datasets_used_for_tro/only_x_sim/Only_x_with_GT_NOISE_seq.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
-  <arg name="use_syncronized_poses_to_replay" default="true"/>
-  <arg name="republish_tf_topic" default="false"/>
-  <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/> <!-- /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
+  <arg name="rosbag_filepath" default="/home/tutuna/Music/uemliberg/mergedBags.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
+  <arg name="use_syncronized_poses_to_replay" default="false"/>
+  <arg name="republish_tf_topic" default="true"/>
+  <arg name="async_pose_topic" default="/Odometry"/> <!-- /Odometry /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
   <arg name="relative_sleep_duration" default="0.0"/>
-  <arg name="replay_start_time_as_second" default="0.0"/>
-  <arg name="replay_end_time_as_second" default="380.0"/> <!-- 380  for hongg anymal-->
+  <arg name="replay_start_time_as_second" default="0.0"/> <!-- 1440 for tunnel-->
+  <arg name="replay_end_time_as_second" default="5170.0"/> <!-- 380  for hongg anymal  2170 for tunnel -->
   <arg name="use_sim_time" default="true"/>
-  <arg name="assumed_external_odometry_tracked_frame" default="base"/> <!-- zed2i_base_link This is used to find the transformation to the "tracked_sensor_frame" -->
+  <arg name="assumed_external_odometry_tracked_frame" default="body"/> <!-- imu_box_link for julian exca zed2i_base_link This is used to find the transformation to the "tracked_sensor_frame" -->
   <arg name="export_imu_data" default="false"/> <!-- This is used to export the IMU data from the rosbag. Also sleeps 10s. -->
   <arg name="use_gps_for_ground_truth" default="false"/>
   <arg name="gps_frame" default="gps_mock"/> <!-- gps_mock for hongg in music -->
   <arg name="gps_topic" default="/rtk_gps_driver/position_receiver_0/ros/navsatfix"/>
+  <arg name="downsample_cloud_for_replay" default="true"/>    
+  <arg name="icp_yaml_full_path" default="$(find open3d_slam_ros)/param/icp.yaml"/>   
+
 
   <!-- ROS Param -->
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
@@ -73,6 +76,12 @@
 
     <param name="use_gps_for_ground_truth" type="bool"
            value="$(arg use_gps_for_ground_truth)"/>           
+
+    <param name="downsample_cloud_for_replay" type="bool"
+           value="$(arg downsample_cloud_for_replay)"/>  
+
+    <param name="icp_yaml_full_path" type="string"
+           value="$(arg icp_yaml_full_path)"/>  
 
     <param name="gps_topic" type="string"
            value="$(arg gps_topic)"/>

@@ -125,6 +125,17 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   void addToPathMsg(nav_msgs::PathPtr pathPtr, const std::string& frameName, const ros::Time& stamp, const Eigen::Vector3d& t,
                     const int maxBufferLength);
 
+  geometry_msgs::Pose addUniformNoiseToPose(const geometry_msgs::Pose& original_pose, double position_noise_magnitude,
+                                            double orientation_noise_magnitude);
+
+  geometry_msgs::Pose motionBasedNoise(const geometry_msgs::Pose poseMsg, double transNoise, double directionalTransNoise,
+                                       double rotationNoise);
+  geometry_msgs::Pose matrix_to_pose_stamped(const Eigen::Matrix4d& matrix);
+  Eigen::Matrix4d pose_stamped_to_matrix(const geometry_msgs::Pose& pose_stamped);
+
+  geometry_msgs::Point normalizeVector(const geometry_msgs::Point& vector);
+  double vectorNorm(const geometry_msgs::Point& vector);
+
   //! Publishers.
   ros::Publisher clockPublisher_;
   ros::Publisher inputPointCloudPublisher_;
@@ -169,6 +180,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   ros::Duration timeDiff_;
   rosbag::Bag outBag;
+  rosbag::Bag noisedoutBag;
 
   geometry_msgs::TransformStamped baseToLidarTransform_;
   geometry_msgs::TransformStamped gpsToLidarTransform_;
@@ -182,6 +194,11 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   bool isBagReadyToPlay_ = false;
 
   o3d_slam::RgbaColorMap colorMap_;
+
+  geometry_msgs::Pose prePoseStamped_;
+
+  bool uniformlyDownsample_ = true;
+  int downSamplingSkippingRate_ = 8;
 };
 
 }  // namespace o3d_slam

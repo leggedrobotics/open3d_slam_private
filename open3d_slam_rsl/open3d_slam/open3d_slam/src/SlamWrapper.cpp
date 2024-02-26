@@ -306,7 +306,6 @@ void SlamWrapper::offlineFinishProcessing() {
     return;
   }
 
-
   // DISABLED FOR RESEARCH
   std::cout << "Finishing all submaps! \n";
   // numLatesLoopClosureConstraints_ = -1;
@@ -618,6 +617,10 @@ void SlamWrapper::unifiedWorkerMap() {
     const bool mappingResult = mapper_->addRangeMeasurement(measurement_map.cloud_, measurement_map.time_);
 
     if (mappingResult) {
+      TimestampedPointCloud measurement_new;
+      measurement_new.cloud_ = mapper_->getPreprocessedScan();
+      measurement_new.time_ = measurement_map.time_;
+
       RegisteredPointCloud registeredCloud;
       registeredCloud.submapId_ = activeSubmapIdx;
       registeredCloud.raw_ = measurement_map;

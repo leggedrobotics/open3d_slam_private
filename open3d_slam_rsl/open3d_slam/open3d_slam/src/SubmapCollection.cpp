@@ -120,6 +120,10 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
 
   // This is to identify if active map and closest map are adjacent.
   const bool isAnotherSubmapWithinRange = (mapToRangeSensor_.translation() - closestSubmapPosition).norm() < params_.submaps_.radius_;
+  // std::cout << "isAnotherSubmapWithinRange: " << isAnotherSubmapWithinRange << std::endl;
+  // Active submap id is
+  // std::cout << "Active submap id: " << activeSubmapIdx_ << std::endl;
+  // std::cout << "Closest submap id: " << closestMapIdx << std::endl;
 
   // Check if the closest submap is the same as the active one.
   if (isAnotherSubmapWithinRange) {
@@ -127,6 +131,11 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
     if (closestMapIdx == activeSubmapIdx_) {
       return;
     }
+
+    // std::cout << "adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId()): "
+    //          << adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId()) << std::endl;
+    // std::cout << "isSwitchingSubmapsConsistant(scan, closestSubmap.getId(), mapToRangeSensor): "
+    //          << isSwitchingSubmapsConsistant(scan, closestSubmap.getId(), mapToRangeSensor) << std::endl;
 
     // We are for sure expecting the submap we are changing to is actually adjacent to the active one.
     if (adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId()) &&
@@ -390,15 +399,20 @@ void SubmapCollection::setFolderPath(const std::string& folderPath) {
 bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size_t newActiveSubmapCandidate,
                                                     const Transform& mapToRangeSensor) const {
   // Timer("submap_switch_consistency_check");
-  int numOverlappingPoints = 0;
+  /*int numOverlappingPoints = 0;
   const VoxelMap& voxelMap = submaps_.at(newActiveSubmapCandidate).getVoxelMap();
+
+  // Literally iterate point by point?
   for (int i = 0; i < scan.points_.size(); ++i) {
     const Eigen::Vector3d p = mapToRangeSensor * scan.points_.at(i);
     numOverlappingPoints += int(voxelMap.hasVoxelContainingPoint(p));
   }
+
   const double fitness = static_cast<double>(numOverlappingPoints) / scan.points_.size();
   //	std::cout << "Fitness: " << fitness << std::endl;
-  return fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
+  //return fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
+  */
+  return 0.7;
 }
 
 }  // namespace o3d_slam

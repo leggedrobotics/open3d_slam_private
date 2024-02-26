@@ -68,7 +68,8 @@ typename PointMatcher<T>::OutlierWeights PointMatcher<T>::OutlierFilters::comput
 {
 	//FIXME: Why we filter infinit distance only when no filter?
 	if (this->empty())
-	{
+	{	
+		//std::cout << "No outlier filters" << std::endl;
 		// we do not have any filter, therefore we must put 0 weights for infinite distances
 		OutlierWeights w(input.dists.rows(), input.dists.cols());
 		for (int x = 0; x < w.cols(); ++x)
@@ -77,8 +78,10 @@ typename PointMatcher<T>::OutlierWeights PointMatcher<T>::OutlierFilters::comput
 			{
 				if (input.dists(y, x) == numeric_limits<T>::infinity())
 					w(y, x) = 0;
-				else
+				else{
 					w(y, x) = 1;
+					//std::cout << "No outlier filters" << std::endl;
+				}
 			}
 		}
 		return w;
@@ -86,7 +89,7 @@ typename PointMatcher<T>::OutlierWeights PointMatcher<T>::OutlierFilters::comput
 	else
 	{
 		// we do not have any filter, therefore we must put 0 weights for infinite distances
-		OutlierWeights w(input.dists.rows(), input.dists.cols());
+		/*OutlierWeights w(input.dists.rows(), input.dists.cols());
 		for (int x = 0; x < w.cols(); ++x)
 		{
 			for (int y = 0; y < w.rows(); ++y)
@@ -96,12 +99,12 @@ typename PointMatcher<T>::OutlierWeights PointMatcher<T>::OutlierFilters::comput
 				else
 					w(y, x) = 1;
 			}
-		}
+		}*/
 
 		// apply filters, they should take care of infinite distances
 		//std::cout << "Applying " << this->size() << " Outlier filters" << std::endl;
 		// Operate the first filter.
-		//OutlierWeights w = (*this->begin())->compute(filteredReading, filteredReference, input);
+		OutlierWeights w = (*this->begin())->compute(filteredReading, filteredReference, input);
 		//std::cout << "* " << (*this->begin())->className << std::endl;
 		if (this->size() >= 1)
 		{

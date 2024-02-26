@@ -93,8 +93,9 @@ struct PointToPlaneErrorMinimizer: public PointMatcher<T>::ErrorMinimizer
 // Main wrapper for inequality constrained optimization problem.
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
 void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
-    Vector& x, const Matrix& A, const Vector& b,
-    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
+    Vector& x, int& activeInequalityConstraints, int& numberOfEqualityConstraints,
+    int& totalNumberOfConstraints, const Matrix& A, const Vector& b,
+    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
 
 // Main wrapper for equality constrained optimization problem.
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
@@ -109,7 +110,7 @@ void generateConstrainedOptimizationProblem(Matrix& augmentedA, Vector& augmente
 
 // Augmented the optimization problem to incoorporate degeneracy information. Overload for inequality constraints.
 template<typename T, typename LocalizabilityParametersForErrorMinimization>
-void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix, Eigen::VectorXd Alb, Eigen::VectorXd Aub,
+void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix, Eigen::VectorXd Alb, Eigen::VectorXd Aub, int& numberOfEqualityConstraints,
                                             const std::vector<int>& degenerateDirectionIndices,
                                             LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
 

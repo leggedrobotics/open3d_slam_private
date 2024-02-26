@@ -790,6 +790,15 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityAwarenessParameters(const 
         {
             return false;
         }
+        if (params.count("inequalityboundmultiplier") > 0)
+        {
+            localizabilityDetectionParameters.inequalityBoundMultiplier_ =
+                PointMatcherSupport::lexical_cast<T>(params.at("inequalityboundmultiplier"));
+        }
+        else
+        {
+            return false;
+        }
         if (params.count("insufficientInformationThreshold") > 0)
         {
             localizabilityDetectionParameters.insufficientInformationThreshold =
@@ -893,6 +902,14 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 }
 
 template<typename T>
+void PointMatcher<T>::ICP::setRobotVelocities(Eigen::Matrix<T, 3, 2> velocities)
+{
+    this->localizabilityDetectionParameters.linearVelocityVector_ = velocities.col(0);
+    this->localizabilityDetectionParameters.angularVelocityVector_ = velocities.col(1);
+    return;
+}
+
+template<typename T>
 bool PointMatcher<T>::ICP::initReference(const DataPoints& referenceIn)
 {
     const long int nbPtsReference{ referenceIn.features.cols() };
@@ -971,6 +988,11 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
     localizabilityParametersForErrorMinimization.enableStandardWeightRegularization_ =
         this->localizabilityDetectionParameters.enableStandardWeightRegularization_;
+
+    localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_= this->localizabilityDetectionParameters.inequalityBoundMultiplier_;
+    localizabilityParametersForErrorMinimization.linearVelocityVector_= this->localizabilityDetectionParameters.linearVelocityVector_;
+    localizabilityParametersForErrorMinimization.angularVelocityVector_= this->localizabilityDetectionParameters.angularVelocityVector_;
+
 
     // Print how long take the algo
     timer t;
@@ -1096,8 +1118,15 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         // Detect outliers
         this->outlierWeights = this->outlierFilters.compute(stepReading, reference, this->matches);
 
+
+
         assert(this->outlierWeights.rows() == this->matches.ids.rows());
         assert(this->outlierWeights.cols() == this->matches.ids.cols());
+
+        //MELO_WARN_STREAM("Number of matches : " << this->matches.ids.col(0) << " At iteration: " << iterationCount);
+        //MELO_WARN_STREAM("Number of matches : " << this->matches.ids.row(0) << " At iteration: " << iterationCount);
+        //MELO_WARN_STREAM("stepReading : " << stepReading.getNbPoints() << " At iteration: " << iterationCount);
+        //MELO_WARN_STREAM("reference : " << reference.getNbPoints() << " At iteration: " << iterationCount);
 
         // Get the matches
         ErrorElements matchedPoints(stepReading, reference, this->outlierWeights, this->matches);
@@ -1109,6 +1138,10 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         }
         
         MELO_DEBUG_STREAM("Number of matches : " << matchedPoints.reading.getNbPoints() << " At iteration: " << iterationCount);
+
+        //MELO_WARN_STREAM("matchedPoints.reading.col(0) : " << matchedPoints.reading.features.col(0) << " At iteration: " << iterationCount);
+        //MELO_WARN_STREAM("matchedPoints.reading.getDescriptorViewByName() : " << matchedPoints.reading.getDescriptorViewByName("normals").col(10) << " At iteration: " << iterationCount);
+
 
         this->nbMatches_ = matchedPoints.reading.getNbPoints();
         this->plottingDistributionContribution_.conservativeResize(matchedPoints.reading.getNbPoints(), Eigen::NoChange);
@@ -1438,6 +1471,62 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
             }
         }
 
+        if (this->localizabilityDetectionParameters.isDebugModeENabled_)
+        {
+        // ADDED 24.02.2024 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // To Pharos categorization. (Rotation)
+        for (size_t i = 0; i < 3; i++)
+        {
+            if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(i).value()
+                == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+            {
+                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                        .rotationConstraintValues_.row(i)
+                        .col(0)
+                        .value()
+                    == 0.0f)
+                {
+                    this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Zero(1, 1);
+                }
+                else
+                {
+                    this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Identity(1, 1) * 0.5f;
+                }
+            }
+            else
+            {
+                this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Identity(1, 1);
+            }
+        }
+
+        // To Pharos categorization. (Translation)
+        for (size_t i = 0; i < 3; i++)
+        {
+            if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(i).col(0).value()
+                == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+            {
+                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                        .translationConstraintValues_.row(i)
+                        .col(0)
+                        .value()
+                    == 0.0f)
+                {
+                    this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Zero(1, 1);
+                }
+                else
+                {
+                    this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Identity(1, 1) * 0.5f;
+                }
+            }
+            else
+            {
+                this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Identity(1, 1);
+            }
+        }
+    }
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
         //std::cout << "Registered categories " << std::endl;
         //std::cout << "degenerateDirectionsInMapFrame_: " << this->degenerateDirectionsInMapFrame_ << std::endl;
 
@@ -1486,7 +1575,15 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     // T_refIn_refMean remove the temperary frame added during initialization
 
     T timingSum = std::accumulate(scalabilityVect.begin(), scalabilityVect.end(), 0.0);
+    this->iterationTimings_ = scalabilityVect;
+    this->iterationMatches_ = NbMatchesVet;
+    this->numberOfIterations_ = iterationCount;
     T nbMatchesSum = std::accumulate(NbMatchesVet.begin(), NbMatchesVet.end(), 0.0);
+
+    this->activeInequalityConstraintSize_ = this->errorMinimizer->getActiveInequalityConstraints();
+    this->totalConstraintSize_ = this->errorMinimizer->getTotalNumberOfConstraints();
+    this->equalityConstraintSize_ = this->errorMinimizer->getNumberOfEqualityConstraints();
+
     //std::cout << "Mean Extra Scalability Time: " << timingSum / scalabilityVect.size() << " Mean Matches Per Iteration: " << int(nbMatchesSum / NbMatchesVet.size()) << " [s]" << std::endl;
 
     TransformationParameters icpLocalizationInMap;
@@ -1786,6 +1883,10 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
     // Care order of eigenvectors and eigenvalues between my detection and here. Maybe use SVD here as well?
     for (Eigen::Index j = 0; j < eigenvectors.cols(); j++)
     {
+
+        //MELO_INFO_STREAM(message_logger::color::blue << "Eigvalue: " << eigenvalues.row(0).col(j).value() << " / "
+        //                                                << eigenvalueThresholds[j]);
+
         if (eigenvalues.row(0).col(j).value() < eigenvalueThresholds[j])
         {
             this->solRemapCategories.row(j).col(0) = Matrix::Zero(1, 1);
@@ -1800,7 +1901,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
             }
             eigenvectorsCopy.col(j) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
             isDegenerate = true;
-            if(this->localizabilityDetectionParameters.isPrintingEnabled_){
+            if(this->localizabilityDetectionParameters.isPrintingEnabled_){ 
             MELO_INFO_STREAM(message_logger::color::blue << "Solution Remapping found a degenerate direction_1.");
             }
         }

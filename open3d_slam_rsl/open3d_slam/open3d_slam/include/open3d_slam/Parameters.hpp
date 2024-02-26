@@ -106,7 +106,7 @@ struct SubmapParameters {
   int maxNumPoints_ = 400000;
   double minSecondsBetweenFeatureComputation_ = 5.0;
   double adjacencyBasedRevisitingMinFitness_ = 0.4;
-  int numScansOverlap_ = 3;
+  int numScansOverlap_ = 25;
 };
 
 struct PlaceRecognitionConsistencyCheckParameters {

@@ -668,6 +668,11 @@ struct PointMatcher
 		// Arbitrary centring of the points from base to lidar. 
 		TransformationParameters T_convert_from_base_to_lidar_mat;
 
+		T inequalityBoundMultiplier_{1.0};
+
+		Vector linearVelocityVector_ = Vector::Zero(3,1);
+		Vector angularVelocityVector_ = Vector::Zero(3,1);
+
 		// inequality constraint mapping matrix
         Eigen::Matrix<float, -1, 6> constraintMappingMatrix_;
 
@@ -691,6 +696,11 @@ struct PointMatcher
         /* Invariant parameters, which are only set when setting up a registration problem */
         // The degeneracy awareness method. By default, no degeneracy awareness.
         DegeneracyAwarenessMethod degeneracyAwarenessMethod{ DegeneracyAwarenessMethod::kNone };
+
+		Vector linearVelocityVector_ = Vector::Zero(3,1);
+		Vector angularVelocityVector_ = Vector::Zero(3,1);
+
+		T inequalityBoundMultiplier_{1.0};
 
         // Solution remapping eigenvalue threshold.
         T solutionRemappingThreshold{ 150.0f };
@@ -964,11 +974,32 @@ struct PointMatcher
 		Matrix localizationCategory_= Matrix::Constant(6,1,1);
 		const Matrix& getLocalizationCategory() const { return localizationCategory_; }
 
+		Matrix eachIterationLocalizationCategory_= Matrix::Constant(6,30,1); 
+		const Matrix& getEachIterationLocalizationCategory() const { return eachIterationLocalizationCategory_; }
+
 		Matrix optimizationEigenvalues = Matrix::Zero(6,1);
 		const Matrix& getOptimizationEigenValues() const { return optimizationEigenvalues;}
 		
 		T optimizationConditionNumber_{0.0f};
 		const T& getOptimizationConditionNumber() const { return optimizationConditionNumber_;}
+
+		VectorT iterationTimings_;
+		const VectorT& getIterationTimings() const { return iterationTimings_;}
+
+		VectorT iterationMatches_;
+		const VectorT& getIterationMatches() const { return iterationMatches_;}
+
+		int numberOfIterations_{0};
+		const int& getTotalNumberOfIterations() const { return numberOfIterations_;}
+
+		int activeInequalityConstraintSize_{0};
+		const int& getActiveInequalityConstraintSize() const { return activeInequalityConstraintSize_; }
+
+		int totalConstraintSize_{0};
+		const int& getTotalConstraintSize() const { return totalConstraintSize_; }
+
+		int equalityConstraintSize_{0};
+		const int& getEqualityConstraintSize() const { return equalityConstraintSize_; }
 
 		Matrix solRemapCategories = Matrix::Constant(6,1,1);
 		const Matrix& getSolRemapCategories() const { return solRemapCategories;}
@@ -1048,6 +1079,8 @@ struct PointMatcher
 			const bool initializeMatcherWithInputReference = true);
 
 		bool initReference(const DataPoints& referenceIn);
+
+		void setRobotVelocities(Eigen::Matrix<T, 3, 2> velocities);
 
 		//! Return the filtered point cloud reading used in the ICP chain
 		const DataPoints& getReadingFiltered() const { return readingFiltered; }

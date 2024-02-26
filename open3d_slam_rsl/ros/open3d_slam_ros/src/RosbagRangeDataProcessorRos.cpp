@@ -14,6 +14,7 @@
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <filesystem>
+#include <random>
 #include "open3d_conversions/open3d_conversions.h"
 #include "open3d_slam_ros/SlamWrapperRos.hpp"
 
@@ -321,6 +322,10 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   std::remove(outBagPath_.c_str());
   outBag.open(outBagPath_, rosbag::bagmode::Write);
 
+  std::string noisedoutBagPath_ = buildUpLogFilename("noised_prior", ".bag");
+  std::remove(noisedoutBagPath_.c_str());
+  noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
+
   // Iterate and process the bag.
   if (processRosbag()) {
     // Create the magical tube.
@@ -386,6 +391,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   // Close file handle.
   poseFile_.close();
   outBag.close();
+  noisedoutBag.close();
   if (slam_->useGPSforGroundTruth_) {
     gnssFile_.close();
   }
@@ -442,6 +448,11 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
               ROS_WARN_STREAM(topic << " frame_id is set to: " << slam_->frames_.assumed_external_odometry_tracked_frame);
               break;
             }  // if
+          } else if (messageInstance.getDataType() == "geometry_msgs/PoseStamped") {
+            ROS_WARN_STREAM(" ' " << topic
+                                  << "' topic does not support automatic frame detection. Msg Type: " << messageInstance.getDataType()
+                                  << ". Assumed tracked odometry frame: " << slam_->frames_.assumed_external_odometry_tracked_frame);
+            break;
           } else {
             ROS_ERROR_STREAM(topic << " msg type is NOT SUPPORTED");
             return false;
@@ -528,9 +539,18 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   // Convert to o3d cloud
   open3d::geometry::PointCloud cloud;
 
-  if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, false)) {
-    std::cout << "Couldn't convert the point cloud" << std::endl;
-    return false;
+  if (slam_->downsamplePointCloudForReplay_) {
+    if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, false)) {
+      std::cout << "Couldn't convert the point cloud" << std::endl;
+      return false;
+    }
+
+    cloud = *(cloud.UniformDownSample(downSamplingSkippingRate_));
+  } else {
+    if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, false)) {
+      std::cout << "Couldn't convert the point cloud" << std::endl;
+      return false;
+    }
   }
 
   const Time timestamp = fromRos(pointCloud->header.stamp);
@@ -967,7 +987,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           return false;
         }
 
-      } else if ((messageInstance.getDataType() == "nav_msgs/Odometry") ||
+      } else if ((messageInstance.getDataType() == "nav_msgs/Odometry") || (messageInstance.getDataType() == "geometry_msgs/PoseStamped") ||
                  (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped")) {
         ROS_WARN_STREAM_ONCE("SHOWN ONCE: Using async odometry topic as clock master. This is sub-optimal. Topic: " << clockTopic_);
 
@@ -1189,20 +1209,21 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
     if (messageInstance.getTopic() == cloudTopic_) {
       sensor_msgs::PointCloud2::ConstPtr message = messageInstance.instantiate<sensor_msgs::PointCloud2>();
       if (message != nullptr) {
-        /*ROS_ERROR_STREAM("message->fields[0].name: " << message->fields[0].name);
-        ROS_ERROR_STREAM("message->fields[1].name: " << message->fields[1].name);
-        ROS_ERROR_STREAM("message->fields[2].name: " << message->fields[2].name);
-        ROS_ERROR_STREAM("message->fields[3].name: " << message->fields[3].name);
-        ROS_ERROR_STREAM("message->fields[4].name: " << message->fields[4].name);
-        ROS_ERROR_STREAM("message->fields[5].name: " << message->fields[5].name);
-        ROS_ERROR_STREAM("message->fields[6].name: " << message->fields[6].name);
-        ROS_ERROR_STREAM("message->fields[7].name: " << message->fields[7].name);
-        ROS_ERROR_STREAM("message->fields[8].name: " << message->fields[8].name);
-        ROS_ERROR_STREAM("message->fields[9].name: " << message->fields[9].name);
-        ROS_ERROR_STREAM("message->fields[10].name: " << message->fields[10].name);
-        ROS_ERROR_STREAM("message->fields[11].name: " << message->fields[11].name);
-        ROS_ERROR_STREAM("message->fields[12].name: " << message->fields[12].name);
-        */
+        // ROS_ERROR_STREAM("message->fields[0].name: " << message->fields[0].name);
+        // ROS_ERROR_STREAM("message->fields[1].name: " << message->fields[1].name);
+        // ROS_ERROR_STREAM("message->fields[2].name: " << message->fields[2].name);
+        // ROS_ERROR_STREAM("message->fields[3].name: " << message->fields[3].name);
+        // ROS_ERROR_STREAM("message->fields[4].name: " << message->fields[4].name);
+        // ROS_ERROR_STREAM("message->fields[5].name: " << message->fields[5].name);
+        // ROS_ERROR_STREAM("message->fields[6].name: " << message->fields[6].name);
+        // ROS_ERROR_STREAM("message->fields[7].name: " << message->fields[7].name);
+        // ROS_ERROR_STREAM("message->fields[8].name: " << message->fields[8].name);
+        // ROS_ERROR_STREAM("message->fields[9].name: " << message->fields[9].name);
+        // ROS_ERROR_STREAM("message->fields[10].name: " << message->fields[10].name);
+        // ROS_ERROR_STREAM("message->fields[11].name: " << message->fields[11].name);
+        // ROS_ERROR_STREAM("message->fields[12].name: " << message->fields[12].name);
+        // ROS_ERROR_STREAM("message->height: " << message->height);
+        // ROS_ERROR_STREAM("message->width: " << message->width);
 
         // Add point cloud to buffer.
         slamInputs->pointCloud_ = message;
@@ -1320,7 +1341,55 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
               isFirstMessage_ = false;
             }
 
-            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))) {
+            // geometry_msgs::Pose noisy_pose = motionBasedNoise(
+            //    odomPose.pose.pose, 0.0, 0.0, 0.0);  // trans noise variance, directionalTransNoise variance ,  rot noise variance
+            geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose.pose, 0.05, 0.01);  // Adjust noise magnitudes as needed
+            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
+              ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+              return false;
+            }
+
+            nav_msgs::Odometry saveNoisedPose;
+
+            saveNoisedPose.pose.pose = noisy_pose;
+            saveNoisedPose.header = message->header;
+
+            noisedoutBag.write("/Odometry_noised", message->header.stamp, saveNoisedPose);
+
+            // if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))) {
+            //  ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+            //  return false;
+            //}
+
+          } else {
+            isInvalidMessageInBag = true;
+            ROS_WARN("Invalid message found in Rosbag, you are allowed to panic.");
+          }
+        } else if (messageInstance.getDataType() == "geometry_msgs/PoseStamped") {
+          geometry_msgs::PoseStamped::ConstPtr message = messageInstance.instantiate<geometry_msgs::PoseStamped>();
+          if (message != nullptr) {
+            geometry_msgs::PoseStamped odomPose;
+            odomPose.pose = message->pose;
+
+            nav_msgs::Odometry odomPose_transformed;
+            Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
+            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
+            slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
+            tf2::doTransform(odomPose.pose, odomPose_transformed.pose.pose, baseToLidarTransform_);
+
+            if (isFirstMessage_ && isStaticTransformFound_) {
+              nav_msgs::Odometry initialPose = odomPose_transformed;
+
+              initialPose.pose.pose.orientation.w = 1.0;
+              initialPose.pose.pose.orientation.z = 0.0;
+              initialPose.pose.pose.orientation.y = 0.0;
+              initialPose.pose.pose.orientation.x = 0.0;
+              ROS_INFO("Initial Transform is set. Nice.");
+              slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose.pose).matrix());
+              isFirstMessage_ = false;
+            }
+
+            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose), fromRos(message->header.stamp)))) {
               ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
               return false;
             }
@@ -1385,6 +1454,208 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
   slam_->offlineFinishProcessing();
 
   return true;
+}
+
+geometry_msgs::Pose RosbagRangeDataProcessorRos::addUniformNoiseToPose(const geometry_msgs::Pose& original_pose,
+                                                                       double position_noise_magnitude,
+                                                                       double orientation_noise_magnitude) {
+  // Copy the original pose to modify
+  geometry_msgs::Pose noisy_pose = original_pose;
+
+  // Random device
+  std::random_device rd;
+  // const int kRandomSeed = 0x18273645;
+  // std::seed_seq s2{kRandomSeed};
+  std::mt19937 gen(rd());
+
+  // Uniform distributions for position and orientation noise
+  std::uniform_real_distribution<> pos_dist(-position_noise_magnitude, position_noise_magnitude);
+  std::uniform_real_distribution<> orient_dist(-orientation_noise_magnitude, orientation_noise_magnitude);
+
+  // Add uniform noise to position
+  noisy_pose.position.x += pos_dist(gen);
+  noisy_pose.position.y += pos_dist(gen);
+  noisy_pose.position.z += pos_dist(gen);
+
+  // Add uniform noise to orientation quaternion (simple method, not preserving exact orientation)
+  noisy_pose.orientation.x += orient_dist(gen);
+  noisy_pose.orientation.y += orient_dist(gen);
+  noisy_pose.orientation.z += orient_dist(gen);
+  noisy_pose.orientation.w += orient_dist(gen);
+
+  // Normalize quaternion to ensure it represents a valid rotation
+  double norm = std::sqrt(noisy_pose.orientation.x * noisy_pose.orientation.x + noisy_pose.orientation.y * noisy_pose.orientation.y +
+                          noisy_pose.orientation.z * noisy_pose.orientation.z + noisy_pose.orientation.w * noisy_pose.orientation.w);
+  noisy_pose.orientation.x /= norm;
+  noisy_pose.orientation.y /= norm;
+  noisy_pose.orientation.z /= norm;
+  noisy_pose.orientation.w /= norm;
+
+  return noisy_pose;
+}
+
+Eigen::Matrix4d RosbagRangeDataProcessorRos::pose_stamped_to_matrix(const geometry_msgs::Pose& pose_stamped) {
+  Eigen::Vector3d position(pose_stamped.position.x, pose_stamped.position.y, pose_stamped.position.z);
+  Eigen::Quaterniond orientation(pose_stamped.orientation.w, pose_stamped.orientation.x, pose_stamped.orientation.y,
+                                 pose_stamped.orientation.z);
+
+  Eigen::Matrix4d matrix = Eigen::Matrix4d::Identity();
+  matrix.block<3, 3>(0, 0) = orientation.toRotationMatrix();
+  matrix.block<3, 1>(0, 3) = position;
+
+  return matrix;
+}
+
+geometry_msgs::Pose RosbagRangeDataProcessorRos::matrix_to_pose_stamped(const Eigen::Matrix4d& matrix) {
+  geometry_msgs::Pose pose;
+
+  Eigen::Quaterniond orientation(matrix.block<3, 3>(0, 0));
+  pose.orientation.w = orientation.w();
+  pose.orientation.x = orientation.x();
+  pose.orientation.y = orientation.y();
+  pose.orientation.z = orientation.z();
+
+  Eigen::Vector3d position(matrix.block<3, 1>(0, 3));
+  pose.position.x = position.x();
+  pose.position.y = position.y();
+  pose.position.z = position.z();
+
+  return pose;
+}
+
+geometry_msgs::Pose RosbagRangeDataProcessorRos::motionBasedNoise(const geometry_msgs::Pose poseMsg, double transNoise,
+                                                                  double directionalTransNoise, double rotationNoise) {
+  // Convert to PoseStamped and add to the logs.
+  // poseStamped.header = poseStampedMsg->header;
+  // poseStamped.pose = poseStampedMsg->pose.pose;
+
+  geometry_msgs::Pose noisedPose = poseMsg;
+
+  // Convert to 4x4 matrix to get the diff.
+  Eigen::Matrix4d prePose = pose_stamped_to_matrix(prePoseStamped_);
+  Eigen::Matrix4d Pose = pose_stamped_to_matrix(poseMsg);
+
+  // Motion Difference
+  Eigen::Matrix4d motionMatrix = prePose.inverse() * Pose;
+
+  // Convert back to PoseStamped
+  geometry_msgs::Pose motion = matrix_to_pose_stamped(motionMatrix);
+
+  // Memory
+  prePoseStamped_ = poseMsg;
+
+  float positionNorm =
+      std::sqrt(motion.position.x * motion.position.x + motion.position.y * motion.position.y + motion.position.z * motion.position.z);
+
+  // std::cout << "positionNorm: " << positionNorm << std::endl;
+
+  double positionNoiseVariance_{transNoise};  // 0.1   0.05  worked  0.015 nice
+
+  // ADD NOISE
+  std::random_device randomDevice;
+  std::seed_seq randomSeed{randomDevice(), randomDevice(), randomDevice(), randomDevice(),
+                           randomDevice(), randomDevice(), randomDevice(), randomDevice()};
+  std::mt19937 randomNumberGenerator(randomSeed);  // randomSeed 5 works
+
+  int signTranslation = 1;
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+
+  if (dis(gen) < 0.5) {
+    signTranslation = -1;
+  } else {
+    signTranslation = 1;
+  }
+
+  std::normal_distribution<double> distribution(signTranslation * positionNorm * positionNoiseVariance_ * positionNoiseVariance_,
+                                                positionNorm * positionNoiseVariance_);
+
+  std::random_device randomDeviceRot;
+  std::seed_seq randomSeedRot{randomDeviceRot(), randomDeviceRot(), randomDeviceRot(), randomDeviceRot(),
+                              randomDeviceRot(), randomDeviceRot(), randomDeviceRot(), randomDeviceRot()};
+  std::mt19937 randomNumberGeneratorRot(randomSeedRot);  // randomSeed 5 works
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  geometry_msgs::Quaternion quat = motion.orientation;
+  Eigen::Quaterniond q(quat.w, quat.x, quat.y, quat.z);
+  double angle = 2 * std::acos(q.w());
+  Eigen::Vector3d axis(q.x(), q.y(), q.z());
+  axis /= std::sqrt(1 - q.w() * q.w());
+  Eigen::AngleAxisd aa(angle, axis);
+
+  // std::cout << "Angle of rotation: " << aa.angle() << std::endl;
+  // std::cout << "Axis of rotation: (" << aa.axis()(0) << ", " << aa.axis()(1) << ", " << aa.axis()(2) << ")" << std::endl;
+
+  int signRotation = 1;
+  std::random_device rdRot;
+  std::mt19937 genRot(rdRot());
+  std::uniform_real_distribution<> disRot(0.0, 1.0);
+
+  if (disRot(genRot) < 0.5) {
+    signRotation = -1;
+  } else {
+    signRotation = 1;
+  }
+
+  double rotationNoiseVariance_{rotationNoise};
+  std::normal_distribution<double> distributionRot(signRotation * aa.angle() * rotationNoiseVariance_ * rotationNoiseVariance_,
+                                                   aa.angle() * rotationNoiseVariance_);
+
+  // Add gaussian noise to the localization position.
+  noisedPose.position.x = noisedPose.position.x + distribution(randomNumberGenerator);
+  noisedPose.position.y = noisedPose.position.y + distribution(randomNumberGenerator);
+  noisedPose.position.z = noisedPose.position.z + distribution(randomNumberGenerator);
+
+  geometry_msgs::Point normalized_direction = normalizeVector(motion.position);
+  std::uniform_real_distribution<double> directional_dist(0.0, directionalTransNoise);
+  std::normal_distribution<double> normal_distr(-directionalTransNoise, -directionalTransNoise / 3);
+
+  // Add additional noise in the direction of motion
+  // noisedPose.position.x += normalized_direction.x * directional_dist(gen);
+  // noisedPose.position.y += normalized_direction.y * directional_dist(gen);
+  // noisedPose.position.z += normalized_direction.z * directional_dist(gen);
+
+  // std::cout << "Directional Noise x: " << (normalized_direction.x * normal_distr(gen) * positionNorm) << std::endl;
+  // std::cout << "Directional Noise y: " << (normalized_direction.y * normal_distr(gen) * positionNorm) << std::endl;
+  // std::cout << "Directional Noise z: " << (normalized_direction.z * normal_distr(gen) * positionNorm) << std::endl;
+
+  noisedPose.position.x += noisedPose.position.x + (normalized_direction.x * normal_distr(gen) * positionNorm);
+  noisedPose.position.y += noisedPose.position.y + (normalized_direction.y * normal_distr(gen) * positionNorm);
+  noisedPose.position.z += noisedPose.position.z + (normalized_direction.z * normal_distr(gen) * positionNorm);
+
+  // tf::Quaternion quaternionNoise;
+  tf::Quaternion quaternionNoise(distributionRot(randomNumberGeneratorRot), distributionRot(randomNumberGeneratorRot),
+                                 distributionRot(randomNumberGeneratorRot), distributionRot(randomNumberGeneratorRot));
+
+  /*
+quaternionNoise.setRPY(distributionRot(randomNumberGeneratorRot), distributionRot(randomNumberGeneratorRot),
+distributionRot(randomNumberGeneratorRot));
+*/
+  tf::Quaternion quaternionTf(noisedPose.orientation.x, noisedPose.orientation.y, noisedPose.orientation.z, noisedPose.orientation.w);
+  quaternionTf = quaternionTf + quaternionNoise;
+  quaternionTf.normalize();
+
+  tf::quaternionTFToMsg(quaternionTf, noisedPose.orientation);
+
+  return noisedPose;
+}
+
+// Function to normalize a vector
+geometry_msgs::Point RosbagRangeDataProcessorRos::normalizeVector(const geometry_msgs::Point& vector) {
+  geometry_msgs::Point normalized_vector;
+  double norm = vectorNorm(vector);
+  if (norm > 0) {
+    normalized_vector.x = vector.x / norm;
+    normalized_vector.y = vector.y / norm;
+    normalized_vector.z = vector.z / norm;
+  }
+  return normalized_vector;
+}
+
+// Helper function to calculate the norm of a vector
+double RosbagRangeDataProcessorRos::vectorNorm(const geometry_msgs::Point& vector) {
+  return std::sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
 }
 
 }  // namespace o3d_slam

@@ -306,6 +306,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   gpsTopic_ = nh_->param<std::string>("gps_topic", "");
   // Read whether subscribe to GPS.
   useGPSforGroundTruth_ = nh_->param<bool>("use_gps_for_ground_truth", false);
+  downsamplePointCloudForReplay_ = nh_->param<bool>("downsample_cloud_for_replay", false);
 
   // We read this from the pointcloud header. We dont support frame moving yet.
   // TODO do I need this?
@@ -322,16 +323,17 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   }
 
   const std::string paramFolderPath = nh_->param<std::string>("parameter_folder_path", "");
+  const std::string icpYamlPath = nh_->param<std::string>("icp_yaml_full_path", "");
   const std::string paramFilename = nh_->param<std::string>("parameter_filename", "");
   SlamParameters params;
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
   BASE::loadParametersAndInitialize();
 
   // Set and load the libpointmatcher config here.
-  std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
-  ROS_INFO_STREAM("libpointmatcherConfigPath: " << libpointmatcherConfigPath);
+  // std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
+  ROS_INFO_STREAM("libpointmatcherConfigPath: " << icpYamlPath);
 
-  if (!readLibpointmatcherConfig(libpointmatcherConfigPath)) {
+  if (!readLibpointmatcherConfig(icpYamlPath)) {
     ROS_ERROR_STREAM("Returning early couldnt load ICP params for libpointmatcher ");
     return;
   }

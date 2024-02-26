@@ -235,6 +235,7 @@ bool rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointC
 
         for (size_t j = 0; j < num_points; ++j, ++ros_pc2_normal_x, ++ros_pc2_normal_y, ++ros_pc2_normal_z) {
           Eigen::Vector3d normal(*ros_pc2_normal_x, *ros_pc2_normal_y, *ros_pc2_normal_z);
+          std::cout << "normal: " << normal.transpose() << " Exitting." << std::endl;
           o3d_pc.normals_.push_back(Eigen::Vector3d(*ros_pc2_normal_x, *ros_pc2_normal_y, *ros_pc2_normal_z));
         }
       }
