@@ -307,6 +307,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   // Read whether subscribe to GPS.
   useGPSforGroundTruth_ = nh_->param<bool>("use_gps_for_ground_truth", false);
   downsamplePointCloudForReplay_ = nh_->param<bool>("downsample_cloud_for_replay", false);
+  downSamplingSkippingRate_ = nh_->param<int>("downSamplingSkippingRate_", 5);
 
   // We read this from the pointcloud header. We dont support frame moving yet.
   // TODO do I need this?

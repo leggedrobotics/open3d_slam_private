@@ -22,16 +22,16 @@ matcher:
     epsilon: 0.01       # 0.01
 
 outlierFilters:
-#  - RobustOutlierFilter:
-#      robustFct: gm   # huber, cauchy, tukey, welsch, sc
-#      scaleEstimator: mad    #std, mad, berg
-#      tuning: 1.0      # 1.375
+  #- RobustOutlierFilter:
+  #    robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
+  #    scaleEstimator: mad    #std, mad, berg
+  #    tuning: 4.304      # gm 1.375 # paper suggests 0.1 but 4.304 works better 2
   - TrimmedDistOutlierFilter:
-     ratio: 0.90         # 0.9
+     ratio: 0.95         # 0.95 is the best for tunnel
   - SurfaceNormalOutlierFilter:
-     maxAngle: 1.57   # 1.57 == 90 deg,  0.57 == 30 deg
-#  - MaxDistOutlierFilter:
-#     maxDist: 200.0
+     maxAngle: 1.57   # 1.57 == 90 deg,  0.57 == 30 deg 0.785398 == 45 deg 1.39626 == 80 deg
+  #- MaxDistOutlierFilter:
+  #     maxDist: 200.0
 
 degeneracyDebug:
   Enabled: # "Enabled" or "Disabled
@@ -41,6 +41,12 @@ printingDegeneracy:
 
 regularization:
   Disabled: # "Enabled" or "Disabled
+    regularizationWeight: 500.0
+    useLcurve: 0
+
+# Leave it enabled, just affects solRemap style
+forceXICPdetection:
+  Enabled: # "Enabled" or "Disabled
 
 ceresDegeneracyAnalysis:
   CeresDegeneracyState:
@@ -53,24 +59,24 @@ ceresDegeneracyAnalysis:
     usePointToPlaneCost: 1 # by default enabled
     useSymmetricPointToPlaneCost: 0
     useBoundConstraints: 1 # needs the detection either from SolRemap or xicp
-    useSixDofRegularization: 1 #YOU HAVE TO USE IN COMBINATION WITH SOLUTION REMAPPING
-    useThreeDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
-    regularizationWeight: 500.0 # you need to set  .0  as double
+    useSixDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH SOLUTION REMAPPING
+    useThreeDofRegularization: 1 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
+    regularizationWeight: 5000.0 # you need to set  .0  as double
 
 degeneracyAwareness:
-  InequalityConstraints:
-    highInformationThreshold: 450   ##       RUMLANG GICIK     
-    enoughInformationThreshold: 450  # was 150 17 sept when was 250 it crasahed. investigate
-    insufficientInformationThreshold: 250   ### RUMLANG GICIK  30
-    point2NormalMinimalAlignmentAngleThreshold: 60 # OUSTER 60  
-    point2NormalStrongAlignmentAngleThreshold: 45
-    inequalityboundmultiplier: 80
-  #None:
-  #OptimizedEqualityConstraints:
-  #  enoughInformationThreshold: 450   #tunnel 400
-  #  insufficientInformationThreshold: 250  #250 (225 also works)
-  #  point2NormalMinimalAlignmentAngleThreshold: 60 # tunnel 60
+  #InequalityConstraints:
+  #  highInformationThreshold: 250   ##       RUMLANG GICIK     
+  #  enoughInformationThreshold: 250  # was 150 17 sept when was 250 it crasahed. investigate
+  #  insufficientInformationThreshold: 150   ### RUMLANG GICIK  30
+  #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
   #  point2NormalStrongAlignmentAngleThreshold: 45
+  #  inequalityboundmultiplier: 8
+  #None:
+  OptimizedEqualityConstraints:
+    enoughInformationThreshold: 350   #tunnel use 350    250 still works but not as good as 200
+    insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
+    point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
+    point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
   #  enoughInformationThreshold: 150  #  850
@@ -78,8 +84,14 @@ degeneracyAwareness:
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # 17 sept was 80 when was 70 it crashed 
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #SolutionRemapping:
-  #  threshold: 120
+  #  threshold: 51200
   #  use2019: 0
+  #  useTruncatedSVD: 1
+  #  enoughInformationThreshold: 350   #tunnel use 200    250 still works but not as good as 200
+  #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
+  #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
+  #  point2NormalStrongAlignmentAngleThreshold: 45
+
   #OptimizedEqualityConstraints:
   #  enoughInformationThreshold: 250   #tunnel 400 and 450 works
   #  insufficientInformationThreshold: 180  #250 (225 also works)

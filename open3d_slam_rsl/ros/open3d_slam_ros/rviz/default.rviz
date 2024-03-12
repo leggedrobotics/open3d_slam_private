@@ -221,8 +221,8 @@ Visualization Manager:
     - Alpha: 0.5
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 1.0964977741241455
-        Min Value: -1.9008731842041016
+        Max Value: 9.750509262084961
+        Min Value: -2.6651320457458496
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -495,6 +495,15 @@ Visualization Manager:
       Radius: 0.10000000149011612
       Reference Frame: lidar
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /open3d_slam/localizabilityArrows
+      Name: LocalizabilityArrows
+      Namespaces:
+        rotation: true
+        translation: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -525,7 +534,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 17.05984115600586
+      Distance: 19.73822784423828
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -541,9 +550,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8303980827331543
+      Pitch: 0.46479687094688416
       Target Frame: lidar
-      Yaw: 2.4553966522216797
+      Yaw: 0.710399866104126
     Saved: ~
 Window Geometry:
   Displays:

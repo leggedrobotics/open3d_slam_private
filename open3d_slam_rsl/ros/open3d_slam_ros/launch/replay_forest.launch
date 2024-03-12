@@ -32,10 +32,10 @@
   <arg name="is_read_from_rosbag" default="true"/>
   <arg name="rosbag_filepath" default="/home/tutuna/Music/hongg_wildcat_mission_4/2023-12-22-10-04-07.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="false"/>
-  <arg name="republish_tf_topic" default="true"/>
+  <arg name="republish_tf_topic" default="false"/>
   <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/> <!-- /Odometry /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
   <arg name="relative_sleep_duration" default="0.0"/>
-  <arg name="replay_start_time_as_second" default="0.0"/> <!-- 1440 for tunnel-->
+  <arg name="replay_start_time_as_second" default="200.0"/> <!-- 1440 for tunnel-->
   <arg name="replay_end_time_as_second" default="380.0"/> <!-- 380  for hongg anymal  2170 for tunnel -->
   <arg name="use_sim_time" default="true"/>
   <arg name="assumed_external_odometry_tracked_frame" default="base"/> <!-- imu_box_link for julian exca zed2i_base_link This is used to find the transformation to the "tracked_sensor_frame" -->
@@ -43,7 +43,8 @@
   <arg name="use_gps_for_ground_truth" default="true"/>
   <arg name="gps_frame" default="gps_mock"/> <!-- gps_mock for hongg in music -->
   <arg name="gps_topic" default="/rtk_gps_driver/position_receiver_0/ros/navsatfix"/>
-  <arg name="downsample_cloud_for_replay" default="false"/>    
+  <arg name="downsample_cloud_for_replay" default="false"/>
+  <arg name="downSamplingSkippingRate_" default="10"/>    
   <arg name="icp_yaml_full_path" default="$(find open3d_slam_ros)/param/icp.yaml"/>    
 
 
@@ -80,6 +81,9 @@
 
     <param name="downsample_cloud_for_replay" type="bool"
            value="$(arg downsample_cloud_for_replay)"/>  
+
+    <param name="downSamplingSkippingRate_" type="int"
+           value="$(arg downSamplingSkippingRate_)"/>  
 
     <param name="icp_yaml_full_path" type="string"
            value="$(arg icp_yaml_full_path)"/>  

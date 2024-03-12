@@ -110,7 +110,7 @@ void generateConstrainedOptimizationProblem(Matrix& augmentedA, Vector& augmente
 
 // Augmented the optimization problem to incoorporate degeneracy information. Overload for inequality constraints.
 template<typename T, typename LocalizabilityParametersForErrorMinimization>
-void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix, Eigen::VectorXd Alb, Eigen::VectorXd Aub, int& numberOfEqualityConstraints,
+void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix, Eigen::VectorXd& Alb, Eigen::VectorXd& Aub, int& numberOfEqualityConstraints,
                                             const std::vector<int>& degenerateDirectionIndices,
                                             LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
 

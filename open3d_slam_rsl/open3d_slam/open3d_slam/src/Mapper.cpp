@@ -360,9 +360,13 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
       correctedTransform =
           icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
-      auto degenDirections = icp_.getDegenerateDirections();
-      auto totalContributions = icp_.getTotalContribution();
-      auto highContributions = icp_.getHighContribution();
+      deeperICPLogs_.degenerateDirections_ = icp_.getDegenerateDirections();
+      deeperICPLogs_.totalICPtime = icp_.getTotalICPtime();
+      deeperICPLogs_.localizationCategory = icp_.getLocalizationCategory();
+      deeperICPLogs_.numberOfIterations = icp_.getTotalNumberOfIterations();
+      deeperICPLogs_.pointCloudOverlap_ = icp_.errorMinimizer->getOverlap();
+      deeperICPLogs_.residualError_ = icp_.errorMinimizer->getIterationWiseResidualErrors().back();
+      deeperICPLogs_.time_ = timestamp;
     }
 
     if (firstRefinement_) {
@@ -405,7 +409,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // Pass the calculated transform to o3d transform.
   Transform correctedTransform_o3d;
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
-
+  deeperICPLogs_.transform_ = mapToRangeSensorEstimate.matrix().inverse() * correctedTransform_o3d.matrix();
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 

@@ -18,7 +18,7 @@
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/cloud_registered_body"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar_depth_camera/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in the external odometry frame` -->
@@ -26,7 +26,7 @@
   <!--   base   -->
   <!--   zed2i_base_link  -->
   <!--   imu_link   -->
-  <arg name="assumed_external_odometry_tracked_frame" default="body"/>
+  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
 
   <!-- Currently only used for attitude initialization -->
   <!-- Common Options:  -->
@@ -46,7 +46,7 @@
   <!--   /graph_msf/est_odometry_odom_imu  -->
   <!--   /Odometry  -->
 
-  <arg name="odometry_topic" default="/Odometry"/>
+  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu2"/>
   
   <!-- Alternative topic to external odometry -->
   <!-- Common Options:  -->
@@ -56,9 +56,10 @@
   
   <!-- Common Options:  -->
   <!--   /state_estimator/pose_in_odom   -->
-  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <!--   /state_estimator/pose_in_odom_noised  -->
+  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom_noised2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
-  <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>
+  <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
   <arg name="map_saving_folder" default="$(find open3d_slam_ros)/data/maps/"/>
   <arg name="num_accumulated_range_data" default="1"/>
@@ -75,6 +76,9 @@
   <arg name="replay_start_time_as_second" default="0.0"/>
   <arg name="replay_end_time_as_second" default="380.0"/> <!-- 380  for hongg anymal-->
   <arg name="export_imu_data" default="false"/> <!-- This is used to export the IMU data from the rosbag. Also sleeps 10s. -->
+  <arg name="downsample_cloud_for_replay" default="false"/>
+  <arg name="downSamplingSkippingRate_" default="10"/>    
+  <arg name="icp_yaml_full_path" default="$(find open3d_slam_ros)/param/icp.yaml"/>    
 
   <!-- ROS Param -->
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
@@ -108,6 +112,16 @@
            value="$(arg gps_topic)"/>
     <param name="use_gps_for_ground_truth" type="bool"
            value="$(arg use_gps_for_ground_truth)"/>
+
+    <param name="downsample_cloud_for_replay" type="bool"
+           value="$(arg downsample_cloud_for_replay)"/>  
+
+    <param name="downSamplingSkippingRate_" type="int"
+           value="$(arg downSamplingSkippingRate_)"/>  
+
+    <param name="icp_yaml_full_path" type="string"
+           value="$(arg icp_yaml_full_path)"/>  
+
     <param name="is_read_from_rosbag" value="$(arg is_read_from_rosbag)"/>
     <param name="rosbag_filepath" value="$(arg rosbag_filepath)"/>
     <param name="map_saving_folder" value="$(arg map_saving_folder)"/>

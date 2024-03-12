@@ -630,7 +630,7 @@ struct PointMatcher
     struct LocalizabilityAnalysisResults
     {
 
-        // The eigenvectors of the optiimzation. Used as the constriant vectors.
+        // The eigenvectors of the optiimzation. Used as the constraint vectors.
         Eigen::Matrix<T, 3, 3> translationEigenvectors_ = Eigen::Matrix<T, 3, 3>::Zero(3, 3);
         Eigen::Matrix<T, 3, 3> rotationEigenvectors_ = Eigen::Matrix<T, 3, 3>::Zero(3, 3);
 
@@ -673,6 +673,8 @@ struct PointMatcher
 		Vector linearVelocityVector_ = Vector::Zero(3,1);
 		Vector angularVelocityVector_ = Vector::Zero(3,1);
 
+		float regularizationWeight_{ 0.0f };
+
 		// inequality constraint mapping matrix
         Eigen::Matrix<float, -1, 6> constraintMappingMatrix_;
 
@@ -681,10 +683,23 @@ struct PointMatcher
 		std::vector<double> regNorms_;
 		std::vector<double> lambdas_;
 
+		std::vector<double> regNorms_d1;
+		std::vector<double> regNorms_d2;
+		std::vector<double> residuals_d1;
+		std::vector<double> residuals_d2;
+		std::vector<double> curveEval_y1;
+		std::vector<double> curveEval_y2;
+
 		int iterationNumber_{0};
 
 		// Enables weighted regularization.
 		bool enableStandardWeightRegularization_{false};
+		bool useLcurve_{ false };
+
+		bool useTruncatedSVD{false};
+
+		Eigen::DiagonalMatrix<T, 6> sinv_external_;
+		//Eigen::Matrix<T, 6, 1> sinv_external_ = Eigen::Matrix<T, 6, 1>::Zero(6, 1); 
 
     };
 
@@ -705,6 +720,7 @@ struct PointMatcher
         // Solution remapping eigenvalue threshold.
         T solutionRemappingThreshold{ 150.0f };
 		bool useSolutionRemapping2019{false};
+		bool useTruncatedSVD{false};
 
         // Threshold for determining whether a registration problem is constrained with closely-matching point-normals pairs.
         T highInformationThreshold{ 350 };
@@ -744,8 +760,12 @@ struct PointMatcher
 		// Enables printing of additional localizability data.
 		bool isPrintingEnabled_{true};
 
+		bool enforceLocalizabilityMethod_{false};
+
 		// Enables weighted regularization.
 		bool enableStandardWeightRegularization_{false};
+
+		bool useLcurve_{ false };
 
     };
 
@@ -835,6 +855,23 @@ struct PointMatcher
 		std::vector<double> getLambdaAnalysisRegularizationNorms();
 		std::vector<double> getLambdas();
 
+		std::vector<double> getRegNorms_d1();
+		std::vector<double> getRegNorms_d2();
+
+		std::vector<double> getResiduals_d1();
+		std::vector<double> getResiduals_d2();
+
+		std::vector<double> getCurveEval_y1();
+		std::vector<double> getCurveEval_y2();
+
+
+		void setRegNorms_d2(const std::vector<double>& norms);
+		void setRegNorms_d1(const std::vector<double>& norms);
+		void setResiduals_d1(const std::vector<double>& norms);
+		void setResiduals_d2(const std::vector<double>& norms);
+		void setCurveEval_y1(const std::vector<double>& norms);
+		void setCurveEval_y2(const std::vector<double>& norms);
+
 		void setLambdas(const std::vector<double>& lambdas);
 		void setLambdaAnalysisRegularizationNorms(const std::vector<double>& norms);
 		void setLambdaAnalysisNorms(const std::vector<double>& norms);
@@ -842,6 +879,13 @@ struct PointMatcher
 		std::vector<double> lambdaAnalysisNorms_;
 		std::vector<double> lambdaAnalysisRegularizationNorms_;
 		std::vector<double> lambdas_;
+
+		std::vector<double> regNorms_d1;
+		std::vector<double> regNorms_d2;
+		std::vector<double> residuals_d1;
+		std::vector<double> residuals_d2;
+		std::vector<double> curveEval_y1;
+		std::vector<double> curveEval_y2;
 
 	protected:
 		//T pointUsedRatio; //!< the ratio of how many points were used for error minimization
@@ -983,6 +1027,9 @@ struct PointMatcher
 		T optimizationConditionNumber_{0.0f};
 		const T& getOptimizationConditionNumber() const { return optimizationConditionNumber_;}
 
+		T totalICPtime_{0.0f};
+		const T& getTotalICPtime() const { return totalICPtime_;}
+
 		VectorT iterationTimings_;
 		const VectorT& getIterationTimings() const { return iterationTimings_;}
 
@@ -1050,6 +1097,7 @@ struct PointMatcher
 		bool readLocalizabilityDebug(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 		bool readRegularization(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 		bool readLocalizabilityPrint(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
+		bool readEnforcedLocalizability(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 
 		bool readCeresDegeneracyAnalysis(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 	};
@@ -1115,6 +1163,12 @@ struct PointMatcher
                                                     const Matrix& eigenvectors,
                                                     const Vector& eigenvalues,
                                                     const T& threshold);
+
+        //! Projection calculation for solution remapping approach.
+        void solutionRemappingProjectionCalculation(Matrix& projectionMatrix,
+                                                    const Matrix& eigenvectors,
+                                                    const Vector& eigenvalues,
+                                                    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
 
         //! Center calculation for a given set of features.
         void calculatePointCloudCenter(Eigen::Matrix<T, 3, 1>& center, const Matrix& features, const Eigen::Index numberOfPoints);

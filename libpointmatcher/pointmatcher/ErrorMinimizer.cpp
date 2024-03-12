@@ -320,6 +320,42 @@ void PointMatcher<T>::ErrorMinimizer::setLambdas(const std::vector<double>& lamb
 }
 
 template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setRegNorms_d1(const std::vector<double>& norms){
+
+	this->regNorms_d1 = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setRegNorms_d2(const std::vector<double>& norms){
+
+	this->regNorms_d2 = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setResiduals_d1(const std::vector<double>& norms){
+
+	this->residuals_d1 = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setResiduals_d2(const std::vector<double>& norms){
+
+	this->residuals_d2 = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setCurveEval_y1(const std::vector<double>& norms){
+
+	this->curveEval_y1 = norms;
+}
+
+template<typename T>
+void PointMatcher<T>::ErrorMinimizer::setCurveEval_y2(const std::vector<double>& norms){
+
+	this->curveEval_y2 = norms;
+}
+
+template<typename T>
 std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdas(){
 
 	return this->lambdas_;
@@ -335,6 +371,42 @@ template<typename T>
 std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdaAnalysisNorms(){
 
 	return this->lambdaAnalysisNorms_;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getRegNorms_d1(){
+
+	return this->regNorms_d1;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getRegNorms_d2(){
+
+	return this->regNorms_d2;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getResiduals_d1(){
+
+	return this->residuals_d1;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getResiduals_d2(){
+
+	return this->residuals_d2;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getCurveEval_y1(){
+
+	return this->curveEval_y1;
+}
+
+template<typename T>
+std::vector<double> PointMatcher<T>::ErrorMinimizer::getCurveEval_y2(){
+
+	return this->curveEval_y2;
 }
 
 template<typename T>

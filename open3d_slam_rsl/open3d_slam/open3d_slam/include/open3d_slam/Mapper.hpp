@@ -70,6 +70,7 @@ class Mapper {
   // The pointmatcher registration object.
   // The parameter loading dont have a slam_ API yet, thus object not private.
   pointmatcher_ros::PmIcp icp_;
+  DeeperICPLogs deeperICPLogs_;
 
  private:
   void update(const MapperParameters& p);
@@ -101,7 +102,6 @@ class Mapper {
   bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-
   std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
 };
 

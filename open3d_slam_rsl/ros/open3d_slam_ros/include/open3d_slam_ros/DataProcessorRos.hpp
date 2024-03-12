@@ -65,6 +65,8 @@ class DataProcessorRos {
   ros::Publisher surfaceNormalPub_;
   ros::Publisher offlineDifferenceLinePub_;
   ros::Publisher offlineBestGuessPathPub_;
+  ros::Publisher condNumberArrowPublisher_;
+
   ros::Publisher addedImuMeasPub_;
   std::string cloudTopic_{""};
   std::string odometryTopic_{""};

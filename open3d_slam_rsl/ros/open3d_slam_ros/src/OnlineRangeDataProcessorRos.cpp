@@ -139,7 +139,7 @@ void OnlineRangeDataProcessorRos::startProcessing() {
 
   std::cout << " Open3d_slam Subscribers are set." << std::endl;
 
-  // Number of spinners should be equal to the number of active subscribers
+  // Number of spinners should be equal to the number of bscribers
   ros::MultiThreadedSpinner spinner(4);
   spinner.spin();
   // ros::Rate r(10); // 10 hz

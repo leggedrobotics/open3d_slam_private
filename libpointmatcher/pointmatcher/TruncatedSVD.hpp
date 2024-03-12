@@ -27,6 +27,34 @@ public:
         }
     }
 
+    TruncatedSVD& computeFromExistingSinv(const Eigen::DiagonalMatrix<Scalar, Eigen::Dynamic>& sinv_external){
+
+        // In 1 sentence: set the eigenvalue of the degenerate eigenvector to 0. Rest to 1/eigenvalue.
+        
+        if ((sinv_external.diagonal().array() == 0.0).any())
+        {
+           numTruncated = (sinv_external.diagonal().array() == 0.0).count();
+
+            //
+            //std::cout << "numTruncated: " << numTruncated << std::endl;
+            sinv.diagonal() = sinv_external.diagonal();
+            //std::cout << "SET THE ACTUAL SINV: " << std::endl << sinv.diagonal() << std::endl;
+
+            return *this;
+
+        }else{
+            numTruncated = 0;
+
+            // We dont need to deal with sinv.
+            return *this;
+        }
+    }
+
+    TruncatedSVD& computeSVD(const MatrixType& matrix){
+        svd.compute(matrix, Eigen::ComputeThinU | Eigen::ComputeThinV);
+        return *this;
+    }
+
     TruncatedSVD& compute(const MatrixType& matrix){
         
         // We dont truncate
@@ -38,7 +66,7 @@ public:
         int lastNonZeroSingularValues = svd.nonzeroSingularValues() - 1;
         if(lastNonZeroSingularValues > 0){
             // Get the Biggest eigenValue
-            Scalar& s0 = sinv.diagonal()(0);
+            //Scalar& s0 = sinv.diagonal()(0);
 
             // Get the Smallest eigenValue
             Scalar& s_last = sinv.diagonal()(lastNonZeroSingularValues);
@@ -60,35 +88,12 @@ public:
                 }
             }
 
-
             while(j >= 0){
                 Scalar& s = sinv.diagonal()(j);
                 s = Scalar(1.0) / s;
                 --j;
             }
             
-
-            // Relative Condition number based, bad idea since rotation vs translation scale
-            /*
-            if((s0 / s_last) > eigenValueThreshold){
-                s_last = Scalar(0.0);
-                ++numTruncated;
-                int j;
-                for(j = lastNonZeroSingularValues - 1; j > 0; --j){
-                    Scalar& s = sinv.diagonal()(j);
-                    if((s0 / s) > eigenValueThreshold){
-                        s = Scalar(0.0);
-                        ++numTruncated;
-                    } else {
-                        break;
-                    }
-                }
-                while(j >= 0){
-                    Scalar& s = sinv.diagonal()(j);
-                    s = Scalar(1.0) / s;
-                    --j;
-                }
-            }*/
         }
         return *this;
     }
@@ -105,6 +110,13 @@ public:
     void solve(const Eigen::MatrixBase<VectorType1>& b, Eigen::MatrixBase<VectorType2>& out_x) const {
         if(numTruncated > 0){
             // Use the re-mapped singular values
+
+            std::cout << "numTruncated: " << numTruncated << std::endl;
+            //std::cout << "Solve: " << std::endl << sinv.diagonal() << std::endl;
+
+            //    BOOST_AUTO(solverQR, A.householderQr());
+            //x = solverQR.solve(b);
+
             out_x = svd.matrixV() * sinv * svd.matrixU().transpose() * b;
         } else {
             out_x = svd.solve(b);

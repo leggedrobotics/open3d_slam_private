@@ -137,11 +137,14 @@ class SlamWrapper {
   TimestampedTransform getLatestMapToRangeMeasurement() const;
   TimestampedTransform getLatestOdometryPoseMeasurement() const;
 
+  DeeperICPLogs offlineGetICPLogs();
+
   std::string mapSavingFolderPath_{""};
   TimestampedTransform latestMapToRangeMeasurement_;
   bool exportIMUdata_{false};
   bool useGPSforGroundTruth_{false};
   bool downsamplePointCloudForReplay_{false};
+  int downSamplingSkippingRate_{5};
 
   // If set to true, expects odometry msgs in the replayed rosbag to be exactly synced with the pointclouds.
   bool useSyncedPoses_ = false;

@@ -31,7 +31,7 @@
   <arg name="is_read_from_rosbag" default="true"/>
   <arg name="rosbag_filepath" default="/home/tutuna/Music/uemliberg/mergedBags.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="false"/>
-  <arg name="republish_tf_topic" default="true"/>
+  <arg name="republish_tf_topic" default="false"/>
   <arg name="async_pose_topic" default="/Odometry"/> <!-- /Odometry /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
   <arg name="relative_sleep_duration" default="0.0"/>
   <arg name="replay_start_time_as_second" default="0.0"/> <!-- 1440 for tunnel-->
@@ -42,7 +42,9 @@
   <arg name="use_gps_for_ground_truth" default="false"/>
   <arg name="gps_frame" default="gps_mock"/> <!-- gps_mock for hongg in music -->
   <arg name="gps_topic" default="/rtk_gps_driver/position_receiver_0/ros/navsatfix"/>
-  <arg name="downsample_cloud_for_replay" default="true"/>    
+  <arg name="downsample_cloud_for_replay" default="false"/>    
+  <arg name="downSamplingSkippingRate_" default="5"/>
+  
   <arg name="icp_yaml_full_path" default="$(find open3d_slam_ros)/param/icp.yaml"/>   
 
 
@@ -79,6 +81,9 @@
 
     <param name="downsample_cloud_for_replay" type="bool"
            value="$(arg downsample_cloud_for_replay)"/>  
+
+    <param name="downSamplingSkippingRate_" type="int"
+           value="$(arg downSamplingSkippingRate_)"/>  
 
     <param name="icp_yaml_full_path" type="string"
            value="$(arg icp_yaml_full_path)"/>  

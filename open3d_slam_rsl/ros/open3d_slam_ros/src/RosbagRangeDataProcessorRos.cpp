@@ -326,6 +326,29 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   std::remove(noisedoutBagPath_.c_str());
   noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
 
+  const std::string filename_localizability =
+      "/home/tutuna/open3d_slam_private_ws/src/open3d_slam_private/maps/replayed_localizability_categories.txt";
+
+  // Remove the existing file.
+  std::remove(filename_localizability.c_str());
+  const std::string poseLogFileHeader_localizability = "timestamp transX transY transZ rotX rotY rotZ";
+
+  // Open file and set numerical precision to the max.
+  file_localizability.open(filename_localizability, std::ios_base::app);
+  file_localizability.precision(std::numeric_limits<double>::max_digits10);
+  file_localizability << poseLogFileHeader_localizability << std::endl;
+
+  const std::string filename_stats = "/home/tutuna/open3d_slam_private_ws/src/open3d_slam_private/maps/replayed_statistics.txt";
+
+  // Remove the existing file.
+  std::remove(filename_stats.c_str());
+  const std::string poseLogFileHeader_stats = "timestamp totalIteration totalTime residual transformationUpdateNorm";
+
+  // Open file and set numerical precision to the max.
+  file_stats.open(filename_stats, std::ios_base::app);
+  file_stats.precision(std::numeric_limits<double>::max_digits10);
+  file_stats << poseLogFileHeader_stats << std::endl;
+
   // Iterate and process the bag.
   if (processRosbag()) {
     // Create the magical tube.
@@ -395,6 +418,10 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   if (slam_->useGPSforGroundTruth_) {
     gnssFile_.close();
   }
+
+  // Close file handle.
+  file_localizability.close();
+  file_stats.close();
 
   ros::spin();
   slam_->stopWorkers();
@@ -545,7 +572,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
       return false;
     }
 
-    cloud = *(cloud.UniformDownSample(downSamplingSkippingRate_));
+    cloud = *(cloud.UniformDownSample(slam_->downSamplingSkippingRate_));
   } else {
     if (!open3d_conversions::rosToOpen3d(pointCloud, cloud, false, false)) {
       std::cout << "Couldn't convert the point cloud" << std::endl;
@@ -575,6 +602,10 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     buffer.pop_front();
     return false;
   }
+
+  deeperICPLogs_ = slam_->offlineGetICPLogs();
+
+  logToFiles();
 
   // Publish the tfs
   slam_->offlineTfWorker();
@@ -657,6 +688,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     }
   }
 
+  drawDegeneracyArrows(std::get<2>(cloudTimePair), toRos(std::get<1>(cloudTimePair)));
   drawLinesBetweenPoses(trackedPath_, bestGuessPath_, toRos(std::get<1>(cloudTimePair)));
 
   if (isTimeValid(std::get<1>(cloudTimePair)) && !(std::get<0>(cloudTimePair).IsEmpty())) {
@@ -686,11 +718,19 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   outCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
   outBag.write("/registered_cloud", toRos(std::get<1>(cloudTimePair)), outCloud);
 
+  PointCloud transformedCloud = std::get<0>(cloudTimePair);
+
+  transformedCloud.Transform(std::get<2>(cloudTimePair).matrix());
+  sensor_msgs::PointCloud2 transformedRosCloud;
+  open3d_conversions::open3dToRos(transformedCloud, transformedRosCloud, slam_->frames_.rangeSensorFrame);
+  transformedRosCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
+  outBag.write("/transformed_registered_cloud", toRos(std::get<1>(cloudTimePair)), transformedRosCloud);
+
   // Convert geometry_msgs::PoseStamped to geometry_msgs::TransformStamped
   geometry_msgs::TransformStamped transformStamped;
   transformStamped.header.stamp = poseStamped.header.stamp;
-  transformStamped.header.frame_id = poseStamped.header.frame_id;
-  transformStamped.child_frame_id = "robot_frame";  // The child frame_id should be your robot's frame
+  transformStamped.header.frame_id = slam_->frames_.mapFrame;
+  transformStamped.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
   transformStamped.transform.translation.x = poseStamped.pose.position.x;
   transformStamped.transform.translation.y = poseStamped.pose.position.y;
   transformStamped.transform.translation.z = poseStamped.pose.position.z;
@@ -707,6 +747,137 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   ros::WallTime::sleepUntil(arbitrarySleep);
 
   return true;
+}
+
+visualization_msgs::Marker RosbagRangeDataProcessorRos::generateEigenVectorArrowMarkers(std::vector<float> mean, Eigen::VectorXf eigVector,
+                                                                                        int id, int colorId, std::string ns, float scale,
+                                                                                        const ros::Time& stamp) {
+  visualization_msgs::Marker marker;
+  marker.type = visualization_msgs::Marker::ARROW;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.header.stamp = stamp;
+  marker.header.frame_id = slam_->frames_.mapFrame;
+
+  if (ns == "translation") {
+    colorId = 0;  // yellow
+  }
+  if (ns == "rotation") {
+    colorId = 3;  // cyan
+  }
+
+  const auto& itColor{arrowColors_.find(colorId)};
+  marker.color.r = itColor->second[0];
+  marker.color.g = itColor->second[1];
+  marker.color.b = itColor->second[2];
+  marker.color.a = itColor->second[3];
+  marker.ns = ns;
+  marker.id = id;
+  marker.lifetime = ros::Duration();
+  marker.scale.x = 0.8;  // 0.1   0.8
+  marker.scale.y = 2.4;  // 0.3   2.4
+  marker.scale.z = 0.8;  // 0.1   0.8
+  marker.points.resize(2u);
+
+  if (eigVector.isZero()) {
+    marker.scale.x = 0.05;  // 0.1
+    marker.scale.y = 0.05;  // 0.3
+    marker.scale.z = 0.05;  // 0.1
+    scale = 0.1;
+  } else {
+    scale = 4.0;  // 6.0
+  }
+
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+
+  marker.points[0].x = mean[0];
+  marker.points[0].y = mean[1];
+  marker.points[0].z = mean[2];
+
+  marker.points[1].x = mean[0] + eigVector(0) * scale;
+  marker.points[1].y = mean[1] + eigVector(1) * scale;
+  marker.points[1].z = mean[2] + eigVector(2) * scale;
+
+  return marker;
+}
+
+void RosbagRangeDataProcessorRos::drawDegeneracyArrows(const Transform currentPose, const ros::Time& stamp) {
+  if (o3d_slam::toSecondsSinceFirstMeasurement(deeperICPLogs_.time_) <= 0.0) {
+    return;
+  }
+
+  std::vector<float> vec;  //(vecE.data(), vecE.data() + vecE.rows() * vecE.cols());
+  vec.push_back(currentPose.translation().x());
+  vec.push_back(currentPose.translation().y());
+  vec.push_back(currentPose.translation().z());
+
+  Eigen::Matrix<float, 3, 6> PharosArrows_ = deeperICPLogs_.degenerateDirections_;
+
+  if (condNumberArrowPublisher_.getNumSubscribers() > 0u || condNumberArrowPublisher_.isLatched()) {
+    // Eigen::Matrix<float, 3, 6> zeros = Eigen::Matrix<float, 3, 6>::Zero(3,6);
+    // if (!(PharosArrows_.isZero())) {
+    visualization_msgs::MarkerArray arrowArray;
+    for (int i = 0; i < 6; i++) {
+      std::string ns = "rotation";
+      if (i > 2) {
+        ns = "translation";
+      }
+
+      // if(!(PharosArrows_.col(i).isZero())){
+      visualization_msgs::Marker arrow;
+      visualization_msgs::Marker reverseArrow;
+      arrow = generateEigenVectorArrowMarkers(vec, PharosArrows_.col(i), i, i, ns, 1.0, stamp);
+      reverseArrow = generateEigenVectorArrowMarkers(vec, -PharosArrows_.col(i), i + 3, i, ns, 1.0, stamp);
+      arrowArray.markers.emplace_back(std::move(arrow));
+      arrowArray.markers.emplace_back(std::move(reverseArrow));
+      //}
+    }
+
+    condNumberArrowPublisher_.publish(arrowArray);
+    //}
+  }
+}
+
+void RosbagRangeDataProcessorRos::logToFiles() {
+  if (o3d_slam::toSecondsSinceFirstMeasurement(deeperICPLogs_.time_) <= 0.0) {
+    return;
+  }
+
+  // Test
+  generateLocalizabilityCategory();
+  generateSystemStatsFile();
+}
+
+void RosbagRangeDataProcessorRos::generateSystemStatsFile() {
+  // Values
+
+  auto& size = deeperICPLogs_.numberOfIterations;
+  auto& timestamp = deeperICPLogs_.time_;
+  auto& totalICPtime_ = deeperICPLogs_.totalICPtime;
+  auto& residualError_ = deeperICPLogs_.residualError_;
+  auto& numberOfIterations = deeperICPLogs_.numberOfIterations;
+  auto& motion = deeperICPLogs_.transform_;
+
+  file_stats << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << " " << numberOfIterations << " " << totalICPtime_ << " "
+             << residualError_ << " " << motion.matrix().norm() << std::endl;
+}
+
+void RosbagRangeDataProcessorRos::generateLocalizabilityCategory() {
+  // Values
+  auto& categories = deeperICPLogs_.localizationCategory;
+  auto& timestamp = deeperICPLogs_.time_;
+
+  // std::vector<double> norm = aligner_->getNorms();
+  // std::vector<double> lambdas = aligner_->getLambdas();
+  // std::vector<double> regNorms = aligner_->getRegularizationNorms();
+
+  // auto size = regNorms.size();
+  file_localizability << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << " " << categories.col(0).row(3).value() << " "
+                      << categories.col(0).row(4).value() << " " << categories.col(0).row(5).value() << " "
+                      << categories.col(0).row(0).value() << " " << categories.col(0).row(1).value() << " "
+                      << categories.col(0).row(2).value() << std::endl;
 }
 
 std::optional<visualization_msgs::Marker> RosbagRangeDataProcessorRos::generateMarkersForSurfaceNormalVectors(
@@ -1343,23 +1514,24 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
 
             // geometry_msgs::Pose noisy_pose = motionBasedNoise(
             //    odomPose.pose.pose, 0.0, 0.0, 0.0);  // trans noise variance, directionalTransNoise variance ,  rot noise variance
-            geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose.pose, 0.05, 0.01);  // Adjust noise magnitudes as needed
-            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
-              ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
-              return false;
-            }
 
-            nav_msgs::Odometry saveNoisedPose;
-
-            saveNoisedPose.pose.pose = noisy_pose;
-            saveNoisedPose.header = message->header;
-
-            noisedoutBag.write("/Odometry_noised", message->header.stamp, saveNoisedPose);
-
-            // if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))) {
+            // geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose.pose, 0.05, 0.01);  // Adjust noise magnitudes as needed
+            // if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
             //  ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
             //  return false;
             //}
+
+            nav_msgs::Odometry saveNoisedPose;
+
+            // saveNoisedPose.pose.pose = noisy_pose;
+            // saveNoisedPose.header = message->header;
+
+            // noisedoutBag.write("/Odometry_noised", message->header.stamp, saveNoisedPose);
+
+            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))) {
+              ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+              return false;
+            }
 
           } else {
             isInvalidMessageInBag = true;

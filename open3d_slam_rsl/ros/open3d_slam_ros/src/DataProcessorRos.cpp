@@ -11,6 +11,7 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include "open3d_slam/magic.hpp"
 #include "open3d_slam/typedefs.hpp"
 
@@ -42,6 +43,7 @@ void DataProcessorRos::initCommonRosStuff() {
     offlineBestGuessPathPub_ = nh_->advertise<nav_msgs::Path>("best_guess_path", 1, true);
     offlinePathPub_ = nh_->advertise<nav_msgs::Path>("tracked_path", 1, true);
     offlineDifferenceLinePub_ = nh_->advertise<visualization_msgs::Marker>("differenceLines", true);
+    condNumberArrowPublisher_ = nh_->advertise<visualization_msgs::MarkerArray>("localizabilityArrows", false);
   }
 
   surfaceNormalPub_ = nh_->advertise<visualization_msgs::Marker>("surfaceNormals", true);

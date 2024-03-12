@@ -60,6 +60,15 @@ class LcurveOptimizer{
   std::vector<double> getResiduals();
   std::vector<double> getRegNorms();
 
+  std::vector<double> getSmothnessJacob();
+  std::vector<double> getSmothnessHessian();
+
+  std::vector<double> getResidualJacob();
+  std::vector<double> getResidualHessian();
+
+  std::vector<double> getEvalSmothness();
+  std::vector<double> getEvalResidual();
+
   double getOptimalRegularizationWeight();
 
  private:
@@ -99,10 +108,18 @@ class LcurveOptimizer{
   std::vector<double> residualNorms;
   std::vector<double> smoothnessNorms;
   std::vector<double> sampledLambdas;
+  std::vector<double> evalLambda;
   std::vector<double> curv;
 
   std::vector<double> cpp_curveture;
   std::vector<double> cpp_curveture_x_axis;
+
+  std::vector<double> splineEval_residual_;
+  std::vector<double> splineEval_smothness_;
+  std::vector<double> jacob_residual_vector_;
+  std::vector<double> jacob_smoothness_vector_;
+  std::vector<double> hessian_residual_vector_;
+  std::vector<double> hessian_smoothness_vector_;
 
 
   Eigen::Matrix<double, 6, 1> x_ = Eigen::Matrix<double, 6, 1>::Zero();

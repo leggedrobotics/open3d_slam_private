@@ -300,6 +300,10 @@ void SlamWrapper::finishProcessing() {
   std::cout << "All submaps fnished! \n";
 }
 
+DeeperICPLogs SlamWrapper::offlineGetICPLogs() {
+  return mapper_->deeperICPLogs_;
+}
+
 void SlamWrapper::offlineFinishProcessing() {
   if (!mappingBuffer_.empty()) {
     std::cout << "  Waiting for the mapping buffer to be emptied \n";

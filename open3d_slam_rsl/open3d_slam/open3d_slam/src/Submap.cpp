@@ -269,7 +269,8 @@ void Submap::computeFeatures() {
   sparseMapCloud_.EstimateNormals(open3d::geometry::KDTreeSearchParamHybrid(p.normalEstimationRadius_, p.normalKnn_));
   sparseMapCloud_.NormalizeNormals();
   sparseMapCloud_.OrientNormalsTowardsCameraLocation(Eigen::Vector3d::Zero());
-  feature_ = registration::ComputeFPFHFeature(sparseMapCloud_, open3d::geometry::KDTreeSearchParamHybrid(p.featureRadius_, p.featureKnn_));
+  // feature_ = registration::ComputeFPFHFeature(sparseMapCloud_, open3d::geometry::KDTreeSearchParamHybrid(p.featureRadius_,
+  // p.featureKnn_));
   computeVoxelMapThread.join();
   featureTimer_.reset();
 }

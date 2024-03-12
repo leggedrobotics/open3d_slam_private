@@ -120,6 +120,8 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
 
   // This is to identify if active map and closest map are adjacent.
   const bool isAnotherSubmapWithinRange = (mapToRangeSensor_.translation() - closestSubmapPosition).norm() < params_.submaps_.radius_;
+  // const bool isSubmapTooClose = (mapToRangeSensor_.translation() - closestSubmapPosition).norm() < 10.0;
+
   // std::cout << "isAnotherSubmapWithinRange: " << isAnotherSubmapWithinRange << std::endl;
   // Active submap id is
   // std::cout << "Active submap id: " << activeSubmapIdx_ << std::endl;
@@ -242,10 +244,10 @@ bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& p
 
   } else {
     Timer actualInsertion;
-    actualInsertion.startStopwatch();
+    // actualInsertion.startStopwatch();
     // We are still in the previously active submap.
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
-    const double actualInsertiontimeElapsed = actualInsertion.elapsedMsecSinceStopwatchStart();
+    // const double actualInsertiontimeElapsed = actualInsertion.elapsedMsecSinceStopwatchStart();
     // std::cout << "Actual Scan Insertion: " << "\033[92m" << actualInsertiontimeElapsed << " msec \n " << "\033[0m";
   }
 
@@ -398,8 +400,8 @@ void SubmapCollection::setFolderPath(const std::string& folderPath) {
 
 bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size_t newActiveSubmapCandidate,
                                                     const Transform& mapToRangeSensor) const {
-  // Timer("submap_switch_consistency_check");
-  /*int numOverlappingPoints = 0;
+  /*// Timer("submap_switch_consistency_check");
+  int numOverlappingPoints = 0;
   const VoxelMap& voxelMap = submaps_.at(newActiveSubmapCandidate).getVoxelMap();
 
   // Literally iterate point by point?
@@ -410,9 +412,10 @@ bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size
 
   const double fitness = static_cast<double>(numOverlappingPoints) / scan.points_.size();
   //	std::cout << "Fitness: " << fitness << std::endl;
-  //return fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
-  */
-  return 0.7;
+  // return fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
+
+  return fitness;*/
+  return 0.8;
 }
 
 }  // namespace o3d_slam

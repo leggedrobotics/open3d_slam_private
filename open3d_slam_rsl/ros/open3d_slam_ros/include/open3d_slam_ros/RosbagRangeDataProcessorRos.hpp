@@ -135,13 +135,16 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   geometry_msgs::Point normalizeVector(const geometry_msgs::Point& vector);
   double vectorNorm(const geometry_msgs::Point& vector);
+  void logToFiles();
+  void generateLocalizabilityCategory();
+  void generateSystemStatsFile();
+  void drawDegeneracyArrows(const Transform currentPose, const ros::Time& stamp);
+  visualization_msgs::Marker generateEigenVectorArrowMarkers(std::vector<float> mean, Eigen::VectorXf eigVector, int id, int colorId,
+                                                             std::string ns, float scale, const ros::Time& stamp);
 
   //! Publishers.
   ros::Publisher clockPublisher_;
   ros::Publisher inputPointCloudPublisher_;
-
-  ros::Publisher odometryPosePublisher_;
-  ros::Publisher registeredPosePublisher_;
 
   ros::ServiceServer sleepServer_;
 
@@ -196,9 +199,28 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   o3d_slam::RgbaColorMap colorMap_;
 
   geometry_msgs::Pose prePoseStamped_;
+  DeeperICPLogs deeperICPLogs_;
 
-  bool uniformlyDownsample_ = true;
-  int downSamplingSkippingRate_ = 8;
+  std::ofstream file_localizability;
+  std::ofstream file_stats;
+
+  const std::unordered_map<int, std::vector<float>> arrowColors_ = {
+      {0, {1, 1, 0.2, 1}},             // Yellow.
+      {1, {1, 0.501, 0, 1}},           // Orange.
+      {2, {1, 1, 1, 1}},               // White.
+      {3, {0, 1, 1, 1}},               // Cyan.
+      {4, {0.4, 1, 0.4, 1}},           // Light green.
+      {5, {0.635, 0.623, 0.164, 1}},   // Lavander.
+      {6, {0.8, 1, 0.8, 1}},           // Green.
+      {7, {0.976, 0.584, 0.937, 1}},   // pink
+      {8, {0, 0, 0.3, 1}},             // Blue.
+      {9, {0.941, 0.807, 0.639, 1}},   // Skin.
+      {10, {0.188, 0.533, 0.003, 1}},  // Dark green.
+      {11, {0.976, 0.862, 0.874, 1}},  // Light pink.
+      {12, {0.705, 0.674, 0.678, 1}},  // Grey
+      {13, {1, 0, 0, 1}},              // red
+      {14, {0, 0, 0, 1}}               // Dark yellow.
+  };
 };
 
 }  // namespace o3d_slam
