@@ -2118,7 +2118,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
                 //std::cout << "Eigenvector: " << eigenvectorsCopy.col(j).transpose() << std::endl;
                 //std::cout << "Degenerate direction: " << degenerateDirection.col(i).transpose() << std::endl;
 
-                alignment.push_back(degenerateDirection.col(i).transpose().dot(eigenvectorsCopy.col(j).transpose()));
+                alignment.push_back(std::abs(degenerateDirection.col(i).transpose().dot(eigenvectorsCopy.col(j).transpose())));
                 
             }
 
@@ -2130,7 +2130,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
             //std::cout << "Max Alignment Index: " << maxElementIndex << std::endl;
 
             // A
-            if (std::abs(alignmentMax) > 0.5f)
+            if (alignmentMax >= 0.5f)
             {
                 //std::cout << "To be replaced Replaced Eigenvector: " << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
 
@@ -2139,12 +2139,11 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
                 params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
             }
             else{
-                MELO_ERROR_STREAM("Alignment is below 0.5 doesnt make any sense. Still going for it.");
+                MELO_ERROR_STREAM("Alignment is below 0.5 doesnt make any sense. Val: "<< alignmentMax << " Still going for it.");
 
-                //eigenvectorsCopy.col(maxElementIndex) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
+                eigenvectorsCopy.col(maxElementIndex) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
 
-                //params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
-
+                params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
             
             }
        }

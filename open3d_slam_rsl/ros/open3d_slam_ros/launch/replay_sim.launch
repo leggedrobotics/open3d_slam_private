@@ -29,10 +29,10 @@
   
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="true"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/Music/only_x_analysis_dataset/only_x_2024-03-11-10-28-35.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
+  <arg name="rosbag_filepath" default="/home/tutuna/Music/only_x_analysis_dataset/merged.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="false"/>
   <arg name="republish_tf_topic" default="false"/>
-  <arg name="async_pose_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose_noised"/> <!-- /Odometry /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
+  <arg name="async_pose_topic" default="/noised_prior"/> <!-- /Odometry /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
   <arg name="relative_sleep_duration" default="0.0"/>
   <arg name="replay_start_time_as_second" default="0.0"/> <!-- 1440 for tunnel-->
   <arg name="replay_end_time_as_second" default="5170.0"/> <!-- 380  for hongg anymal  2170 for tunnel -->

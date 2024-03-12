@@ -1515,13 +1515,13 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             // geometry_msgs::Pose noisy_pose = motionBasedNoise(
             //    odomPose.pose.pose, 0.0, 0.0, 0.0);  // trans noise variance, directionalTransNoise variance ,  rot noise variance
 
-            // geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose.pose, 0.05, 0.01);  // Adjust noise magnitudes as needed
-            // if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
-            //  ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
-            //  return false;
-            //}
+            /*geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose.pose, 0.05, 0.01);  // Adjust noise magnitudes as needed
+            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
+              ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+              return false;
+            }*/
 
-            nav_msgs::Odometry saveNoisedPose;
+            //nav_msgs::Odometry saveNoisedPose;
 
             // saveNoisedPose.pose.pose = noisy_pose;
             // saveNoisedPose.header = message->header;
@@ -1560,6 +1560,25 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
               slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose.pose).matrix());
               isFirstMessage_ = false;
             }
+
+            if (slam_->asyncOdometryTopic_ == "/noised_prior") {
+              ROS_INFO_STREAM("\033[92m"
+                              << "You are working with a noised prior care."
+                              << "\033[0m");
+
+            } /*else {
+              geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose, 0.01, 0.005);  // Adjust noise magnitudes as needed
+              if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
+                ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+                return false;
+              }
+
+              geometry_msgs::PoseStamped saveNoisedPose;
+              saveNoisedPose.pose = noisy_pose;
+              saveNoisedPose.header = message->header;
+
+              noisedoutBag.write("/noised_prior", message->header.stamp, saveNoisedPose);
+            }*/
 
             if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose), fromRos(message->header.stamp)))) {
               ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");

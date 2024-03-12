@@ -25,7 +25,7 @@ outlierFilters:
   #- RobustOutlierFilter:
   #    robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
   #    scaleEstimator: mad    #std, mad, berg
-  #    tuning: 4.304      # gm 1.375 # paper suggests 0.1 but 4.304 works better 2
+  #    tuning: 0.9      # gm 1.375 # paper suggests 0.1 but 4.304 works better 2  0.9
   - TrimmedDistOutlierFilter:
      ratio: 0.95         # 0.95 is the best for tunnel
   - SurfaceNormalOutlierFilter:
@@ -71,12 +71,12 @@ degeneracyAwareness:
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 8
-  #None:
-  OptimizedEqualityConstraints:
-    enoughInformationThreshold: 350   #tunnel use 350    250 still works but not as good as 200
-    insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
-    point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
-    point2NormalStrongAlignmentAngleThreshold: 45
+  None:
+  #OptimizedEqualityConstraints:
+  #  enoughInformationThreshold: 250   #tunnel use 350    250 still works but not as good as 200
+  #  insufficientInformationThreshold: 180  #tunnel use 150 XXX still works but not as good as 150
+  #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
+  #  point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
   #  enoughInformationThreshold: 150  #  850
@@ -84,11 +84,11 @@ degeneracyAwareness:
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # 17 sept was 80 when was 70 it crashed 
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #SolutionRemapping:
-  #  threshold: 51200
+  #  threshold: 100
   #  use2019: 0
   #  useTruncatedSVD: 1
-  #  enoughInformationThreshold: 350   #tunnel use 200    250 still works but not as good as 200
-  #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
+  #  enoughInformationThreshold: 250   #tunnel use 200    250 still works but not as good as 200
+  #  insufficientInformationThreshold: 180  #tunnel use 150 XXX still works but not as good as 150
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
   #  point2NormalStrongAlignmentAngleThreshold: 45
 

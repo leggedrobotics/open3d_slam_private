@@ -42,14 +42,14 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
-params.submap.submap_size = 40.0 --meters --Tunnel loves 20
+params.submap.submap_size = 20.0 --meters --Tunnel loves 20
 params.submap.adjacency_based_revisiting_min_fitness = 0.01
 params.submap.min_seconds_between_feature_computation = 5.0
-params.submap.submaps_num_scan_overlap = 400 -- 200
+params.submap.submaps_num_scan_overlap = 200 -- 200
 params.submap.max_num_points = 7500000
 
 --MAP_BUILDER
-params.map_builder.map_voxel_size = 0.4 --
+params.map_builder.map_voxel_size = 0.4 -- sim worked with 0.4
 params.map_builder.scan_cropping.cropping_radius_max = 100.0
 params.map_builder.scan_cropping.cropping_radius_min = 1.0
 params.map_builder.space_carving.carve_space_every_n_scans = 10
