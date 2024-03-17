@@ -470,6 +470,16 @@ void SlamWrapper::callofflineLoopClosureWorker() {
   return;
 }
 
+void SlamWrapper::callofflineDenseMapWorker() {
+  if (!params_.saving_.isSaveDenseSubmaps_) {
+    return;
+  }
+
+  offlineDenseMapWorker();
+
+  return;
+}
+
 void SlamWrapper::usePairForRegistration() {
   // std::cout << " Called pair for regist" << std::endl;
   offlineOdometryWorker();
@@ -970,6 +980,19 @@ void SlamWrapper::checkIfOptimizedGraphAvailable() {
       submaps_->dumpToFile(folderPath_, "after", false);
     }
   }
+}
+
+void SlamWrapper::offlineDenseMapWorker() {
+  if (registeredCloudBuffer_.empty()) {
+    return;
+  }
+
+  // const RegisteredPointCloud regCloud = registeredCloudBuffer_.pop();
+  const RegisteredPointCloud regCloud = registeredCloudBuffer_.peek_back();
+
+  mapper_->getSubmapsPtr()
+      ->getSubmapPtr(regCloud.submapId_)
+      ->insertScanDenseMap(regCloud.raw_.cloud_, regCloud.transform_, regCloud.raw_.time_, false);
 }
 
 void SlamWrapper::denseMapWorker() {

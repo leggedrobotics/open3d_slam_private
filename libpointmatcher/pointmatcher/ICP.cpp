@@ -1980,7 +1980,16 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
         F.row(i + cross.rows()) = referenceSurfaceNormals.row(i);
     }
     // Unadjust covariance A = wF * F'
-    hessian = wF * F.transpose();
+    //Matrix F_T = F.transpose();
+    //hessian = F * F.transpose();
+    hessian.noalias() = wF.lazyProduct(F.transpose());
+    /*std::cout << std::setprecision(12) << "hessian: " << hessian.norm() << std::endl;
+    std::cout << std::setprecision(12) << "hessianblueNorm: " << hessian.blueNorm() << std::endl;
+    std::cout << std::setprecision(12) << "hessian2: " << hessian2.norm() << std::endl;
+    std::cout << std::setprecision(12) << "hessian2 blueNorm: " << hessian2.blueNorm() << std::endl;*/
+
+    //std::cout << std::setprecision(12) << " MAT hessian: " << std::endl << hessian << std::endl;
+    //std::cout << std::setprecision(12) << " MAT hessian2: " << std::endl << hessian2 << std::endl;
 
     if (this->localizabilityDetectionParameters.isDebugModeENabled_)
     {
@@ -2004,7 +2013,12 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
         dotProd += (deltas.row(i).array() * referenceSurfaceNormals.row(i).array()).matrix();
     }
     // b = -(wF' * dot)
-    constraints = -(wF * dotProd.transpose());
+    //
+
+    //constraints = -(F * dotProd.transpose());
+    constraints.noalias() = -(wF.lazyProduct(dotProd.transpose()));
+
+    //std::cout << std::setprecision(12) << "constraints: " << std::endl << constraints << std::endl;
 }
 
 template<typename T>

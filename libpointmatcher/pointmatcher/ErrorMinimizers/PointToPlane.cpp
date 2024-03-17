@@ -134,13 +134,13 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
     //tsvd.solve(b, x);
     //std::cout << "numTruncatedSingularValues: " << std::endl << tsvd.numTruncatedSingularValues() << std::endl;
 
-    //std::cout << "Augmented A: " << std::endl << A << std::endl;
-    //std::cout << "Augmented b: " << std::endl << b << std::endl;
+    //std::cout << std::setprecision(12) << "Augmented A: " << std::endl << A << std::endl;
+    //std::cout << std::setprecision(12) << "Augmented b: " << std::endl << b << std::endl;
 
     // ALWAYS USE THIS
     //BOOST_AUTO(solverQR, A.householderQr());
     //x = solverQR.solve(b);
-
+    
     if (isConstrained)
     {
         x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
@@ -149,7 +149,7 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
         x = solverQR.solve(b);
     }
     
-
+    //std::cout << std::setprecision(12) << "found x: " << std::endl << x << std::endl;
 
     /// Compute SVD  - check sorting ORDER
     /*Eigen::JacobiSVD<MatrixA> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);  

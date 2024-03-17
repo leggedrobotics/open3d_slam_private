@@ -25,7 +25,7 @@ outlierFilters:
   #- RobustOutlierFilter:
   #    robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
   #    scaleEstimator: mad    #std, mad, berg
-  #    tuning: 0.9      # gm 1.375 # paper suggests 0.1 but 4.304 works better 2  0.9
+  #    tuning: 1.0      # gm 4 too good, cauchy 1.0 while Trim is open
   - TrimmedDistOutlierFilter:
      ratio: 0.95         # 0.95 is the best for tunnel
   - SurfaceNormalOutlierFilter:
@@ -41,7 +41,7 @@ printingDegeneracy:
 
 regularization:
   Disabled: # "Enabled" or "Disabled
-    regularizationWeight: 500.0
+    regularizationWeight: 1.0 #forest 10 equally bad 15 worse 20 better than (30) but different drift, 30 better than (40) but still bad 40 bad but not explode 50 explode 60 excellent 70 fuzzy  80 excellent  100 good, 10k low error.
     useLcurve: 0
 
 # Leave it enabled, just affects solRemap style
@@ -65,16 +65,16 @@ ceresDegeneracyAnalysis:
 
 degeneracyAwareness:
   #InequalityConstraints:
-  #  highInformationThreshold: 250   ##       RUMLANG GICIK     
-  #  enoughInformationThreshold: 250  # was 150 17 sept when was 250 it crasahed. investigate
+  #  highInformationThreshold: 300   ##       RUMLANG GICIK     
+  #  enoughInformationThreshold: 300  # was 150 17 sept when was 250 it crasahed. investigate
   #  insufficientInformationThreshold: 150   ### RUMLANG GICIK  30
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 8
   None:
   #OptimizedEqualityConstraints:
-  #  enoughInformationThreshold: 250   #tunnel use 350    250 still works but not as good as 200
-  #  insufficientInformationThreshold: 180  #tunnel use 150 XXX still works but not as good as 150
+  #  enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
+  #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
@@ -86,9 +86,9 @@ degeneracyAwareness:
   #SolutionRemapping:
   #  threshold: 100
   #  use2019: 0
-  #  useTruncatedSVD: 1
-  #  enoughInformationThreshold: 250   #tunnel use 200    250 still works but not as good as 200
-  #  insufficientInformationThreshold: 180  #tunnel use 150 XXX still works but not as good as 150
+  #  useTruncatedSVD: 0
+  #  enoughInformationThreshold: 300   #tunnel use 200    250 still works but not as good as 200
+  #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
   #  point2NormalStrongAlignmentAngleThreshold: 45
 

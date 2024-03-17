@@ -2,6 +2,8 @@
 set(CMAKE_CXX_STANDARD 17)
 #add_compile_options(-Wall -Wextra -Wpedantic)
 
+#add_definitions(-mno-avx -mno-sse2 -fno-math-errno -ffast-math)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_definitions(-O3)

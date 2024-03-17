@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD 17)
 #add_compile_options(-Wall -Wextra -Wpedantic -O3)
 add_compile_options(-O3)
 
+#add_definitions(-mno-avx -mno-sse2 -fno-math-errno -ffast-math)
+#add_compile_options(-mno-avx -mno-sse2 -fno-math-errno -ffast-math)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SRC_FILES

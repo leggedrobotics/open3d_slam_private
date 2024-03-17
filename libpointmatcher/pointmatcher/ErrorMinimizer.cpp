@@ -144,6 +144,9 @@ PointMatcher<T>::ErrorMinimizer::ErrorElements::ErrorElements(const DataPoints& 
 
 	this->pointUsedRatio = T(j)/T(knn*requestedPts.features.cols());
 	this->weightedPointUsedRatio /= T(knn*requestedPts.features.cols());
+
+	//std::cout << "this->weightedPointUsedRatio: " << this->weightedPointUsedRatio << std::endl;
+	//std::cout << "this->pointUsedRatio: " << this->pointUsedRatio << std::endl;
 	
 	assert(dimFeat == sourcePts.features.rows());
 	const int dimSourDesc = sourcePts.descriptors.rows();
@@ -196,6 +199,9 @@ PointMatcher<T>::ErrorMinimizer::ErrorElements::ErrorElements(const DataPoints& 
 	this->matches = std::move(keptMatches);
 	this->nbRejectedMatches = std::move(rejectedMatchCount);
 	this->nbRejectedPoints = std::move(rejectedPointCount);
+
+	//std::cout << "this->nbRejectedPoints: " << this->nbRejectedPoints << std::endl;
+	//std::cout << "this->nbRejectedMatches: " << this->nbRejectedMatches << std::endl;
 }
 
 

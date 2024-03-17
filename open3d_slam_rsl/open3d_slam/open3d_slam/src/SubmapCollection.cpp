@@ -317,16 +317,24 @@ Constraints SubmapCollection::buildLoopClosureConstraints(const TimestampedSubma
 
 bool SubmapCollection::dumpToFile(const std::string& folderPath, const std::string& filename, const bool& isDenseMap) const {
   bool result = true;
+  PointCloud fullDenseMap;
   for (size_t i = 0; i < submaps_.size(); ++i) {
     PointCloud copy;
     if (isDenseMap) {
       copy = submaps_.at(i).getDenseMapCopy().toPointCloud();
+      fullDenseMap = fullDenseMap + copy;
     } else {
       copy = submaps_.at(i).getMapPointCloudCopy();
     }
+
     const std::string fullPath = folderPath + "/" + filename + "_" + std::to_string(i) + ".pcd";
     result = result && open3d::io::WritePointCloudToPCD(fullPath, copy, open3d::io::WritePointCloudOption());
   }
+  if (isDenseMap) {
+    const std::string fulldensePath = folderPath + "/" + filename + "_" + "fulls" + ".pcd";
+    result = result && open3d::io::WritePointCloudToPCD(fulldensePath, fullDenseMap, open3d::io::WritePointCloudOption());
+  }
+
   return result;
 }
 

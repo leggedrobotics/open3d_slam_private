@@ -995,6 +995,8 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
   // ROS_INFO_STREAM("Loop closure Operations took " << "\033[92m" << loopclosureProcessingElapsed.toNSec() / 1000000u << "ms" <<
   // "\033[0m");
 
+  slam_->callofflineDenseMapWorker();
+
   return {std::make_tuple(odometryProcessingElapsed, mappingProcessingElapsed, loopclosureProcessingElapsed)};
 }
 
@@ -1201,7 +1203,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
       if ((std::abs(((tracker + timeDiff_) - view.getBeginTime()).toSec() <= slam_->bagReplayStartTime_)) &&
           (slam_->bagReplayStartTime_ != 0.0)) {
         ROS_INFO_STREAM("Rosbag starting: " << std::abs(((tracker + timeDiff_) - view.getBeginTime()).toSec()) << " / "
-                                            << slam_->bagReplayStartTime_ << " s");
+                                            << slam_->bagReplayEndTime_ << " s");
         isBagReadyToPlay_ = false;
         continue;
       } else {
@@ -1521,7 +1523,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
               return false;
             }*/
 
-            //nav_msgs::Odometry saveNoisedPose;
+            // nav_msgs::Odometry saveNoisedPose;
 
             // saveNoisedPose.pose.pose = noisy_pose;
             // saveNoisedPose.header = message->header;
@@ -1637,7 +1639,16 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
   ROS_INFO("Finished running through the bag.");
   const ros::Time bag_begin_time = view.getBeginTime();
   const ros::Time bag_end_time = view.getEndTime();
-  std::cout << "Rosbag processing finished. Rosbag duration: " << (bag_end_time - bag_begin_time).toSec()
+
+  const double bag_duration = (bag_end_time - bag_begin_time).toSec();
+  const double paramBagDuration = slam_->bagReplayEndTime_ - slam_->bagReplayStartTime_;
+  double printedBagDuration = bag_duration;
+
+  if (paramBagDuration < bag_duration) {
+    printedBagDuration = paramBagDuration;
+  }
+
+  std::cout << "Rosbag processing finished. Rosbag duration: " << printedBagDuration << " sec."
             << " Time elapsed for processing: " << rosbagTimer.elapsedSec() << " sec. \n \n";
 
   bag.close();

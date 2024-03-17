@@ -221,8 +221,8 @@ Visualization Manager:
     - Alpha: 0.5
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 9.750509262084961
-        Min Value: -2.6651320457458496
+        Max Value: 11.418744087219238
+        Min Value: -2.3322081565856934
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -534,7 +534,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 19.73822784423828
+      Distance: 29.655548095703125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -542,17 +542,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -3.273458242416382
+        Y: -1.3958969116210938
+        Z: 0.0022953159641474485
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.46479687094688416
+      Pitch: 1.5697963237762451
       Target Frame: lidar
-      Yaw: 0.710399866104126
+      Yaw: 1.1853995323181152
     Saved: ~
 Window Geometry:
   Displays:

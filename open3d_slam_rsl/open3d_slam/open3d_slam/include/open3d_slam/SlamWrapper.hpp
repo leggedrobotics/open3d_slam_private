@@ -120,6 +120,9 @@ class SlamWrapper {
   // A simple worker call function for offlane replay package.
   void callofflineLoopClosureWorker();
 
+  void offlineDenseMapWorker();
+  void callofflineDenseMapWorker();
+
   // A simple getter function that returns if the odometry buffer is empty.
   bool isOdometryPoseBufferEmpty();
 

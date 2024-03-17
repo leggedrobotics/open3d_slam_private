@@ -13,9 +13,9 @@ params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to i
 
 --MAPPER_LOCALIZER
 params.mapper_localizer.is_use_map_initialization = false
-params.mapper_localizer.republish_the_preloaded_map = true
+params.mapper_localizer.republish_the_preloaded_map = false
 params.mapper_localizer.is_merge_scans_into_map = false
-params.mapper_localizer.is_build_dense_map = false
+params.mapper_localizer.is_build_dense_map = true
 params.mapper_localizer.is_attempt_loop_closures = false
 params.mapper_localizer.is_print_timing_information = false
 params.mapper_localizer.map_merge_delay_in_seconds = 10.0
@@ -42,20 +42,20 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
-params.submap.submap_size = 20.0 --meters --Tunnel loves 20
+params.submap.submap_size = 40.0 --meters --Tunnel 40  -- FOREST 40
 params.submap.adjacency_based_revisiting_min_fitness = 0.01
 params.submap.min_seconds_between_feature_computation = 5.0
 params.submap.submaps_num_scan_overlap = 200 -- 200
 params.submap.max_num_points = 7500000
 
 --MAP_BUILDER
-params.map_builder.map_voxel_size = 0.4 -- sim worked with 0.4
+params.map_builder.map_voxel_size = 0.4 -- forest worked with 0.4 --for tunnel go 0.2
 params.map_builder.scan_cropping.cropping_radius_max = 100.0
 params.map_builder.scan_cropping.cropping_radius_min = 1.0
 params.map_builder.space_carving.carve_space_every_n_scans = 10
 
 --DENSE_MAP_BUILDER
-params.dense_map_builder.map_voxel_size = 0.05
+params.dense_map_builder.map_voxel_size = 0.02
 params.dense_map_builder.scan_cropping.cropping_radius_max = 105.0
 params.dense_map_builder.space_carving.carve_space_every_n_scans = 10
 params.dense_map_builder.space_carving.truncation_distance = 0.1
@@ -77,6 +77,7 @@ params.place_recognition.consistency_check.max_drift_z = 40.0 --m
 --SAVING
 params.saving.save_map = true
 params.saving.save_submaps = false
+params.saving.save_dense_submaps = true
 
 
 return params
