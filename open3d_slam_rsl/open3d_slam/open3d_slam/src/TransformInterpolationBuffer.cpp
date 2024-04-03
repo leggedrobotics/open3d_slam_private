@@ -114,6 +114,7 @@ Transform TransformInterpolationBuffer::lookup(const Time& time) const {
     return getMeasurement->transform_;
   }
 
+  // An idea -> if the measurement index is the last, having "next" might be ill defined? Maybe this is whats happenning.
   if (!isTimeValid(getMeasurement->time_)) {
     const auto nexxt = std::next(getMeasurement);
 
