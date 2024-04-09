@@ -41,7 +41,7 @@ printingDegeneracy:
 
 regularization:
   Disabled: # "Enabled" or "Disabled
-    regularizationWeight: 1.0 #forest 10 equally bad 15 worse 20 better than (30) but different drift, 30 better than (40) but still bad 40 bad but not explode 50 explode 60 excellent 70 fuzzy  80 excellent  100 good, 10k low error.
+    regularizationWeight: 500.0 #forest 10 equally bad 15 worse 20 better than (30) but different drift, 30 better than (40) but still bad 40 bad but not explode 50 explode 60 excellent 70 fuzzy  80 excellent  100 good, 10k low error.
     useLcurve: 0
 
 # Leave it enabled, just affects solRemap style
@@ -61,7 +61,7 @@ ceresDegeneracyAnalysis:
     useBoundConstraints: 1 # needs the detection either from SolRemap or xicp
     useSixDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH SOLUTION REMAPPING
     useThreeDofRegularization: 1 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
-    regularizationWeight: 5000.0 # you need to set  .0  as double
+    regularizationWeight: 20000.0 # you need to set  .0  as double
 
 degeneracyAwareness:
   #InequalityConstraints:
@@ -70,7 +70,7 @@ degeneracyAwareness:
   #  insufficientInformationThreshold: 150   ### RUMLANG GICIK  30
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
   #  point2NormalStrongAlignmentAngleThreshold: 45
-  #  inequalityboundmultiplier: 8
+  #  inequalityboundmultiplier: 0.0002
   None:
   #OptimizedEqualityConstraints:
   #  enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200

@@ -697,6 +697,7 @@ struct PointMatcher
 		bool useLcurve_{ false };
 
 		bool useTruncatedSVD{false};
+		bool skipRegistration{false};
 
 		Eigen::DiagonalMatrix<T, 6> sinv_external_;
 		//Eigen::Matrix<T, 6, 1> sinv_external_ = Eigen::Matrix<T, 6, 1>::Zero(6, 1); 
@@ -721,6 +722,7 @@ struct PointMatcher
         T solutionRemappingThreshold{ 150.0f };
 		bool useSolutionRemapping2019{false};
 		bool useTruncatedSVD{false};
+		bool skipRegistration{false};
 
         // Threshold for determining whether a registration problem is constrained with closely-matching point-normals pairs.
         T highInformationThreshold{ 350 };

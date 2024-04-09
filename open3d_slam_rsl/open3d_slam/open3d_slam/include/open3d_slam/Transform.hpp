@@ -25,6 +25,8 @@ struct DeeperICPLogs {
   float pointCloudOverlap_{0};
   //! Residual error of the registration. Unit: Meters.
   float residualError_{0};
+
+  int nbMatches_{0};
 };
 
 struct TimestampedTransform {

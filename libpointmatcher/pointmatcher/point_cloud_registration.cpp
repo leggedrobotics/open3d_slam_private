@@ -22,17 +22,18 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
   {
     // Generate and assign degeneracy regularization rediduals.
     for (Eigen::Index j = 0; j < degenerateEigenVectors.cols(); j++){
+      //std::cout << " degenerateEigenVectors.col(j): " << std::endl << degenerateEigenVectors.col(j) << std::endl;
       Eigen::Matrix<double, 6, 1> localEig = degenerateEigenVectors.col(j).template cast<double>();
       if ((localEig != Eigen::Matrix<double, 6, 1>::Zero(6, 1)))
       {
         if(degenOptions.useSymmetricPointToPlane_){
-          std::cout << " Degeneracy bound added" << localEig << std::endl;
+          /*std::cout << " Degeneracy bound added" << localEig << std::endl;
           std::cout << " Regularization Weight: " << degenOptions.regularizationWeight_ << std::endl;
           SymmetricDegeneracyCost* error_termDegen = new SymmetricDegeneracyCost(localEig, degenOptions.regularizationWeight_);
           problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<SymmetricDegeneracyCost, 1, 6>(error_termDegen), NULL,
-                                      state_.data());
+                                      state_.data());*/
         }else{
-          std::cout << " Degeneracy bound added" << localEig << std::endl;
+          std::cout << " Degeneracy bound added " << std::endl<< localEig << std::endl;
           std::cout << " Regularization Weight: " << degenOptions.regularizationWeight_ << std::endl;
           DegeneracyCost* error_termDegen = new DegeneracyCost(localEig, degenOptions.regularizationWeight_);
           problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<DegeneracyCost, 1, 3, 3>(error_termDegen), NULL,
@@ -67,7 +68,7 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
     //ErrorTermWithNormals* error_term = new ErrorTermWithNormals(source_, source_normal_, target_, target_normal_);
     //error_terms_.push_back(error_term);
     ceres::LossFunction* no_loss = new ceres::TrivialLoss();
-    ceres::LossFunction* huber_loss = new ceres::HuberLoss(0.5);
+    //ceres::LossFunction* huber_loss = new ceres::HuberLoss(0.5);
 
 
     // SOPHUS
@@ -84,7 +85,7 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
     {
     // Point to plane (angle axis, translation and rotation separete 1x3 )
     ErrorTermWithNormalsAngleAxis* error_term = new ErrorTermWithNormalsAngleAxis(source_, target_, target_normal_);
-    problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<ErrorTermWithNormalsAngleAxis, 1, 3, 3>(error_term), huber_loss,
+    problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<ErrorTermWithNormalsAngleAxis, 1, 3, 3>(error_term), no_loss,
                                translation_.data(), angleAxis_.data());
     }
 

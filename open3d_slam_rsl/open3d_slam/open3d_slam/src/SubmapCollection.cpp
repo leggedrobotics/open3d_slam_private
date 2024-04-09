@@ -318,20 +318,36 @@ Constraints SubmapCollection::buildLoopClosureConstraints(const TimestampedSubma
 bool SubmapCollection::dumpToFile(const std::string& folderPath, const std::string& filename, const bool& isDenseMap) const {
   bool result = true;
   PointCloud fullDenseMap;
+
+  /*const size_t submapIdno = 100;
+  const size_t submapIdno2 = 101;
+
+  Submap newSubmapNo(submapIdno, submapIdno2);
+  newSubmapNo.setMapToSubmapOrigin(submaps_.at(0).getMapToSubmapOrigin());
+  newSubmapNo.setParameters(params_);*/
+
   for (size_t i = 0; i < submaps_.size(); ++i) {
     PointCloud copy;
     if (isDenseMap) {
       copy = submaps_.at(i).getDenseMapCopy().toPointCloud();
-      fullDenseMap = fullDenseMap + copy;
+
+      fullDenseMap += copy;
+
+      // newSubmapNo.insertScanDenseMap(copy, submaps_.at(i).getMapToSubmapOrigin(), Time(), false);
+
     } else {
       copy = submaps_.at(i).getMapPointCloudCopy();
     }
 
     const std::string fullPath = folderPath + "/" + filename + "_" + std::to_string(i) + ".pcd";
     result = result && open3d::io::WritePointCloudToPCD(fullPath, copy, open3d::io::WritePointCloudOption());
+    std::cout << "Wrote submap: " << i << " to: " << fullPath << std::endl;
   }
+
+  // fullDenseMap = newSubmapNo.getDenseMap().toPointCloud();
+
   if (isDenseMap) {
-    const std::string fulldensePath = folderPath + "/" + filename + "_" + "fulls" + ".pcd";
+    const std::string fulldensePath = folderPath + "/" + filename + "_" + "full" + ".pcd";
     result = result && open3d::io::WritePointCloudToPCD(fulldensePath, fullDenseMap, open3d::io::WritePointCloudOption());
   }
 

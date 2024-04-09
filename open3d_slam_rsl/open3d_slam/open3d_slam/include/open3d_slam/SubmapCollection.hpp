@@ -65,6 +65,8 @@ class SubmapCollection {
 
   void forceNewSubmapCreation();
 
+  std::mutex mapMutex;
+
  private:
   bool isSwitchingSubmapsConsistant(const PointCloud& scan, size_t newActiveSubmapCandidate, const Transform& mapToRangeSensor) const;
   void insertBufferedScans(Submap* submap);

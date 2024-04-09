@@ -333,7 +333,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
         referenceInitTimer_.startStopwatch();
 
         lastReferenceInitializationTimestamp_ = timestamp;
-
+        // std::cout << "INITTING REFERENCE. Size: " << activeSubmapPm_.dataPoints_.features.cols() << std::endl;
         if (!icp_.initReference(activeSubmapPm_.dataPoints_)) {
           std::cout << "Failed to initialize reference cloud. Exitting. " << std::endl;
           return false;
@@ -352,8 +352,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     } else {
       referenceInitTimer_.reset();
     }
-
-    testmapperOnlyTimer_.startStopwatch();
 
     // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
     // if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
@@ -378,6 +376,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       deeperICPLogs_.numberOfIterations = icp_.getTotalNumberOfIterations();
       deeperICPLogs_.pointCloudOverlap_ = icp_.errorMinimizer->getOverlap();
       deeperICPLogs_.residualError_ = icp_.errorMinimizer->getIterationWiseResidualErrors().back();
+      deeperICPLogs_.nbMatches_ = int(icp_.getIterationMatches().back());
       deeperICPLogs_.time_ = timestamp;
     }
 

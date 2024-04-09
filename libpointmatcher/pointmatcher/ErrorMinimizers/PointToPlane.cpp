@@ -143,7 +143,9 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
     
     if (isConstrained)
     {
-        x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
+        BOOST_AUTO(solverQR, A.householderQr());
+        x = solverQR.solve(b);
+        //x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
     } else{
         BOOST_AUTO(solverQR, A.householderQr());
         x = solverQR.solve(b);
@@ -570,6 +572,10 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
     }
     else
     {
+        // We dont know the size beforehand. We can initialize bigger and then resize.
+        Matrix postAugmentedA;
+        Vector postAugmentedb;
+
         // Constrained optimization hessian
         Matrix augmentedA = Matrix::Zero(A.rows() + numberOfConstraints, A.rows() + numberOfConstraints);
         augmentedA.topLeftCorner(A.rows(), A.cols()) = A;
@@ -594,6 +600,30 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
             //MELO_INFO_STREAM(augmentedA);
             //MELO_INFO_STREAM("b: ");
             //MELO_INFO_STREAM(Augmentedb);
+
+            //MELO_INFO_STREAM("A: ");
+            //MELO_INFO_STREAM(A);
+            //MELO_INFO_STREAM("b: ");
+            //MELO_INFO_STREAM(b);
+
+            //std::cout << std::setprecision(12) << "A: " << std::endl << A << std::endl;
+            //std::cout << std::setprecision(12) << "b: " << std::endl << b << std::endl;
+
+            // find non-zero columns:
+            Eigen::Matrix<bool, 1, Eigen::Dynamic> non_zeros = augmentedA.template cast<bool>().colwise().any();
+
+            postAugmentedA.conservativeResize(augmentedA.rows(), non_zeros.count());
+
+            // fill result matrix:
+            Eigen::Index j=0;
+            for(Eigen::Index i=0; i<augmentedA.cols(); ++i)
+            {
+                if(non_zeros(i)){
+                    postAugmentedA.col(j++) = augmentedA.col(i);
+                }
+            }
+
+            //std::cout << "postAugmentedA:\n" << postAugmentedA << "\n\n";
             
             //Eigen::Matrix<float, -1, 6> myL =  augmentedA.block(A.rows(), 0, A.rows() + numberOfConstraints, A.cols()).template cast<float>();
             //myL.block(0, 3, 1, 6) << 0.0f, 0.0f, 0.0f;
@@ -666,17 +696,34 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
                 // Print lcurveOptimizer->getOptimalRegularizationWeight()
                 std::cout << "Optimal Regularization Weight: " << lcurveOptimizer->getOptimalRegularizationWeight() << std::endl;
 
-                augmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = augmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * lcurveOptimizer->getOptimalRegularizationWeight(); //; lcurveOptimizer->getOptimalRegularizationWeight();
+                postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * lcurveOptimizer->getOptimalRegularizationWeight(); //; lcurveOptimizer->getOptimalRegularizationWeight();
 
 
             }else
             {
                 //std::cout << "Fixed Regularization Weight: " << localizabilityParametersForErrorMinimization.regularizationWeight_ << std::endl;
-                augmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = augmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * localizabilityParametersForErrorMinimization.regularizationWeight_; //; lcurveOptimizer->getOptimalRegularizationWeight();
+                postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * localizabilityParametersForErrorMinimization.regularizationWeight_; //; lcurveOptimizer->getOptimalRegularizationWeight();
             }
             
-            //MELO_INFO_STREAM("SCALED A: ");
-            //MELO_INFO_STREAM(augmentedA);
+
+
+            // find non-zero columns:
+            Eigen::Matrix<bool, 1, Eigen::Dynamic> non_zeros_row = postAugmentedA.template cast<bool>().rowwise().any();
+
+            //std::cout << "A:\n" << augmentedA << "\nnon_zeros:\n" << non_zeros << "\n\n";
+
+            postAugmentedA.conservativeResize(non_zeros_row.count(), postAugmentedA.cols());
+
+            // fill result matrix:
+            Eigen::Index j2=0;
+            for(Eigen::Index i=0; i<postAugmentedA.rows(); ++i)
+            {
+                if(non_zeros_row(i)){
+                    postAugmentedA.row(j2++) = postAugmentedA.row(i);
+                }
+            }
+
+            Augmentedb.conservativeResize(non_zeros_row.count(), Augmentedb.cols());
 
             // Arbitrary set the translation coefficients to 0, since there is an issue with templated version.
             //augmentedA.block(A.rows(), 3, A.rows() + numberOfConstraints, A.cols()) << 0.0f, 0.0f, 0.0f;
@@ -690,7 +737,16 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
 
         if (localizabilityParametersForErrorMinimization.enableStandardWeightRegularization_){
             // Solve the constrained optimization problem.
-            solvePossiblyUnderdeterminedLinearSystem<T>(augmentedA, Augmentedb, x, true);
+            //MELO_INFO_STREAM("postAugmentedA A: ");
+            //MELO_INFO_STREAM(postAugmentedA);
+
+            //MELO_INFO_STREAM("postAugmentedb b: ");
+            //MELO_INFO_STREAM(postAugmentedb);
+
+            //std::cout << std::setprecision(12) << "postAugmentedA: " << std::endl << postAugmentedA << std::endl;
+            //std::cout << std::setprecision(12) << "Augmentedb: " << std::endl << Augmentedb << std::endl;
+
+            solvePossiblyUnderdeterminedLinearSystem<T>(postAugmentedA, Augmentedb, x, true);
         }else{
             solvePossiblyUnderdeterminedLinearSystem<T>(augmentedA, Augmentedb, x, false);
         }
@@ -859,8 +915,8 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
         if (inRotationSubpace)
         {
             T velocityAlignment = localizabilityParametersForErrorMinimization.angularVelocityVector_.normalized().dot(localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(index));
-            MELO_INFO_STREAM(message_logger::color::yellow << "Rotation Velocity alignment of index:" <<index << " is " << velocityAlignment);
-            MELO_INFO_STREAM(message_logger::color::yellow << "The InequalityMultipler: " << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
+            //MELO_INFO_STREAM(message_logger::color::yellow << "Rotation Velocity alignment of index:" <<index << " is " << velocityAlignment);
+            MELO_INFO_STREAM(message_logger::color::yellow << "The rotation bound: " << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5);
 
             for (Eigen::Index i = 0; i < 3; i++)
             {
@@ -883,8 +939,8 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
             {
                 ++numberOfEqualityConstraints;
                 // These constraints simply prevents optimization to update in the given direction.
-                Alb.row(constraintCount).col(0) << -0.001;
-                Aub.row(constraintCount).col(0) << 0.001;
+                Alb.row(constraintCount).col(0) << -localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5;//;-0.001;
+                Aub.row(constraintCount).col(0) << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5;//;0.001;
                 MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (rot)------");
                 MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << Alb.row(constraintCount).col(0) << " " << Aub.row(constraintCount).col(0));
 
@@ -957,9 +1013,12 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                      .value()
                  >= 0.0f))
             {
+
+                MELO_INFO_STREAM(message_logger::color::yellow << "The translation bound: " << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_);
+
                 ++numberOfEqualityConstraints;
-                Alb.row(constraintCount).col(0) << -0.005;
-                Aub.row(constraintCount).col(0) << 0.005;
+                Alb.row(constraintCount).col(0) << -localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_;
+                Aub.row(constraintCount).col(0) << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_;
 
                 MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (trans)------");
                 MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << Alb.row(constraintCount).col(0) << " " << Aub.row(constraintCount).col(0));

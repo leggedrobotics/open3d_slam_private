@@ -318,13 +318,17 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     gnssFile_ << poseLogFileHeader_ << std::endl;
   }
 
-  std::string outBagPath_ = buildUpLogFilename("processed_slam", ".bag");
-  std::remove(outBagPath_.c_str());
-  outBag.open(outBagPath_, rosbag::bagmode::Write);
+  if (slam_->saveProcessedBag_) {
+    std::string outBagPath_ = buildUpLogFilename("processed_slam", ".bag");
+    std::remove(outBagPath_.c_str());
+    outBag.open(outBagPath_, rosbag::bagmode::Write);
+  }
 
-  std::string noisedoutBagPath_ = buildUpLogFilename("noised_prior", ".bag");
-  std::remove(noisedoutBagPath_.c_str());
-  noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
+  if (slam_->saveNoisedPrior_) {
+    std::string noisedoutBagPath_ = buildUpLogFilename("noised_prior", ".bag");
+    std::remove(noisedoutBagPath_.c_str());
+    noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
+  }
 
   const std::string filename_localizability =
       "/home/tutuna/open3d_slam_private_ws/src/open3d_slam_private/maps/replayed_localizability_categories.txt";
@@ -342,7 +346,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
 
   // Remove the existing file.
   std::remove(filename_stats.c_str());
-  const std::string poseLogFileHeader_stats = "timestamp totalIteration totalTime residual transformationUpdateNorm";
+  const std::string poseLogFileHeader_stats = "timestamp totalIteration totalTime residual transformationUpdateNorm nbMatches";
 
   // Open file and set numerical precision to the max.
   file_stats.open(filename_stats, std::ios_base::app);
@@ -413,8 +417,12 @@ void RosbagRangeDataProcessorRos::startProcessing() {
 
   // Close file handle.
   poseFile_.close();
-  outBag.close();
-  noisedoutBag.close();
+  if (slam_->saveProcessedBag_) {
+    outBag.close();
+  }
+  if (slam_->saveNoisedPrior_) {
+    noisedoutBag.close();
+  }
   if (slam_->useGPSforGroundTruth_) {
     gnssFile_.close();
   }
@@ -655,6 +663,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   Eigen::Quaterniond rotation(calculatedTransform.rotation());
 
   poseStamped.header.stamp = toRos(std::get<1>(cloudTimePair));
+  poseStamped.header.frame_id = slam_->frames_.mapFrame;
   poseStamped.pose.position.x = calculatedTransform.translation().x();
   poseStamped.pose.position.y = calculatedTransform.translation().y();
   poseStamped.pose.position.z = calculatedTransform.translation().z();
@@ -664,7 +673,26 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   poseStamped.pose.orientation.z = rotation.z();
   trackedPath_.poses.push_back(poseStamped);
 
-  outBag.write("/slam_optimized_poses", toRos(std::get<1>(cloudTimePair)), poseStamped);
+  if (slam_->saveProcessedBag_) {
+    outBag.write("/slam_optimized_poses", toRos(std::get<1>(cloudTimePair)), poseStamped);
+  }
+
+  nav_msgs::Odometry odometryPose;
+
+  odometryPose.header.stamp = toRos(std::get<1>(cloudTimePair));
+  odometryPose.header.frame_id = slam_->frames_.mapFrame;
+  odometryPose.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
+  odometryPose.pose.pose.position.x = calculatedTransform.translation().x();
+  odometryPose.pose.pose.position.y = calculatedTransform.translation().y();
+  odometryPose.pose.pose.position.z = calculatedTransform.translation().z();
+  odometryPose.pose.pose.orientation.w = rotation.w();
+  odometryPose.pose.pose.orientation.x = rotation.x();
+  odometryPose.pose.pose.orientation.y = rotation.y();
+  odometryPose.pose.pose.orientation.z = rotation.z();
+
+  if (slam_->saveProcessedBag_) {
+    outBag.write("/slam_optimized_poses_odometry", toRos(std::get<1>(cloudTimePair)), odometryPose);
+  }
 
   const double stamp = pointCloud->header.stamp.toSec();
   poseFile_ << stamp << " ";
@@ -713,35 +741,37 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   // Pop oldest input point cloud from the queue.
   buffer.pop_front();
 
-  sensor_msgs::PointCloud2 outCloud;
-  open3d_conversions::open3dToRos(std::get<0>(cloudTimePair), outCloud, slam_->frames_.rangeSensorFrame);
-  outCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
-  outBag.write("/registered_cloud", toRos(std::get<1>(cloudTimePair)), outCloud);
+  if (slam_->saveProcessedBag_) {
+    sensor_msgs::PointCloud2 outCloud;
+    open3d_conversions::open3dToRos(std::get<0>(cloudTimePair), outCloud, slam_->frames_.rangeSensorFrame);
+    outCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
+    outBag.write("/registered_cloud", toRos(std::get<1>(cloudTimePair)), outCloud);
 
-  PointCloud transformedCloud = std::get<0>(cloudTimePair);
+    PointCloud transformedCloud = std::get<0>(cloudTimePair);
 
-  transformedCloud.Transform(std::get<2>(cloudTimePair).matrix());
-  sensor_msgs::PointCloud2 transformedRosCloud;
-  open3d_conversions::open3dToRos(transformedCloud, transformedRosCloud, slam_->frames_.rangeSensorFrame);
-  transformedRosCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
-  outBag.write("/transformed_registered_cloud", toRos(std::get<1>(cloudTimePair)), transformedRosCloud);
+    transformedCloud.Transform(std::get<2>(cloudTimePair).matrix());
+    sensor_msgs::PointCloud2 transformedRosCloud;
+    open3d_conversions::open3dToRos(transformedCloud, transformedRosCloud, slam_->frames_.rangeSensorFrame);
+    transformedRosCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
+    outBag.write("/transformed_registered_cloud", toRos(std::get<1>(cloudTimePair)), transformedRosCloud);
 
-  // Convert geometry_msgs::PoseStamped to geometry_msgs::TransformStamped
-  geometry_msgs::TransformStamped transformStamped;
-  transformStamped.header.stamp = poseStamped.header.stamp;
-  transformStamped.header.frame_id = slam_->frames_.mapFrame;
-  transformStamped.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
-  transformStamped.transform.translation.x = poseStamped.pose.position.x;
-  transformStamped.transform.translation.y = poseStamped.pose.position.y;
-  transformStamped.transform.translation.z = poseStamped.pose.position.z;
-  transformStamped.transform.rotation = poseStamped.pose.orientation;
+    // Convert geometry_msgs::PoseStamped to geometry_msgs::TransformStamped
+    geometry_msgs::TransformStamped transformStamped;
+    transformStamped.header.stamp = poseStamped.header.stamp;
+    transformStamped.header.frame_id = slam_->frames_.mapFrame;
+    transformStamped.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
+    transformStamped.transform.translation.x = poseStamped.pose.position.x;
+    transformStamped.transform.translation.y = poseStamped.pose.position.y;
+    transformStamped.transform.translation.z = poseStamped.pose.position.z;
+    transformStamped.transform.rotation = poseStamped.pose.orientation;
 
-  // Encapsulate geometry_msgs::TransformStamped into tf2_msgs/TFMessage
-  tf2_msgs::TFMessage tfMessage;
-  tfMessage.transforms.push_back(transformStamped);
+    // Encapsulate geometry_msgs::TransformStamped into tf2_msgs/TFMessage
+    tf2_msgs::TFMessage tfMessage;
+    tfMessage.transforms.push_back(transformStamped);
 
-  // Write the TFMessage to the bag
-  outBag.write("/tf", toRos(std::get<1>(cloudTimePair)), tfMessage);
+    // Write the TFMessage to the bag
+    outBag.write("/tf", toRos(std::get<1>(cloudTimePair)), tfMessage);
+  }
 
   const ros::WallTime arbitrarySleep{ros::WallTime::now() + ros::WallDuration(slam_->relativeSleepDuration_)};
   ros::WallTime::sleepUntil(arbitrarySleep);
@@ -857,11 +887,12 @@ void RosbagRangeDataProcessorRos::generateSystemStatsFile() {
   auto& timestamp = deeperICPLogs_.time_;
   auto& totalICPtime_ = deeperICPLogs_.totalICPtime;
   auto& residualError_ = deeperICPLogs_.residualError_;
+  auto& nbMatches_ = deeperICPLogs_.nbMatches_;
   auto& numberOfIterations = deeperICPLogs_.numberOfIterations;
   auto& motion = deeperICPLogs_.transform_;
 
   file_stats << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << " " << numberOfIterations << " " << totalICPtime_ << " "
-             << residualError_ << " " << motion.matrix().norm() << std::endl;
+             << residualError_ << " " << motion.matrix().norm() << " " << nbMatches_ << std::endl;
 }
 
 void RosbagRangeDataProcessorRos::generateLocalizabilityCategory() {
@@ -1367,6 +1398,23 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           // geometry_msgs::TransformStamped transformStamped = o3d_slam::toRos(Mat, time, slam_->frames_.mapFrame, "enu");
           transformBroadcaster_.sendTransform(transformStamped);
         }
+
+        /*if (tf_msg.header.frame_id == "world" && tf_msg.child_frame_id == "base_link")
+        {
+            geometry_msgs::PoseStamped pos_msg;
+
+            pos_msg.header =tf_msg.header;
+            pos_msg.pose.position.x = tf_msg.transform.translation.x;
+            pos_msg.pose.position.y = tf_msg.transform.translation.y;
+            pos_msg.pose.position.z = tf_msg.transform.translation.z;
+            pos_msg.pose.orientation.x = tf_msg.transform.rotation.x;
+            pos_msg.pose.orientation.y = tf_msg.transform.rotation.y;
+            pos_msg.pose.orientation.z = tf_msg.transform.rotation.z;
+            pos_msg.pose.orientation.w = tf_msg.transform.rotation.w;
+
+            pos_pub.publish(pos_msg);
+        }*/
+
 
       } else {
         isInvalidMessageInBag = true;

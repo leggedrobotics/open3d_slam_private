@@ -28,7 +28,7 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.c
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 15 -- --Tunnel loves 15 Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 0.5 -- --Tunnel loves 0.5 Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 0.5 --sec --Tunnel loves 0.01
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.0 --sec --Tunnel loves 0.01
 
 --MAP_INITIALIZER
 params.map_initializer.pcd_file_package = "open3d_slam_ros"
@@ -42,20 +42,20 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
-params.submap.submap_size = 30.0 --meters --Tunnel 40  -- FOREST 40
+params.submap.submap_size = 40.0 --meters --Tunnel 40  -- FOREST 40
 params.submap.adjacency_based_revisiting_min_fitness = 0.01
 params.submap.min_seconds_between_feature_computation = 5.0
-params.submap.submaps_num_scan_overlap = 10 -- 200
+params.submap.submaps_num_scan_overlap = 200 -- 200
 params.submap.max_num_points = 7500000
 
 --MAP_BUILDER
-params.map_builder.map_voxel_size = 0.1 -- forest worked with 0.4 --for tunnel go 0.2
+params.map_builder.map_voxel_size = 0.4 -- forest worked with 0.4 --for tunnel go 0.2
 params.map_builder.scan_cropping.cropping_radius_max = 100.0
 params.map_builder.scan_cropping.cropping_radius_min = 1.0
 params.map_builder.space_carving.carve_space_every_n_scans = 10
 
 --DENSE_MAP_BUILDER
-params.dense_map_builder.map_voxel_size = 0.05
+params.dense_map_builder.map_voxel_size = 0.01
 params.dense_map_builder.scan_cropping.cropping_radius_max = 105.0
 params.dense_map_builder.space_carving.carve_space_every_n_scans = 10
 params.dense_map_builder.space_carving.truncation_distance = 0.1
@@ -77,7 +77,7 @@ params.place_recognition.consistency_check.max_drift_z = 40.0 --m
 --SAVING
 params.saving.save_map = true
 params.saving.save_submaps = false
-params.saving.save_dense_submaps = false
+params.saving.save_dense_submaps = true
 
 
 return params

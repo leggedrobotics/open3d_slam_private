@@ -34,6 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <numeric>
+#include <thread>
 #include <algorithm>
 #include "PointMatcher.h"
 #include "PointMatcherPrivate.h"
@@ -796,19 +797,37 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityAwarenessParameters(const 
         {
             if (PointMatcherSupport::lexical_cast<T>(params.at("useTruncatedSVD")) == 1.0)
             {
-                MELO_WARN("Sol Remap 2019 set to TRUE");
+                MELO_WARN("useTruncatedSVD set to TRUE");
                 localizabilityDetectionParameters.useTruncatedSVD = true;
             }
             else
             {
-                MELO_WARN("Sol Remap 2019 set to false");
+                MELO_WARN("useTruncatedSVD set to false");
                 localizabilityDetectionParameters.useTruncatedSVD = false;
             }
         }
         else
         {
-            return false;
+            return false; 
         }
+        if (params.count("skipRegistration") > 0)
+        {
+            if (PointMatcherSupport::lexical_cast<T>(params.at("skipRegistration")) == 1.0)
+            {
+                MELO_WARN("skipRegistration set to TRUE");
+                localizabilityDetectionParameters.skipRegistration = true;
+            }
+            else
+            {
+                MELO_WARN("skipRegistration set to false");
+                localizabilityDetectionParameters.skipRegistration = false;
+            }
+        }
+        else
+        {
+            return false; 
+        }
+
 
     }
     else if (methodName == "OptimizedEqualityConstraints")
@@ -1130,6 +1149,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
     localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_= this->localizabilityDetectionParameters.inequalityBoundMultiplier_;
     localizabilityParametersForErrorMinimization.useTruncatedSVD= this->localizabilityDetectionParameters.useTruncatedSVD;
+    localizabilityParametersForErrorMinimization.skipRegistration= this->localizabilityDetectionParameters.skipRegistration;
     localizabilityParametersForErrorMinimization.linearVelocityVector_= this->localizabilityDetectionParameters.linearVelocityVector_;
     localizabilityParametersForErrorMinimization.angularVelocityVector_= this->localizabilityDetectionParameters.angularVelocityVector_;
     localizabilityParametersForErrorMinimization.regularizationWeight_ = this->degeneracySolverOptions_.regularizationWeight_;
@@ -1219,7 +1239,6 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     LOG_INFO_STREAM("PointMatcher::icp - reading pre-processing took " << t.elapsed() << " [s]");
     this->prefilteredReadingPtsCount = reading.features.cols();
     t.restart();
-
     std::vector<T> scalabilityVect;
     std::vector<T> NbMatchesVet;
 
@@ -1235,12 +1254,20 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
     //Eigen::Matrix<double, 6, 1> state = Eigen::Matrix<double, 6, 1>::Zero();
 
-    timer scalabilityStudy; // Print how long take the algo
-    scalabilityStudy.restart();
+    timer totalScalabilityStudy; // Print how long take the algo
+    totalScalabilityStudy.restart();
+
+    const auto startTime__ = std::chrono::steady_clock::now();
 
     // iterations
     while (iterate)
     {
+
+        //std::cout << "reference. Size: " << reference.features.cols() << std::endl;
+
+        timer scalabilityStudy; // Print how long take the algo
+        scalabilityStudy.restart();
+
         // Check whether it is the first iteration.
         localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_ = (iterationCount == 0u);
 
@@ -1331,22 +1358,51 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
                             localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_ = true;
                         }
 
-                        if (!detectLocalizabilityWithSolutionRemappingMethod(
-                                localizabilityParametersForErrorMinimization,
-                                this->localizabilityDetectionParameters.solutionRemappingThreshold))
+                        if (this->localizabilityDetectionParameters.skipRegistration)
                         {
-                            localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_ = true;
+                            for (size_t i = 0; i < 3; i++)
+                            {
+                                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(i).value()
+                                    == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+                                {
+                                    iterate = false;
+                                    localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_ = true;
+                                    MELO_WARN_STREAM("REGISTRATION IS SKIPPED. ");
+                                    break;
+                                }
+
+                                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(i).col(0).value()
+                                    == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+                                {
+                                    iterate = false;
+                                    localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_ = true;
+                                    MELO_WARN_STREAM("REGISTRATION IS SKIPPED. ");
+                                    break;
+                                }
+                            }
                         }
 
-                        if (localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_)
+                        if (!localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_)
                         {
-                            MELO_DEBUG_STREAM("ICP Localizability Method: Optimized.");
-                            MELO_DEBUG_STREAM(
-                                "Translation Localizability : "
-                                << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.transpose());
-                            MELO_DEBUG_STREAM(
-                                "Rotation Localizability : "
-                                << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.transpose());
+
+                            if (!detectLocalizabilityWithSolutionRemappingMethod(
+                                    localizabilityParametersForErrorMinimization,
+                                    this->localizabilityDetectionParameters.solutionRemappingThreshold))
+                            {
+                                localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_ = true;
+                            }
+
+                            if (localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_)
+                            {
+                                MELO_DEBUG_STREAM("ICP Localizability Method: Optimized.");
+                                MELO_DEBUG_STREAM(
+                                    "Translation Localizability : "
+                                    << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.transpose());
+                                MELO_DEBUG_STREAM(
+                                    "Rotation Localizability : "
+                                    << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.transpose());
+                            }
+
                         }
 
                     }else{
@@ -1486,28 +1542,35 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         this->degenerateDirectionsInMapFrame_ = registerDegenerateDirections(localizabilityParametersForErrorMinimization);
 
         if(this->degeneracySolverOptions_.useThreeDofRegularization_){
-            for (Eigen::Index i = 0; i < this->degenerateDirectionsInMapFrame_.cols(); ++i)
+            for (Eigen::Index j = 0; j < 3; ++j)
             {
-                this->ceresEigVect_.col(i).topRows(3) = this->degenerateDirectionsInMapFrame_.col(i);
+                // Translation
+                this->ceresEigVect_.col(j+3).bottomRows(3) = this->degenerateDirectionsInMapFrame_.col(j+3);
+
+                // Rotation
+                this->ceresEigVect_.col(j).topRows(3) = this->degenerateDirectionsInMapFrame_.col(j);
+                
             }
         }
         //std::cout << "Registered categories " << std::endl;
-        //std::cout << "degenerateDirectionsInMapFrame_: " << this->degenerateDirectionsInMapFrame_ << std::endl;
+        //std::cout << "degenerateDirectionsInMapFrame_: " << std::endl << this->degenerateDirectionsInMapFrame_ << std::endl;
+        //std::cout << "ceresEigVect_: " << std::endl << this->ceresEigVect_ << std::endl;
 
         ceres::Solver::Options options;
 
         //options.preconditioner_type = ceres::SCHUR_JACOBI;
         //options.linear_solver_type = ceres::DENSE_SCHUR;
-        //options.use_explicit_schur_complement=true;
+        options.use_explicit_schur_complement=true;
 
         options.linear_solver_type = ceres::DENSE_QR; // DENSE_SVD DENSE_QR
-        //options.trust_region_strategy_type = ceres::DOGLEG;
+        options.dogleg_type = ceres::DoglegType::SUBSPACE_DOGLEG;
+        options.trust_region_strategy_type = ceres::DOGLEG;
         //options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-        //options.use_nonmonotonic_steps = true;  // true
+        options.use_nonmonotonic_steps = true;  // true
         //options.minimizer_progress_to_stdout = true;
-        options.max_num_iterations = 30; // 100
+        options.max_num_iterations = 100; // 100
+        options.num_threads = static_cast<int>(std::thread::hardware_concurrency());
         //options.function_tolerance = 1.0e-16;  // 1.0e-16;
-        options.num_threads = 1;
         //options->max_solver_time_in_seconds = 12 * 60 * 60; 
         //options.minimizer_type = ceres::LINE_SEARCH;
         //options.gradient_tolerance = 1e-50;
@@ -1610,109 +1673,109 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         //	stepReading, reference, outlierWeights, matches);
         if(this->localizabilityDetectionParameters.degeneracyAwarenessMethod != DegeneracyAwarenessMethod::kSolutionRemapping){
             // To Pharos categorization. (Rotation)
-        for (size_t i = 0; i < 3; i++)
-        {
-            if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(i).value()
-                == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+            for (size_t i = 0; i < 3; i++)
             {
-                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                        .rotationConstraintValues_.row(i)
-                        .col(0)
-                        .value()
-                    == 0.0f)
+                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(i).value()
+                    == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
                 {
-                    this->localizationCategory_.row(i).col(0) = Matrix::Zero(1, 1);
+                    if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                            .rotationConstraintValues_.row(i)
+                            .col(0)
+                            .value()
+                        == 0.0f)
+                    {
+                        this->localizationCategory_.row(i).col(0) = Matrix::Zero(1, 1);
+                    }
+                    else
+                    {
+                        this->localizationCategory_.row(i).col(0) = Matrix::Identity(1, 1) * 0.5f;
+                    }
                 }
                 else
                 {
-                    this->localizationCategory_.row(i).col(0) = Matrix::Identity(1, 1) * 0.5f;
+                    this->localizationCategory_.row(i).col(0) = Matrix::Identity(1, 1);
                 }
             }
-            else
-            {
-                this->localizationCategory_.row(i).col(0) = Matrix::Identity(1, 1);
-            }
-        }
 
-        // To Pharos categorization. (Translation)
-        for (size_t i = 0; i < 3; i++)
-        {
-            if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(i).col(0).value()
-                == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+            // To Pharos categorization. (Translation)
+            for (size_t i = 0; i < 3; i++)
             {
-                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                        .translationConstraintValues_.row(i)
-                        .col(0)
-                        .value()
-                    == 0.0f)
+                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(i).col(0).value()
+                    == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
                 {
-                    this->localizationCategory_.row(i + 3).col(0) = Matrix::Zero(1, 1);
+                    if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                            .translationConstraintValues_.row(i)
+                            .col(0)
+                            .value()
+                        == 0.0f)
+                    {
+                        this->localizationCategory_.row(i + 3).col(0) = Matrix::Zero(1, 1);
+                    }
+                    else
+                    {
+                        this->localizationCategory_.row(i + 3).col(0) = Matrix::Identity(1, 1) * 0.5f;
+                    }
                 }
                 else
                 {
-                    this->localizationCategory_.row(i + 3).col(0) = Matrix::Identity(1, 1) * 0.5f;
+                    this->localizationCategory_.row(i + 3).col(0) = Matrix::Identity(1, 1);
                 }
             }
-            else
-            {
-                this->localizationCategory_.row(i + 3).col(0) = Matrix::Identity(1, 1);
-            }
         }
-    }
 
         if (this->localizabilityDetectionParameters.isDebugModeENabled_)
         {
-        // ADDED 24.02.2024 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // To Pharos categorization. (Rotation)
-        for (size_t i = 0; i < 3; i++)
-        {
-            if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(i).value()
-                == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+            // ADDED 24.02.2024 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+            // To Pharos categorization. (Rotation)
+            for (size_t i = 0; i < 3; i++)
             {
-                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                        .rotationConstraintValues_.row(i)
-                        .col(0)
-                        .value()
-                    == 0.0f)
+                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.row(i).value()
+                    == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
                 {
-                    this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Zero(1, 1);
+                    if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                            .rotationConstraintValues_.row(i)
+                            .col(0)
+                            .value()
+                        == 0.0f)
+                    {
+                        this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Zero(1, 1);
+                    }
+                    else
+                    {
+                        this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Identity(1, 1) * 0.5f;
+                    }
                 }
                 else
                 {
-                    this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Identity(1, 1) * 0.5f;
+                    this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Identity(1, 1);
                 }
             }
-            else
-            {
-                this->eachIterationLocalizationCategory_.row(i).col(iterationCount) = Matrix::Identity(1, 1);
-            }
-        }
 
-        // To Pharos categorization. (Translation)
-        for (size_t i = 0; i < 3; i++)
-        {
-            if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(i).col(0).value()
-                == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
+            // To Pharos categorization. (Translation)
+            for (size_t i = 0; i < 3; i++)
             {
-                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                        .translationConstraintValues_.row(i)
-                        .col(0)
-                        .value()
-                    == 0.0f)
+                if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.row(i).col(0).value()
+                    == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
                 {
-                    this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Zero(1, 1);
+                    if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
+                            .translationConstraintValues_.row(i)
+                            .col(0)
+                            .value()
+                        == 0.0f)
+                    {
+                        this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Zero(1, 1);
+                    }
+                    else
+                    {
+                        this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Identity(1, 1) * 0.5f;
+                    }
                 }
                 else
                 {
-                    this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Identity(1, 1) * 0.5f;
+                    this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Identity(1, 1);
                 }
             }
-            else
-            {
-                this->eachIterationLocalizationCategory_.row(i + 3).col(iterationCount) = Matrix::Identity(1, 1);
-            }
         }
-    }
 
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1746,6 +1809,14 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         ++iterationCount;
     }
 
+    const auto endTime__ = std::chrono::steady_clock::now();
+    const T steadyy =  std::chrono::duration_cast<std::chrono::microseconds>(endTime__ - startTime__).count() / 1e3;
+
+    T timingSum = std::accumulate(scalabilityVect.begin(), scalabilityVect.end(), 0.0);
+    T totalICPtime = 1000.0f * totalScalabilityStudy.elapsed();
+
+    MELO_WARN_STREAM("totalICPtime: " << totalICPtime << " timingSum: " << timingSum << " steadyy: " << steadyy << " iterationCount: " << iterationCount);
+
     this->inspector->addStat("IterationsCount", iterationCount);
     this->inspector->addStat("PointCountTouched", this->matcher->getVisitCount());
     this->matcher->resetVisitCount();
@@ -1763,12 +1834,14 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     //   T_iter(i+1)_dataIn = T_iter(i+1)_iter(0) * T_iter(0)_dataIn
     // T_refIn_refMean remove the temperary frame added during initialization
 
-    T timingSum = std::accumulate(scalabilityVect.begin(), scalabilityVect.end(), 0.0);
+
     this->iterationTimings_ = scalabilityVect;
     this->iterationMatches_ = NbMatchesVet;
     this->numberOfIterations_ = iterationCount;
     T nbMatchesSum = std::accumulate(NbMatchesVet.begin(), NbMatchesVet.end(), 0.0);
-    this->totalICPtime_ = timingSum;
+    //this->totalICPtime_ = timingSum;
+    //this->totalICPtime_ =totalICPtime;
+    this->totalICPtime_ = steadyy;
     this->activeInequalityConstraintSize_ = this->errorMinimizer->getActiveInequalityConstraints();
     this->totalConstraintSize_ = this->errorMinimizer->getTotalNumberOfConstraints();
     this->equalityConstraintSize_ = this->errorMinimizer->getNumberOfEqualityConstraints();

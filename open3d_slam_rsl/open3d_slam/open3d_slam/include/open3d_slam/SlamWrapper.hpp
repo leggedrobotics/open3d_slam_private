@@ -147,6 +147,8 @@ class SlamWrapper {
   bool exportIMUdata_{false};
   bool useGPSforGroundTruth_{false};
   bool downsamplePointCloudForReplay_{false};
+  bool saveNoisedPrior_{false};
+  bool saveProcessedBag_{false};
   int downSamplingSkippingRate_{5};
 
   // If set to true, expects odometry msgs in the replayed rosbag to be exactly synced with the pointclouds.
@@ -223,8 +225,10 @@ class SlamWrapper {
   bool isOptimizedGraphAvailable_ = false;
   bool isRunWorkers_ = true;
   int numLatesLoopClosureConstraints_ = -1;
-  PointCloud rawCloudPrev_;
   Constraints lastLoopClosureConstraints_;
+
+  PointCloud woololo_prev;
+  PointCloud woololo_curr;
 };
 
 }  // namespace o3d_slam

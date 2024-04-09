@@ -419,7 +419,7 @@ void SlamWrapper::loadParametersAndInitialize() {
   // Set the buffer sizes. This is not done in the constructer
   odometryBuffer_.set_size_limit(params_.odometry_.odometryBufferSize_);
   mappingBuffer_.set_size_limit(params_.mapper_.mappingBufferSize_);
-  registeredCloudBuffer_.set_size_limit(params_.odometry_.scanProcessing_.pointCloudBufferSize_);
+  registeredCloudBuffer_.set_size_limit(20);
 }
 
 bool SlamWrapper::isUseExistingMapEnabled() const {
@@ -531,6 +531,23 @@ bool SlamWrapper::saveSubmaps(const std::string& directory, const bool& isDenseM
   createDirectoryOrNoActionIfExists(directory);
   const std::string cloudName = isDenseMap ? "denseSubmap" : "submap";
   const bool savingResult = mapper_->getSubmaps().dumpToFile(directory, cloudName, isDenseMap);
+
+  RegisteredPointCloud copyCloud = registeredCloudBuffer_.peek_back();
+  RegisteredPointCloud copyCloud2 = registeredCloudBuffer_.getImplementation()[5];
+  PointCloud registeredCloud = copyCloud.raw_.cloud_;
+  PointCloud registeredCloud2 = copyCloud2.raw_.cloud_;
+
+  Transform curr = copyCloud.transform_;
+  Transform prevv = copyCloud2.transform_;
+
+  Transform delta = prevv.inverse() * curr;
+
+  std::cout << "Delta: \n" << delta.matrix() << std::endl;
+
+  open3d::io::WritePointCloudToPCD("/home/tutuna/quatro_ws/src/Quatro/src/cloud_curr.pcd", registeredCloud,
+                                   open3d::io::WritePointCloudOption());
+  open3d::io::WritePointCloudToPCD("/home/tutuna/quatro_ws/src/Quatro/src/cloud_prev.pcd", registeredCloud2,
+                                   open3d::io::WritePointCloudOption());
   return savingResult;
 }
 
