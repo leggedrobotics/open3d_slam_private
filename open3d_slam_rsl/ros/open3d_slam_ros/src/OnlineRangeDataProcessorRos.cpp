@@ -443,10 +443,10 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
   tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
 
   // Here we dont want to use the orientation of the odometry measurement. We will acquire it from IMU anyway.
-  odomPose_transformed.pose.orientation.w = 1.0;
-  odomPose_transformed.pose.orientation.z = 0.0;
-  odomPose_transformed.pose.orientation.y = 0.0;
-  odomPose_transformed.pose.orientation.x = 0.0;
+  // odomPose_transformed.pose.orientation.w = 1.0;
+  // odomPose_transformed.pose.orientation.z = 0.0;
+  // odomPose_transformed.pose.orientation.y = 0.0;
+  // odomPose_transformed.pose.orientation.x = 0.0;
 
   // Convert the attitude of the IMU to the attitude of the LiDAR.
   Transform initAttitudeOfLiDAR = initAttitude * lidarToImu_.inverse();

@@ -1065,10 +1065,10 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
               geometry_msgs::PoseStamped initialPose = odomPose_transformed;
 
               // initialPose.position=odomPose.position;
-              initialPose.pose.orientation.w = 1.0;
-              initialPose.pose.orientation.z = 0.0;
-              initialPose.pose.orientation.y = 0.0;
-              initialPose.pose.orientation.x = 0.0;
+              // initialPose.pose.orientation.w = 1.0;
+              // initialPose.pose.orientation.z = 0.0;
+              // initialPose.pose.orientation.y = 0.0;
+              // initialPose.pose.orientation.x = 0.0;
               ROS_INFO("Initial Transform is set. Nice.");
               std::cout << " Initial Transform value (Rotation enforced to be Identity): "
                         << "\033[92m" << o3d_slam::asString(o3d_slam::getTransform(initialPose.pose)) << " \n"

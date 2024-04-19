@@ -27,7 +27,7 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.c
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 1.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 0.5 --sec
 
 --MAP_INITIALIZER
 params.map_initializer.pcd_file_package = "open3d_slam_ros"

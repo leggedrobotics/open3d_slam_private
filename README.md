@@ -8,7 +8,7 @@ This is an advanced and fine-tuned version of open3d_slam that is private to RSL
 For now to build this repository, you need to:
 1. make sure CMake version is correct
 2. install dependencies from `open3d_catkin` 
-3. install dependencies for `open3d_slam`
+3. install dependencies for `open3d_slam` by following the **Documentation:** [link](https://open3d-slam.readthedocs.io/en/latest/)
 
 Clone the repository to:
 ``` bash
@@ -50,8 +50,8 @@ And finally:
 
 ```bash
 cd catkin_ws
-catkin config -DCMAKE_BUILD_TYPE=RelWithDebInfo
-catkin build
+catkin config -DCMAKE_BUILD_TYPE=Release
+catkin build open3d_slam_ros
 ```
 
 ## Use
