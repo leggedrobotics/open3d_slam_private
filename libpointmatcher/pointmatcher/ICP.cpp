@@ -2220,7 +2220,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
             if (alignmentMax >= 0.5f)
             {
                 //std::cout << "To be replaced Replaced Eigenvector: " << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
-
+                std::cout << "igenvectorsCopy.col(maxElementIndex): " << std::endl << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
                 eigenvectorsCopy.col(maxElementIndex) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
 
                 params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
@@ -2228,6 +2228,7 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
             else{
                 MELO_ERROR_STREAM("Alignment is below 0.5 doesnt make any sense. Val: "<< alignmentMax << " Still going for it.");
 
+                std::cout << "igenvectorsCopy.col(maxElementIndex): " << std::endl << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
                 eigenvectorsCopy.col(maxElementIndex) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
 
                 params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
@@ -2249,6 +2250,18 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
         MELO_INFO_STREAM(message_logger::color::blue << "MAIN_Solution Remapping found a degenerate direction.");
         }
         projectionMatrix = eigenvectors.transpose().inverse() * eigenvectorsCopy.transpose();
+        /*Matrix cov = Matrix::Zero(6,6);
+        Eigen::Matrix< T, 6, 1> covVector = Eigen::Matrix< T, 6, 1>::Zero(6,1) ;
+        covVector <<  1.0, 1.0, 1.0, 1.0, 1.0, 1.0;
+
+        cov = projectionMatrix * covVector.array().matrix().diagonal() * projectionMatrix.transpose();
+
+        covVector = projectionMatrix * covVector;
+
+        std::cout << "projectionMatrix: " << std::endl << projectionMatrix << std::endl;
+        std::cout << "covVector: " << std::endl << covVector.transpose() << std::endl;
+        std::cout << "cov: " << std::endl << cov << std::endl;*/
+
     }
 }
 

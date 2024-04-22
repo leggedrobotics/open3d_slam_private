@@ -117,6 +117,13 @@ public:
             //    BOOST_AUTO(solverQR, A.householderQr());
             //x = solverQR.solve(b);
 
+            //MatrixType cov = MatrixType::Identity(6,6);
+            //MatrixType orj = MatrixType::Identity(6,6);
+            //orj = svd.matrixU() * sinv * svd.matrixV().transpose();
+            //cov = orj.transpose() * orj;
+
+            //std::cout << "cov: " << std::endl << cov << std::endl;
+
             out_x = svd.matrixV() * sinv * svd.matrixU().transpose() * b;
         } else {
             out_x = svd.solve(b);

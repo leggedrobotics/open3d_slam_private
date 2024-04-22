@@ -71,12 +71,12 @@ degeneracyAwareness:
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 0.0002
-  None:
-  #OptimizedEqualityConstraints:
-  #  enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
-  #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
-  #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
-  #  point2NormalStrongAlignmentAngleThreshold: 45
+  #None:
+  OptimizedEqualityConstraints:
+    enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
+    insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
+    point2NormalMinimalAlignmentAngleThreshold: 60 # tunnel 80
+    point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
   #  enoughInformationThreshold: 150  #  850
@@ -87,6 +87,7 @@ degeneracyAwareness:
   #  threshold: 100
   #  use2019: 0
   #  useTruncatedSVD: 0
+  #  skipRegistration: 0
   #  enoughInformationThreshold: 300   #tunnel use 200    250 still works but not as good as 200
   #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
   #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80

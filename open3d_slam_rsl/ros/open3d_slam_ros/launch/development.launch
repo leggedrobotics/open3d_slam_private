@@ -17,8 +17,9 @@
   <!--        /point_cloud_filter/lidar_depth_camera/point_cloud_filtered   -->
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
+  <!--        /ouster_points_self_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/ouster_points_self_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in the external odometry frame` -->
@@ -26,7 +27,7 @@
   <!--   base   -->
   <!--   zed2i_base_link  -->
   <!--   imu_link   -->
-  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
+  <arg name="assumed_external_odometry_tracked_frame" default="imu_box_link"/>
 
   <!-- Currently only used for attitude initialization -->
   <!-- Common Options:  -->
@@ -46,18 +47,18 @@
   <!--   /graph_msf/est_odometry_odom_imu  -->
   <!--   /Odometry  -->
 
-  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu2"/>
+  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu"/>
   
   <!-- Alternative topic to external odometry -->
   <!-- Common Options:  -->
   <!--   /point_cloud_filter/lidar_depth_camera/odometry_pose  -->
   <!--   /point_cloud_filter/lidar_depth_camera/odometry_pose_noised  -->
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose_noised"/>
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose_noised2"/>
   
   <!-- Common Options:  -->
   <!--   /state_estimator/pose_in_odom   -->
   <!--   /state_estimator/pose_in_odom_noised  -->
-  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
   <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>

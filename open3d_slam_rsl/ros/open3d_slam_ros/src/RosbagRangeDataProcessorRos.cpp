@@ -1415,7 +1415,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             pos_pub.publish(pos_msg);
         }*/
 
-
       } else {
         isInvalidMessageInBag = true;
         ROS_WARN("Invalid message found in ROS bag.");
