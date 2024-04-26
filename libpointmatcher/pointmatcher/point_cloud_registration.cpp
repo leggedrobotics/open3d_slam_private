@@ -32,12 +32,19 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
           SymmetricDegeneracyCost* error_termDegen = new SymmetricDegeneracyCost(localEig, degenOptions.regularizationWeight_);
           problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<SymmetricDegeneracyCost, 1, 6>(error_termDegen), NULL,
                                       state_.data());*/
+          std::cout << " CURRENT DISABLED " << std::endl<< localEig << std::endl;
         }else{
           std::cout << " Degeneracy bound added " << std::endl<< localEig << std::endl;
-          std::cout << " Regularization Weight: " << degenOptions.regularizationWeight_ << std::endl;
-          DegeneracyCost* error_termDegen = new DegeneracyCost(localEig, degenOptions.regularizationWeight_);
-          problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<DegeneracyCost, 1, 3, 3>(error_termDegen), NULL,
-                                      translation_.data(), angleAxis_.data());
+          float realWeight = std::pow(degenOptions.regularizationWeight_, 2);
+
+          if (realWeight > 0.0001)
+          {
+            std::cout << " Regularization Weight: " << degenOptions.regularizationWeight_ << std::endl;
+            DegeneracyCost* error_termDegen = new DegeneracyCost(localEig, degenOptions.regularizationWeight_);
+            ceres::LossFunction* data_loss = new ceres::ScaledLoss(nullptr, realWeight, ceres::TAKE_OWNERSHIP);
+            problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<DegeneracyCost, 1, 3, 3>(error_termDegen), data_loss,
+                                        translation_.data(), angleAxis_.data());
+          }
         }
                                     
         //InequalityConstraint* error_termDegen = new InequalityConstraint(localEig);

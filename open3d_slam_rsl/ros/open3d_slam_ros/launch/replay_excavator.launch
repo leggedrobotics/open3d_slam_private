@@ -47,7 +47,7 @@
   <arg name="save_processed_bag" default="false"/>
   <arg name="downSamplingSkippingRate_" default="10"/>
   
-  <arg name="icp_yaml_full_path" default="$(find open3d_slam_ros)/param/icp.yaml"/>   
+  <arg name="icp_yaml_full_path" default="$(find open3d_slam_ros)/param/icp_excavator.yaml"/>   
 
 
   <!-- ROS Param -->

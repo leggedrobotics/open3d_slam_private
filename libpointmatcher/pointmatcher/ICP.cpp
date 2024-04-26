@@ -357,6 +357,43 @@ bool PointMatcher<T>::ICPChainBase::readRegularization(const std::string& yamlKe
     if (methodName == "Enabled")
     {
         localizabilityDetectionParameters.enableStandardWeightRegularization_ = true;
+
+        if ((params.count("regularizationWeight") > 0))
+        {
+
+            if (PointMatcherSupport::lexical_cast<T>(params.at("regularizationWeight")) > T(0))
+            {
+                MELO_WARN("================ Bound constraints are Enabled ================");
+                degeneracySolverOptions_.regularizationWeight_ = PointMatcherSupport::lexical_cast<float>(params.at("regularizationWeight"));
+            }
+            else
+            {
+                MELO_WARN("Regularization weight NOT SET");
+                return false;
+            }
+        }else
+        {
+            return false;
+        }
+        if ((params.count("useLcurve") > 0))
+        {
+            if (PointMatcherSupport::lexical_cast<T>(params.at("useLcurve")) == T(0))
+            {
+                localizabilityDetectionParameters.useLcurve_ = false;
+                MELO_WARN("================ Ceres bases solvers are DISABLED ================");
+                return true;
+            }
+            else
+            {
+                MELO_WARN("================ Ceres bases solvers are ENABLED ================");
+                localizabilityDetectionParameters.useLcurve_ = true;
+            }
+        }
+        else{
+            return false;
+        } 
+
+
     }
     else
     {
@@ -364,42 +401,6 @@ bool PointMatcher<T>::ICPChainBase::readRegularization(const std::string& yamlKe
         MELO_WARN("Regularization is to False: '%s'", methodName.c_str());
         localizabilityDetectionParameters.enableStandardWeightRegularization_ = false;
     }
-
-    if ((params.count("regularizationWeight") > 0))
-    {
-
-        if (PointMatcherSupport::lexical_cast<T>(params.at("regularizationWeight")) > T(0))
-        {
-            MELO_WARN("================ Bound constraints are Enabled ================");
-            degeneracySolverOptions_.regularizationWeight_ = PointMatcherSupport::lexical_cast<float>(params.at("regularizationWeight"));
-        }
-        else
-        {
-            MELO_WARN("Regularization weight NOT SET");
-            return false;
-        }
-    }else
-    {
-        return false;
-    }
-    if ((params.count("useLcurve") > 0))
-    {
-        if (PointMatcherSupport::lexical_cast<T>(params.at("useLcurve")) == T(0))
-        {
-            localizabilityDetectionParameters.useLcurve_ = false;
-            MELO_WARN("================ Ceres bases solvers are DISABLED ================");
-            return true;
-        }
-        else
-        {
-            MELO_WARN("================ Ceres bases solvers are ENABLED ================");
-            localizabilityDetectionParameters.useLcurve_ = true;
-        }
-    }
-    else{
-        return false;
-    } 
-
 
     MELO_INFO("Regularization: '%s'", methodName.c_str());
 
@@ -495,207 +496,210 @@ bool PointMatcher<T>::ICPChainBase::readCeresDegeneracyAnalysis(const std::strin
                 MELO_WARN("================ Ceres bases solvers are ENABLED ================");
                 degeneracySolverOptions_.isEnabled_ = true;
             }
+
+            if ((params.count("useSophusParametrization") > 0))
+            {
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useSophusParametrization")) > T(0))
+                {
+                    MELO_WARN("================ Sophus Parametrization is Enabled ================");
+                    degeneracySolverOptions_.useSophusParametrization_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Sophus Parametrization is Disabled ================");
+                    degeneracySolverOptions_.useSophusParametrization_ = false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+
+            if ((params.count("useAngleAxisParametrization") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useAngleAxisParametrization")) > T(0))
+                {
+                    MELO_WARN("================ AngleAxis Parametrization is Enabled ================");
+                    degeneracySolverOptions_.useAngleAxisParametrization_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ AngleAxis Parametrization is Disabled ================");
+                    degeneracySolverOptions_.useAngleAxisParametrization_ = false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+
+            if ((params.count("useSophusAutoDiffParametrization") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useSophusAutoDiffParametrization")) > T(0))
+                {
+                    MELO_WARN("================ Sophus Autodiff Jacobian is Enabled ================");
+                    degeneracySolverOptions_.useSophusAutoDiffParametrization_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Sophus Autodiff Jacobian is Disabled ================");
+                    degeneracySolverOptions_.useSophusAutoDiffParametrization_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+            
+            if ((params.count("usePointToPointCost") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("usePointToPointCost")) > T(0))
+                {
+                    MELO_WARN("================ Point to Point Cost is Enabled ================");
+                    degeneracySolverOptions_.usePointToPoint_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Point to Point Cost is Disabled ================");
+                    degeneracySolverOptions_.usePointToPoint_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("usePointToPlaneCost") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("usePointToPlaneCost")) > T(0))
+                {
+                    MELO_WARN("================ Point to Plane Cost is Enabled ================");
+                    degeneracySolverOptions_.usePointToPlane_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Point to Plane Cost is DISABLED ================");
+                    degeneracySolverOptions_.usePointToPlane_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("usePointToLineCost") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("usePointToLineCost")) > T(0))
+                {
+                    MELO_WARN("================ Point to Line Cost is Enabled ================");
+                    degeneracySolverOptions_.usePointToLine_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Point to Line Cost is DISABLED ================");
+                    degeneracySolverOptions_.usePointToLine_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("useSymmetricPointToPlaneCost") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useSymmetricPointToPlaneCost")) > T(0))
+                {
+                    MELO_WARN("================ Symmetric Point to Plane Cost is Enabled ================");
+                    degeneracySolverOptions_.useSymmetricPointToPlane_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Symmetric Point to Plane Cost is DISABLED ================");
+                    degeneracySolverOptions_.useSymmetricPointToPlane_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("useBoundConstraints") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useBoundConstraints")) > T(0))
+                {
+                    MELO_WARN("================ Bound constraints are Enabled ================");
+                    degeneracySolverOptions_.useBoundConstraints_ = true;
+                }
+                else
+                {
+                    MELO_WARN("================ Bound constraints are DISABLED ================");
+                    degeneracySolverOptions_.useBoundConstraints_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("useSixDofRegularization") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useSixDofRegularization")) == 1.0)
+                {
+                    MELO_WARN("================ Six DOF Regularization is Enabled ================");
+                    degeneracySolverOptions_.useSixDofRegularization_ = true;
+                }
+                else
+                {
+                MELO_WARN("================ Six DOF Regularization is DISABLED ================");
+                    degeneracySolverOptions_.useSixDofRegularization_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("useThreeDofRegularization") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("useThreeDofRegularization")) == 1.0)
+                {
+                    MELO_WARN("================ Three DOF Regularization is Enabled ================");
+                    degeneracySolverOptions_.useThreeDofRegularization_ = true;
+                }
+                else
+                {
+                MELO_WARN("================ Three DOF Regularization is DISABLED ================");
+                    degeneracySolverOptions_.useThreeDofRegularization_ = false;
+                }
+            }else
+            {
+                return false;
+            }
+
+            if ((params.count("regularizationWeight") > 0))
+            {
+
+                if (PointMatcherSupport::lexical_cast<T>(params.at("regularizationWeight")) > T(-1))
+                {
+                    MELO_WARN("================ Regularization Weight is SET ================");
+                    degeneracySolverOptions_.regularizationWeight_ = PointMatcherSupport::lexical_cast<float>(params.at("regularizationWeight"));
+                }else{
+                    MELO_ERROR("================ Regularization Weight is NOT SET ================");
+                    return false;
+                }
+            }else
+            {
+                return false;
+            }
+
+
         }
         else{
             return false;
         }
 
-        if ((params.count("useSophusParametrization") > 0))
-        {
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useSophusParametrization")) > T(0))
-            {
-                MELO_WARN("================ Sophus Parametrization is Enabled ================");
-                degeneracySolverOptions_.useSophusParametrization_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Sophus Parametrization is Disabled ================");
-                degeneracySolverOptions_.useSophusParametrization_ = false;
-            }
-        }
-        else
-        {
-            return false;
-        }
-
-        if ((params.count("useAngleAxisParametrization") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useAngleAxisParametrization")) > T(0))
-            {
-                MELO_WARN("================ AngleAxis Parametrization is Enabled ================");
-                degeneracySolverOptions_.useAngleAxisParametrization_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ AngleAxis Parametrization is Disabled ================");
-                degeneracySolverOptions_.useAngleAxisParametrization_ = false;
-            }
-        }
-        else
-        {
-            return false;
-        }
-
-        if ((params.count("useSophusAutoDiffParametrization") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useSophusAutoDiffParametrization")) > T(0))
-            {
-                MELO_WARN("================ Sophus Autodiff Jacobian is Enabled ================");
-                degeneracySolverOptions_.useSophusAutoDiffParametrization_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Sophus Autodiff Jacobian is Disabled ================");
-                degeneracySolverOptions_.useSophusAutoDiffParametrization_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-        
-        if ((params.count("usePointToPointCost") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("usePointToPointCost")) > T(0))
-            {
-                MELO_WARN("================ Point to Point Cost is Enabled ================");
-                degeneracySolverOptions_.usePointToPoint_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Point to Point Cost is Disabled ================");
-                degeneracySolverOptions_.usePointToPoint_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("usePointToPlaneCost") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("usePointToPlaneCost")) > T(0))
-            {
-                MELO_WARN("================ Point to Plane Cost is Enabled ================");
-                degeneracySolverOptions_.usePointToPlane_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Point to Plane Cost is DISABLED ================");
-                degeneracySolverOptions_.usePointToPlane_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("usePointToLineCost") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("usePointToLineCost")) > T(0))
-            {
-                MELO_WARN("================ Point to Line Cost is Enabled ================");
-                degeneracySolverOptions_.usePointToLine_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Point to Line Cost is DISABLED ================");
-                degeneracySolverOptions_.usePointToLine_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("useSymmetricPointToPlaneCost") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useSymmetricPointToPlaneCost")) > T(0))
-            {
-                MELO_WARN("================ Symmetric Point to Plane Cost is Enabled ================");
-                degeneracySolverOptions_.useSymmetricPointToPlane_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Symmetric Point to Plane Cost is DISABLED ================");
-                degeneracySolverOptions_.useSymmetricPointToPlane_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("useBoundConstraints") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useBoundConstraints")) > T(0))
-            {
-                MELO_WARN("================ Bound constraints are Enabled ================");
-                degeneracySolverOptions_.useBoundConstraints_ = true;
-            }
-            else
-            {
-                MELO_WARN("================ Bound constraints are DISABLED ================");
-                degeneracySolverOptions_.useBoundConstraints_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("useSixDofRegularization") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useSixDofRegularization")) == 1.0)
-            {
-                MELO_WARN("================ Six DOF Regularization is Enabled ================");
-                degeneracySolverOptions_.useSixDofRegularization_ = true;
-            }
-            else
-            {
-               MELO_WARN("================ Six DOF Regularization is DISABLED ================");
-                degeneracySolverOptions_.useSixDofRegularization_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("useThreeDofRegularization") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("useThreeDofRegularization")) == 1.0)
-            {
-                MELO_WARN("================ Three DOF Regularization is Enabled ================");
-                degeneracySolverOptions_.useThreeDofRegularization_ = true;
-            }
-            else
-            {
-               MELO_WARN("================ Three DOF Regularization is DISABLED ================");
-                degeneracySolverOptions_.useThreeDofRegularization_ = false;
-            }
-        }else
-        {
-            return false;
-        }
-
-        if ((params.count("regularizationWeight") > 0))
-        {
-
-            if (PointMatcherSupport::lexical_cast<T>(params.at("regularizationWeight")) > T(0))
-            {
-                MELO_WARN("================ Regularization Weight is SET ================");
-                degeneracySolverOptions_.regularizationWeight_ = PointMatcherSupport::lexical_cast<float>(params.at("regularizationWeight"));
-            }else{
-                MELO_ERROR("================ Regularization Weight is NOT SET ================");
-                return false;
-            }
-        }else
-        {
-            return false;
-        }
 
     }else{
         return false;
@@ -1558,13 +1562,69 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         ceres::Solver::Options options;
 
-        //options.preconditioner_type = ceres::SCHUR_JACOBI;
         //options.linear_solver_type = ceres::DENSE_SCHUR;
-        options.use_explicit_schur_complement=true;
-
+        //options.linear_solver_type = ceres::ITERATIVE_SCHUR;
         options.linear_solver_type = ceres::DENSE_QR; // DENSE_SVD DENSE_QR
+        //options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+        //options.linear_solver_type = ceres::CGNR;
+        options.function_tolerance = 1e-3;
+        options.gradient_tolerance = 1e-6;
+        options.parameter_tolerance = 1e-3;
+
+        //options.preconditioner_type = ceres::SUBSET;
+        //options.preconditioner_type = ceres::SCHUR_JACOBI;
+        options.preconditioner_type = ceres::JACOBI; //part of default
+        //options.preconditioner_type = ceres::IDENTITY;
+
+        //options.use_inner_iterations = true;
+        //options.jacobi_scaling = true;
+
+        options.minimizer_type = ceres::TRUST_REGION; //part of default
+        options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT; //part of default
+        //options.dogleg_type = ceres::DoglegType::SUBSPACE_DOGLEG;
+        //options.dogleg_type = ceres::DoglegType::TRADITIONAL_DOGLEG;
+        //options.trust_region_strategy_type = ceres::DOGLEG;
+
+
+        //options.use_nonmonotonic_steps = true;  // true
+        //options.minimizer_progress_to_stdout = true;
+        //options.max_num_iterations = 10; // 100
+        options.num_threads = static_cast<int>(std::thread::hardware_concurrency());
+        //options.function_tolerance = 1.0e-16;  // 1.0e-16;
+        //options.max_solver_time_in_seconds = 0.0005; 
+        //options.minimizer_type = ceres::LINE_SEARCH; WOLFE 
+        //options.gradient_tolerance = 1e-50;
+        //options.function_tolerance = 1e-50;
+        //options.parameter_tolerance = 1e-50;
+
+        //options.gradient_check_relative_precision = 1e-3;
+        //options.check_gradients = true;
+
+
+
+
+
+
+
+
+
+
+
+// working in tunnel
+/*        options.linear_solver_type = ceres::DENSE_QR; // DENSE_SVD DENSE_QR
+        //options.linear_solver_type = ceres::CGNR;
+        options.function_tolerance = 1e-3;
+        options.gradient_tolerance = 1e-6;
+        options.parameter_tolerance = 1e-3;
+
+        options.preconditioner_type = ceres::SUBSET;
+        //options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+        options.use_inner_iterations = true;
+        options.jacobi_scaling = true;
+
         options.dogleg_type = ceres::DoglegType::SUBSPACE_DOGLEG;
         options.trust_region_strategy_type = ceres::DOGLEG;
+        //options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
         //options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
         options.use_nonmonotonic_steps = true;  // true
         //options.minimizer_progress_to_stdout = true;
@@ -1579,7 +1639,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         //options.gradient_check_relative_precision = 1e-3;
         //options.check_gradients = true;
-
+*/
 
         // dont forget this here (currently we solve double time because of this, libpointmatcher expects this func to to called)
         TransformationParameters real =
@@ -3479,13 +3539,23 @@ Eigen::Matrix<T, 3, 6> PointMatcher<T>::ICP::registerDegenerateDirections(const 
         if (params.localizabilityAnalysisResults_.localizabilityRpy_.row(j).value()
             == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
         {
-            degenerateDirection.col(j) = params.localizabilityAnalysisResults_.rotationEigenvectors_.col(j);
+
+            degenerateDirection.col(j) = params.localizabilityAnalysisResults_.rotationEigenvectors_.template block<3, 1>(
+                0, j);
+            //degenerateDirection.col(j) = params.localizabilityAnalysisResults_.rotationEigenvectors_.col(j);
         }
 
         if (params.localizabilityAnalysisResults_.localizabilityXyz_.row(j).value()
             == static_cast<T>(LocalizabilityCategory::kNonLocalizable))
         {
-            degenerateDirection.col(j + 3) = params.localizabilityAnalysisResults_.translationEigenvectors_.col(j);
+            //MELO_WARN_STREAM("Translation Degenerate Direction");
+            //MELO_WARN_STREAM("Degenerate Direction: " << translationEigenVector);
+
+            degenerateDirection.col(j + 3) = params.localizabilityAnalysisResults_.translationEigenvectors_.template block<3, 1>(
+                0, j);
+
+            //degenerateDirection.col(j + 3) = params.localizabilityAnalysisResults_.translationEigenvectors_.col(j);
+            
         }
     }
 

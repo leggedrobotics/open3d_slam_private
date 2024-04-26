@@ -75,7 +75,7 @@ degeneracyAwareness:
   OptimizedEqualityConstraints:
     enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
     insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
-    point2NormalMinimalAlignmentAngleThreshold: 80 # excavator 60 ELSE 80
+    point2NormalMinimalAlignmentAngleThreshold: 60 # excavator 60 ELSE 80
     point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
@@ -86,7 +86,7 @@ degeneracyAwareness:
   #SolutionRemapping:
   #  threshold: 100
   #  use2019: 0
-  #  useTruncatedSVD: 1
+  #  useTruncatedSVD: 0
   #  skipRegistration: 0
   #  enoughInformationThreshold: 300   #tunnel use 200    250 still works but not as good as 200
   #  insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150

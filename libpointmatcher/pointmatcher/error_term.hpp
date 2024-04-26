@@ -272,7 +272,8 @@ class DegeneracyCost {
   bool operator()(const T* translation, const T* angleAxis, T* residuals) const {
     
     //T weightLocal = T(weight_);  T(weight_) *
-    residuals[0] = T(weight_) * ((T(angleAxis[0])) * T(eigenVector_[0]) + \
+    //T(weight_) * 
+    residuals[0] = ((T(angleAxis[0])) * T(eigenVector_[0]) + \
                     (T(angleAxis[1])) * T(eigenVector_[1]) + \
                     (T(angleAxis[2])) * T(eigenVector_[2])+ \
                     (T(translation[0])) * T(eigenVector_[3])+ \
