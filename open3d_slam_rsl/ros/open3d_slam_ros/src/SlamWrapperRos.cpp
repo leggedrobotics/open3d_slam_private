@@ -107,6 +107,8 @@ void SlamWrapperRos::odomPublisherWorker() {
       geometry_msgs::TransformStamped transformMsg = getTransformMsg(T, latestScanToMap);
       nav_msgs::Odometry odomMsg = getOdomMsg(transformMsg);
       publishIfSubscriberExists(transformMsg, scan2mapTransformPublisher_);
+
+      odomMsg.child_frame_id = frames_.rangeSensorFrame;
       publishIfSubscriberExists(odomMsg, scan2mapOdomPublisher_);
       prevPublishedTimeScanToMapOdom_ = latestScanToMap;
     }
