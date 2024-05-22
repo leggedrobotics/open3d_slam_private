@@ -1306,7 +1306,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         //this->errorMinimizer->appendErrorElements(this->errorMinimizer->getErrorElements());
 
         // std::cout << "scalabilityStudy: " << scalabilityStudyInMiliSeconds << " NbMatches: " << this->localizabilityDetectionParameters.numberOfPoints << std::endl;
-
+        this->residualErr_ = this->errorMinimizer->getResidualError(stepReading, reference, this->outlierWeights, this->matches);
         ++iterationCount;
     }
 

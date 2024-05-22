@@ -154,6 +154,7 @@ void Mapper::setMapToRangeSensorInitial(const Transform& t) {
   mapToRangeSensor_ = t;
   isNewValueSetMapper_ = true;
   isInitialTransformSet_ = true;
+  attemptedLargeBasin_ = false;
 }
 
 const PointCloud& Mapper::getPreprocessedScan() const {
@@ -260,7 +261,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
 
     if (odometryMotion.translation().norm() == 0.0) {
-      std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. "
+      std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. Your Odometry system is not running. "
                 << "\033[92m" << asString(odometryMotion) << " \n"
                 << "\033[0m";
     }
@@ -364,21 +365,29 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
     // if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
 
-    {
-      std::lock_guard<std::mutex> lck(mapManipulationMutex_);
+    if ((params_.isUseInitialMap_ && (!attemptedLargeBasin_)) && ((!firstRefinement_) || (!attemptedLargeBasin_))) {
+      correctedTransform = scan2mapRegistrationLargeBasin(croppedCloud, transformReadingToReferenceInitialGuess);
 
-      // We are explicitly setting the reference cloud above. Hence the empty placeholder.
-      open3d_conversions::PmStampedPointCloud emptyPlaceholder;
-      correctedTransform =
-          icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
+    } else {
+      std::cout << "Registering." << std::endl;
+      correctedTransform = scan2mapRegistrationWrapper(croppedCloud, transformReadingToReferenceInitialGuess);
     }
 
-    if (firstRefinement_) {
+    if ((firstRefinement_ && registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) ||
+        (firstRefinement_ && !params_.isUseInitialMap_)) {
       std::cout << "\033[92m"
-                << " Open3d SLAM is running properly."
+                << " Open3d SLAM is running properly. " << registrationFitness_ << " / " << params_.scanMatcher_.minRefinementFitness_
                 << " \n "
                 << "\033[0m";
       firstRefinement_ = false;
+    }
+
+    if (isNewValueSetMapper_ && registrationFitness_ > params_.scanMatcher_.minRefinementFitness_) {
+      std::cout << "\033[31m"
+                << " Open3d SLAM Overlap: " << registrationFitness_ << " / " << params_.scanMatcher_.minRefinementFitness_ << ". "
+                << " Not sufficent. Give another initial guess please."
+                << "\033[0m"
+                << " \n ";
     }
 
     const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
@@ -387,7 +396,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     if (params_.isPrintTimingStatistics_) {
       std::cout << " Scan2Map Registration: "
                 << "\033[92m" << timeElapsed << " msec \n "
-                << "\033[0m";
+                << "\033[0m"
+                << " \n ";
     }
 
     //}else{
@@ -411,13 +421,20 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   */
 
   // Pass the calculated transform to o3d transform.
-  Transform correctedTransform_o3d;
-  correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
+  Transform correctedTransform_o3d = Transform::Identity();
+
+  if ((!params_.isUseInitialMap_) || (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) || (isNewValueSetMapper_)) {
+    std::cout << "Registering 2." << std::endl;
+    correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
+  } else {
+    // correctedTransform_o3d.matrix() = transformReadingToReferenceInitialGuess.matrix().cast<double>();
+    correctedTransform_o3d = mapToRangeSensorEstimate;
+  }
 
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
-  if (isNewValueSetMapper_) {
+  if ((isNewValueSetMapper_)) {
     if (isTimeValid(timestamp)) {
       initTime_ = timestamp;
     }
@@ -426,8 +443,12 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
               << "Setting initial value for the map to range sensor transform. ONLY expected at the start-up."
               << "\033[0m"
               << "\n";
-    mapToRangeSensorPrev_ = mapToRangeSensor_;
+
+    mapToRangeSensorEstimate = mapToRangeSensor_;
+    // mapToRangeSensorPrev_ = mapToRangeSensor_;
+    mapToRangeSensorBuffer_.clear();
     mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
+    bestGuessBuffer_.clear();
     bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
     isNewValueSetMapper_ = false;
     isIgnoreOdometryPrediction_ = true;
@@ -530,6 +551,99 @@ void Mapper::checkTransformChainingAndPrintResult(bool isCheckTransformChainingA
     std::cout << "gt computed:  " << asString(start * mapMotion) << "\n";
     std::cout << "est        : " << asString(start * odomMotion) << "\n\n";*/
   }
+}
+
+pointmatcher_ros::PmTfParameters Mapper::scan2mapRegistrationLargeBasin(
+    const std::shared_ptr<open3d_conversions::PmStampedPointCloud>& croppedCloud,
+    const pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess) {
+  pointmatcher_ros::PmTfParameters newTransform = transformReadingToReferenceInitialGuess;
+  if (attemptedLargeBasin_) {
+    return newTransform;
+  }
+
+  attemptedLargeBasin_ = true;
+
+  for (float angle = 0; std::abs(angle) < 20; angle = angle + 1) {
+    // Extra angle
+    Eigen::Matrix3f rotationMatrix = Eigen::AngleAxisf(angle * M_PI / 180, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+
+    // An identity 4x4 matrix of floats
+    Eigen::Matrix4f homMatrix = Eigen::Matrix4f::Identity();
+
+    // Set the rotation part of the matrix to the rotationMatrix
+    homMatrix.block<3, 3>(0, 0) = rotationMatrix;
+
+    pointmatcher_ros::PmTfParameters augmentedGuess = transformReadingToReferenceInitialGuess.matrix() * homMatrix;
+    newTransform = scan2mapRegistrationWrapper(croppedCloud, augmentedGuess);
+    if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
+      // The used angle is console output
+      std::cout << "Successfull Delta angle: " << angle << std::endl;
+
+      // the fitness it
+      std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+
+      break;
+    }
+
+    std::cout << "Failed Delta Used angle: " << angle << std::endl;
+    std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+
+    // FOR NEGATIVE ANGLE
+    // Extra angle
+    Eigen::Matrix3f negrotationMatrix = Eigen::AngleAxisf(-angle * M_PI / 180, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+
+    // An identity 4x4 matrix of floats
+    Eigen::Matrix4f neghomMatrix = Eigen::Matrix4f::Identity();
+
+    // Set the rotation part of the matrix to the rotationMatrix
+    neghomMatrix.block<3, 3>(0, 0) = negrotationMatrix;
+    pointmatcher_ros::PmTfParameters negaugmentedGuess = transformReadingToReferenceInitialGuess.matrix() * neghomMatrix;
+    newTransform = scan2mapRegistrationWrapper(croppedCloud, negaugmentedGuess);
+
+    if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
+      // The used angle is console output
+      std::cout << "Successfull Delta Angle: " << -angle << std::endl;
+
+      // the fitness it
+      std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+
+      break;
+    }
+
+    std::cout << "Failed Used Delta angle: " << -angle << std::endl;
+    std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+  }
+
+  if (registrationFitness_ > params_.scanMatcher_.minRefinementFitness_) {
+    std::cout << "\033[31m"
+              << " Couldn't Find a feasible solution. Give another initial guess please."
+              << "\033[0m"
+              << " \n ";
+  }
+  return newTransform;
+}
+
+pointmatcher_ros::PmTfParameters Mapper::scan2mapRegistrationWrapper(
+    const std::shared_ptr<open3d_conversions::PmStampedPointCloud>& croppedCloud,
+    const pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess) {
+  pointmatcher_ros::PmTfParameters correctedTransform;
+
+  {
+    std::lock_guard<std::mutex> lck(mapManipulationMutex_);
+
+    // We are explicitly setting the reference cloud above. Hence the empty placeholder.
+    open3d_conversions::PmStampedPointCloud emptyPlaceholder;
+    correctedTransform =
+        icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
+    registrationFitness_ = icp_.getResidualError();
+  }
+
+  // Registering fitness is
+  std::cout << "Registration Fitness: "
+            << "\033[92m" << registrationFitness_ << " \n"
+            << "\033[0m";
+
+  return correctedTransform;
 }
 
 } /* namespace o3d_slam */

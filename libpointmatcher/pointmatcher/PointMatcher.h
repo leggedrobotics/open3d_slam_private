@@ -968,6 +968,9 @@ struct PointMatcher
 		
 		Matrix ceresEigVect_ = Matrix::Zero(6,6);
 
+		T residualErr_ = 0.0f;
+		const T& getResidualError() const { return residualErr_;}
+
 		//! Return the latest outlier weights for the reading point cloud.
 		const OutlierWeights& getOutlierWeights() const { return outlierWeights; }
 
