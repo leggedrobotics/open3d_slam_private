@@ -598,6 +598,31 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   outCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
   outBag.write("/registered_cloud", toRos(std::get<1>(cloudTimePair)), outCloud);
 
+  // Convert geometry_msgs::PoseStamped to geometry_msgs::TransformStamped
+  geometry_msgs::TransformStamped transformStamped;
+  transformStamped.header.stamp = poseStamped.header.stamp;
+  transformStamped.header.frame_id = slam_->frames_.mapFrame;
+  transformStamped.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
+  transformStamped.transform.translation.x = poseStamped.pose.position.x;
+  transformStamped.transform.translation.y = poseStamped.pose.position.y;
+  transformStamped.transform.translation.z = poseStamped.pose.position.z;
+  transformStamped.transform.rotation = poseStamped.pose.orientation;
+
+  // Encapsulate geometry_msgs::TransformStamped into tf2_msgs/TFMessage
+  tf2_msgs::TFMessage tfMessage;
+  tfMessage.transforms.push_back(transformStamped);
+
+  // Write the TFMessage to the bag
+  outBag.write("/tf", toRos(std::get<1>(cloudTimePair)), tfMessage);
+
+  PointCloud& transformedCloud = std::get<0>(cloudTimePair);
+
+  transformedCloud.Transform(std::get<2>(cloudTimePair).matrix());
+  sensor_msgs::PointCloud2 transformedRosCloud;
+  open3d_conversions::open3dToRos(transformedCloud, transformedRosCloud, slam_->frames_.rangeSensorFrame);
+  transformedRosCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
+  outBag.write("/transformed_registered_cloud", toRos(std::get<1>(cloudTimePair)), transformedRosCloud);
+
   const ros::WallTime arbitrarySleep{ros::WallTime::now() + ros::WallDuration(slam_->relativeSleepDuration_)};
   ros::WallTime::sleepUntil(arbitrarySleep);
 

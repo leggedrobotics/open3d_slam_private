@@ -166,10 +166,10 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
       tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
 
       // odomPose_transformed.position=odomPose.position;
-      odomPose_transformed.pose.orientation.w = 1.0;
-      odomPose_transformed.pose.orientation.z = 0.0;
-      odomPose_transformed.pose.orientation.y = 0.0;
-      odomPose_transformed.pose.orientation.x = 0.0;
+      // odomPose_transformed.pose.orientation.w = 1.0;
+      // odomPose_transformed.pose.orientation.z = 0.0;
+      // odomPose_transformed.pose.orientation.y = 0.0;
+      // odomPose_transformed.pose.orientation.x = 0.0;
       ROS_INFO("Initial Transform is set. Nice. The rotation is enforced to be identity.");
 
       // std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << "
