@@ -48,11 +48,11 @@ ceresDegeneracyAnalysis:
     regularizationWeight: 500.0 # you need to set  .0  as double
 
 degeneracyAwareness:
-  OptimizedEqualityConstraints:
-    enoughInformationThreshold: 250   #new 250  300
-    insufficientInformationThreshold: 180  #new 180 150
-    point2NormalMinimalAlignmentAngleThreshold: 80
-    point2NormalStrongAlignmentAngleThreshold: 45
+  #OptimizedEqualityConstraints:
+  #  enoughInformationThreshold: 250   #new 250  300
+  #  insufficientInformationThreshold: 180  #new 180 150
+  #  point2NormalMinimalAlignmentAngleThreshold: 80
+  #  point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 250   ##       RUMLANG GICIK     
   #  enoughInformationThreshold: 180  # was 150 17 sept when was 250 it crasahed. investigate
@@ -81,7 +81,7 @@ degeneracyAwareness:
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 8
 
-  #None:
+  None:
 
 transformationCheckers:
   - DifferentialTransformationChecker:

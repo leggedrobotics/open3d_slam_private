@@ -38,7 +38,7 @@ SlamMapInitializer::~SlamMapInitializer() {
 void SlamMapInitializer::initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped& msg) {
   Eigen::Isometry3d init_transform;
   tf::poseMsgToEigen(msg.pose.pose, init_transform);
-  std::cout << "Initial Pose \n" << asString(init_transform) << std::endl;
+  // std::cout << "Initial Pose \n" << asString(init_transform) << std::endl;
   slamPtr_->setInitialTransform(init_transform.matrix());
 }
 bool SlamMapInitializer::initSlamCallback(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
