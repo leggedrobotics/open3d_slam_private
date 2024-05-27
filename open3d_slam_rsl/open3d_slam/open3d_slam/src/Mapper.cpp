@@ -369,7 +369,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       correctedTransform = scan2mapRegistrationLargeBasin(croppedCloud, transformReadingToReferenceInitialGuess);
 
     } else {
-      std::cout << "Registering." << std::endl;
+      // std::cout << "Registering." << std::endl;
       correctedTransform = scan2mapRegistrationWrapper(croppedCloud, transformReadingToReferenceInitialGuess);
     }
 
@@ -380,6 +380,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
                 << " \n "
                 << "\033[0m";
       firstRefinement_ = false;
+      isNewValueSetMapper_ = false;
+      mapToRangeSensorEstimate.matrix() = transformReadingToReferenceInitialGuess.matrix().cast<double>();
     }
 
     if (isNewValueSetMapper_ && registrationFitness_ > params_.scanMatcher_.minRefinementFitness_) {
@@ -388,6 +390,25 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
                 << " Not sufficent. Give another initial guess please."
                 << "\033[0m"
                 << " \n ";
+
+      if (isTimeValid(timestamp)) {
+        initTime_ = timestamp;
+      }
+
+      std::cout << "\033[92m"
+                << "Setting initial value for the map to range sensor transform. ONLY expected at the start-up."
+                << "\033[0m"
+                << "\n";
+
+      mapToRangeSensorEstimate = mapToRangeSensor_;
+      mapToRangeSensorPrev_ = mapToRangeSensor_;
+      mapToRangeSensorBuffer_.clear();
+      mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
+      bestGuessBuffer_.clear();
+      bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
+      isNewValueSetMapper_ = false;
+      isIgnoreOdometryPrediction_ = true;
+      return true;
     }
 
     const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
@@ -424,7 +445,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   Transform correctedTransform_o3d = Transform::Identity();
 
   if ((!params_.isUseInitialMap_) || (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) || (isNewValueSetMapper_)) {
-    std::cout << "Registering 2." << std::endl;
+    // std::cout << "Registering 2." << std::endl;
     correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
   } else {
     // correctedTransform_o3d.matrix() = transformReadingToReferenceInitialGuess.matrix().cast<double>();
@@ -434,7 +455,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
-  if ((isNewValueSetMapper_)) {
+  /*if ( ( (isNewValueSetMapper_) && firstRefinement_))  {
     if (isTimeValid(timestamp)) {
       initTime_ = timestamp;
     }
@@ -445,7 +466,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
               << "\n";
 
     mapToRangeSensorEstimate = mapToRangeSensor_;
-    // mapToRangeSensorPrev_ = mapToRangeSensor_;
+    mapToRangeSensorPrev_ = mapToRangeSensor_;
     mapToRangeSensorBuffer_.clear();
     mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
     bestGuessBuffer_.clear();
@@ -453,7 +474,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     isNewValueSetMapper_ = false;
     isIgnoreOdometryPrediction_ = true;
     return true;
-  }
+  }*/
 
   // Pass to placeholders variables
   preProcessedScan_ = *processed.match_;
@@ -555,63 +576,102 @@ void Mapper::checkTransformChainingAndPrintResult(bool isCheckTransformChainingA
 
 pointmatcher_ros::PmTfParameters Mapper::scan2mapRegistrationLargeBasin(
     const std::shared_ptr<open3d_conversions::PmStampedPointCloud>& croppedCloud,
-    const pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess) {
+    pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess) {
   pointmatcher_ros::PmTfParameters newTransform = transformReadingToReferenceInitialGuess;
   if (attemptedLargeBasin_) {
+    std::cout << "Already attempted large basin. Returning." << std::endl;
     return newTransform;
   }
 
   attemptedLargeBasin_ = true;
 
-  for (float angle = 0; std::abs(angle) < 20; angle = angle + 1) {
-    // Extra angle
-    Eigen::Matrix3f rotationMatrix = Eigen::AngleAxisf(angle * M_PI / 180, Eigen::Vector3f::UnitZ()).toRotationMatrix();
-
-    // An identity 4x4 matrix of floats
-    Eigen::Matrix4f homMatrix = Eigen::Matrix4f::Identity();
-
-    // Set the rotation part of the matrix to the rotationMatrix
-    homMatrix.block<3, 3>(0, 0) = rotationMatrix;
-
-    pointmatcher_ros::PmTfParameters augmentedGuess = transformReadingToReferenceInitialGuess.matrix() * homMatrix;
-    newTransform = scan2mapRegistrationWrapper(croppedCloud, augmentedGuess);
+  for (float anglex = 0; anglex < 2.0; anglex = anglex + 0.5) {
     if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
-      // The used angle is console output
-      std::cout << "Successfull Delta angle: " << angle << std::endl;
-
-      // the fitness it
-      std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
-
+      std::cout << "Exitting anglex. Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
       break;
     }
 
-    std::cout << "Failed Delta Used angle: " << angle << std::endl;
-    std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+    for (float angley = 0; angley < 2.0; angley = angley + 0.5) {
+      if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
+        std::cout << "Exitting angley. Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
 
-    // FOR NEGATIVE ANGLE
-    // Extra angle
-    Eigen::Matrix3f negrotationMatrix = Eigen::AngleAxisf(-angle * M_PI / 180, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+        break;
+      }
 
-    // An identity 4x4 matrix of floats
-    Eigen::Matrix4f neghomMatrix = Eigen::Matrix4f::Identity();
+      for (float angle = 0; angle < 10.0; angle = angle + 5.0) {
+        // Extra angle
+        Eigen::Matrix3f rotationMatrix = Eigen::AngleAxisf(angle * M_PI / 180, Eigen::Vector3f::UnitZ()).toRotationMatrix();
 
-    // Set the rotation part of the matrix to the rotationMatrix
-    neghomMatrix.block<3, 3>(0, 0) = negrotationMatrix;
-    pointmatcher_ros::PmTfParameters negaugmentedGuess = transformReadingToReferenceInitialGuess.matrix() * neghomMatrix;
-    newTransform = scan2mapRegistrationWrapper(croppedCloud, negaugmentedGuess);
+        // An identity 4x4 matrix of floats
+        Eigen::Matrix4f homMatrix = Eigen::Matrix4f::Identity();
 
-    if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
-      // The used angle is console output
-      std::cout << "Successfull Delta Angle: " << -angle << std::endl;
+        // Set the rotation part of the matrix to the rotationMatrix
+        // homMatrix.block<3, 3>(0, 0) = rotationMatrix;
 
-      // the fitness it
-      std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+        // Set the translation part of the matrix to a random value selected between -1 and 1 meters in x and y.
+        // std::random_device rd;
+        // std::mt19937 gen(rd());
+        // std::uniform_real_distribution<float> dis(-0.5, 0.5);
+        homMatrix(0, 3) = anglex;  // x translation
+        homMatrix(1, 3) = angley;  // y translation
 
-      break;
+        pointmatcher_ros::PmTfParameters augmentedGuess = transformReadingToReferenceInitialGuess.matrix() * homMatrix;
+        newTransform = scan2mapRegistrationWrapper(croppedCloud, augmentedGuess);
+        if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
+          // The used angle is console output
+
+          // The augmented initial guess is:
+          // std::cout << "augmentedGuess.matrix(): " << augmentedGuess.matrix() << std::endl;
+
+          std::cout << "Successfull Delta angle: " << angle << std::endl;
+          std::cout << "Successfull Delta X: " << anglex << std::endl;
+          std::cout << "Successfull Delta Y: " << angley << std::endl;
+
+          transformReadingToReferenceInitialGuess = augmentedGuess;
+
+          // the fitness it
+          std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+
+          return newTransform;
+        }
+
+        // std::cout << "Failed Delta Used angle: " << angle << std::endl;
+        // std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+
+        // FOR NEGATIVE ANGLE
+        // Extra angle
+        Eigen::Matrix3f negrotationMatrix = Eigen::AngleAxisf(-angle * M_PI / 180, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+
+        // An identity 4x4 matrix of floats
+        Eigen::Matrix4f neghomMatrix = Eigen::Matrix4f::Identity();
+
+        // Set the rotation part of the matrix to the rotationMatrix
+        // neghomMatrix.block<3, 3>(0, 0) = negrotationMatrix;
+        neghomMatrix(0, 3) = -anglex;  // x translation
+        neghomMatrix(1, 3) = -angley;  // y translation
+
+        pointmatcher_ros::PmTfParameters negaugmentedGuess = transformReadingToReferenceInitialGuess.matrix() * neghomMatrix;
+        newTransform = scan2mapRegistrationWrapper(croppedCloud, negaugmentedGuess);
+
+        if (registrationFitness_ < params_.scanMatcher_.minRefinementFitness_) {
+          // std::cout << "negaugmentedGuess.matrix(): " << negaugmentedGuess.matrix() << std::endl;
+          // The used angle is console output
+          std::cout << "Successfull Delta Angle: " << -angle << std::endl;
+          std::cout << "Successfull Delta X: " << -anglex << std::endl;
+          std::cout << "Successfull Delta Y: " << -angley << std::endl;
+
+          transformReadingToReferenceInitialGuess = negaugmentedGuess;
+
+          // the fitness it
+          std::cout << "Exitting angle. Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+
+          return newTransform;
+        }
+
+        // std::cout << "Failed Used Delta angle: " << -angle << std::endl;
+        std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
+      }
     }
-
-    std::cout << "Failed Used Delta angle: " << -angle << std::endl;
-    std::cout << "Registration Fitness (Lower better): " << registrationFitness_ << std::endl;
   }
 
   if (registrationFitness_ > params_.scanMatcher_.minRefinementFitness_) {
@@ -639,9 +699,9 @@ pointmatcher_ros::PmTfParameters Mapper::scan2mapRegistrationWrapper(
   }
 
   // Registering fitness is
-  std::cout << "Registration Fitness: "
-            << "\033[92m" << registrationFitness_ << " \n"
-            << "\033[0m";
+  // std::cout << "Registration Fitness: "
+  //          << "\033[92m" << registrationFitness_ << " \n"
+  //          << "\033[0m";
 
   return correctedTransform;
 }

@@ -17,7 +17,7 @@
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar_depth_camera/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in external odometry frame` -->
@@ -37,9 +37,9 @@
   <!--   /zed2i/zed_node/odom  -->
   <!--   /state_estimator/odometry  -->
   <!--   /state_estimator/odometry  -->
-  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/graph_msf/est_odometry_odom_imu2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
-  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
   <!-- Common Options:  -->
   <!--   /state_estimator/pose_in_odom   -->

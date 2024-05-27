@@ -63,7 +63,7 @@ class Mapper {
 
   pointmatcher_ros::PmTfParameters scan2mapRegistrationLargeBasin(
       const std::shared_ptr<open3d_conversions::PmStampedPointCloud>& croppedCloud,
-      const pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess);
+      pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess);
 
   // This is re-initialized in the constructor as well as by a setter.
   Transform calibration_ = Transform::Identity();
