@@ -197,6 +197,24 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     std::cerr << "\n\n !!!!! MAPPER WARNING: Measurements came out of order!!!! \n\n";
     std::cerr << "Using the previously calculated odometry motion to propagate measurement. \n";
 
+    int64_t uts_timestamp = toUniversal(timestamp);
+    int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    std::cout << " timestamp: "
+              << "\033[92m" << ns_since_unix_epoch << " \n"
+              << "\033[0m";
+
+    int64_t uts_timestamp_prev = toUniversal(lastMeasurementTimestamp_);
+    int64_t ns_since_unix_epoch_prev = (uts_timestamp_prev - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    std::cout << " lastMeasurementTimestamp_: "
+              << "\033[92m" << ns_since_unix_epoch_prev << " \n"
+              << "\033[0m";
+
+    int64_t diff_millisecond_since_unix_epoch = (ns_since_unix_epoch - ns_since_unix_epoch_prev) / 1000000ll;
+
+    std::cout << " diff_millisecond_since_unix_epoch: "
+              << "\033[92m" << diff_millisecond_since_unix_epoch << " \n"
+              << "\033[0m";
+
     // Latest arbitrary time:
     Time arbitraryLatestTime = odomToRangeSensorBuffer_.latest_time();
 

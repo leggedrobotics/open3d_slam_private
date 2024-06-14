@@ -35,13 +35,15 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
           std::cout << " CURRENT DISABLED " << std::endl<< localEig << std::endl;
         }else{
           std::cout << " Degeneracy bound added " << std::endl<< localEig << std::endl;
-          float realWeight = std::pow(degenOptions.regularizationWeight_, 2);
+          //float realWeight = std::pow(degenOptions.regularizationWeight_, 2);
+          float realWeight = degenOptions.regularizationWeight_;
 
           if (realWeight > 0.0001)
           {
             std::cout << " Regularization Weight: " << degenOptions.regularizationWeight_ << std::endl;
+            std::cout << " Real Regularization Weight: " << realWeight << std::endl;
             DegeneracyCost* error_termDegen = new DegeneracyCost(localEig, degenOptions.regularizationWeight_);
-            ceres::LossFunction* data_loss = new ceres::ScaledLoss(nullptr, realWeight, ceres::TAKE_OWNERSHIP);
+            ceres::LossFunction* data_loss = new ceres::ScaledLoss(new ceres::TrivialLoss(), realWeight, ceres::TAKE_OWNERSHIP);
             problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<DegeneracyCost, 1, 3, 3>(error_termDegen), data_loss,
                                         translation_.data(), angleAxis_.data());
           }

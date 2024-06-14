@@ -18,7 +18,7 @@
   <!--        /lidar/point_cloud  -->
   <!--        /point_cloud_filter/lidar/point_cloud_filtered -->
   <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/lidar/point_cloud"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/> <!-- /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of base in the external odometry frame` -->
@@ -68,7 +68,7 @@
 
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="true"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/ready_to_play_good_test_mitholz_tunnel.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
+  <arg name="rosbag_filepath" default="/home/tutuna/Music/yanqing_forest/big_mission/mergedBags.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="false"/>
   <arg name="republish_tf_topic" default="false"/>
   <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/> <!-- /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->

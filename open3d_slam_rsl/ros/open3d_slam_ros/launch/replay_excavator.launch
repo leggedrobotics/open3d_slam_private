@@ -35,7 +35,7 @@
   <arg name="async_pose_topic" default="/Odometry"/> <!-- /Odometry /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
   <arg name="relative_sleep_duration" default="0.0"/>
   <arg name="replay_start_time_as_second" default="75.0"/> <!--  35  75 for tunnel-->
-  <arg name="replay_end_time_as_second" default="150.0"/> <!-- 110 5170 for tunnel -->
+  <arg name="replay_end_time_as_second" default="130.0"/> <!-- 110 5170 for tunnel -->
   <arg name="use_sim_time" default="true"/>
   <arg name="assumed_external_odometry_tracked_frame" default="body"/> <!-- imu_box_link for julian exca zed2i_base_link This is used to find the transformation to the "tracked_sensor_frame" -->
   <arg name="export_imu_data" default="false"/> <!-- This is used to export the IMU data from the rosbag. Also sleeps 10s. -->

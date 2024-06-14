@@ -622,7 +622,7 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
                     postAugmentedA.col(j++) = augmentedA.col(i);
                 }
             }
-
+            //std::cout << "augmentedA:\n" << augmentedA << "\n\n";
             //std::cout << "postAugmentedA:\n" << postAugmentedA << "\n\n";
             
             //Eigen::Matrix<float, -1, 6> myL =  augmentedA.block(A.rows(), 0, A.rows() + numberOfConstraints, A.cols()).template cast<float>();
@@ -702,7 +702,13 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
             }else
             {
                 //std::cout << "Fixed Regularization Weight: " << localizabilityParametersForErrorMinimization.regularizationWeight_ << std::endl;
-                postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * localizabilityParametersForErrorMinimization.regularizationWeight_; //; lcurveOptimizer->getOptimalRegularizationWeight();
+                T realWeight = std::pow(localizabilityParametersForErrorMinimization.regularizationWeight_, 2);
+                //T realWeight = localizabilityParametersForErrorMinimization.regularizationWeight_;
+                std::cout << "realWeight: " << realWeight << std::endl;
+                std::cout << "Before postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
+                postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * realWeight; //; lcurveOptimizer->getOptimalRegularizationWeight();
+                std::cout << "postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
+            
             }
             
 
@@ -784,11 +790,16 @@ void generateRegularizedOptimizationProblem(Matrix& augmentedA,
         if (inRotationSubpace)
         {
             // 0 to 5  indeces are full. 6 already starts on the new line.
-
+            Vector temp = Vector::Zero(3);
+            temp = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(index);
             for (Eigen::Index b = 0; b < 3; b++)
             {
-                augmentedA.row(sizeOfTheProblem + constraintCounter).col(b) =
-                    localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.row(b).col(index);
+                augmentedA.row(sizeOfTheProblem + constraintCounter).col(b) << temp[b];
+
+                // augmentedA.row(sizeOfTheProblem + constraintCounter).col(b) =
+                //     localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.row(b).col(index);
+
+                   
             }
 
 
@@ -804,13 +815,22 @@ void generateRegularizedOptimizationProblem(Matrix& augmentedA,
         }
         else{
             // Place the eigenvector to the optimization hessian. Since hessian is symmetric positive definite, we place it symmetrically as well.
-
+            Vector temp = Vector::Zero(3);
+            temp = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.col(index - translationIndexOffset);
             for (Eigen::Index b = 0; b < 3; b++)
             {
 
-                augmentedA.row(sizeOfTheProblem + constraintCounter).col(b+translationIndexOffset) =
-                        localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.row(b+translationIndexOffset).col(
-                            index - translationIndexOffset);
+                //augmentedA.row(sizeOfTheProblem + constraintCounter).tail(3) = temp.tail(3);
+                augmentedA.row(sizeOfTheProblem + constraintCounter).col(b+translationIndexOffset) << temp[b];
+
+                // augmentedA.row(sizeOfTheProblem + constraintCounter).col(b+translationIndexOffset) =
+                //         localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.row(b+translationIndexOffset).col(
+                //             index - translationIndexOffset);
+
+
+                //std::cout << "val: " << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.row(b+translationIndexOffset).col(
+                //            index - translationIndexOffset) << std::endl;
+
             }
 
             // Append the constraint value.
