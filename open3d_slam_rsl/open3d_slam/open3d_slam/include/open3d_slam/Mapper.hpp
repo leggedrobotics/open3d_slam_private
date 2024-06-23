@@ -57,6 +57,7 @@ class Mapper {
 
   void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
+  void correctGravityOfTheEstimate(Transform& transformRobotToMap);
 
   // This is re-initialized in the constructor as well as by a setter.
   Transform calibration_ = Transform::Identity();

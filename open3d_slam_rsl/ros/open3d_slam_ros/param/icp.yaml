@@ -15,8 +15,10 @@ matcher:
     epsilon: 0.01       # 0.01
 
 outlierFilters:
-#  - MaxDistOutlierFilter:
-#     maxDist: 1.0
+  - RobustOutlierFilter:
+      robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
+      scaleEstimator: mad    #std, mad, berg
+      tuning: 1.0
   - TrimmedDistOutlierFilter:
      ratio: 0.90         # 0.9
   - SurfaceNormalOutlierFilter:

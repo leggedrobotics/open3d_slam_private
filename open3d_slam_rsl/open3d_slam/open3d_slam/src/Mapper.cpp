@@ -243,6 +243,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   checkTransformChainingAndPrintResult(isCheckTransformChainingAndPrintResult);
 
   Transform mapToRangeSensorEstimate = mapToRangeSensorPrev_;
+  correctGravityOfTheEstimate(mapToRangeSensorEstimate);
 
   // This is where we prepare the scan2map initial guess.
   if (isOdomOkay && !isNewValueSetMapper_ && !isIgnoreOdometryPrediction_) {
@@ -258,9 +259,9 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
     // Apply the calculated odometry motion to the previous scan2map refined pose.
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
-
-    if (odometryMotion.translation().norm() == 0.0) {
-      std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. "
+    Transform eyes = Transform::Identity();
+    if ((odometryMotion.matrix() == eyes.matrix())) {
+      std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY IDENTITY. "
                 << "\033[92m" << asString(odometryMotion) << " \n"
                 << "\033[0m";
     }
@@ -414,6 +415,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   Transform correctedTransform_o3d;
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
 
+  // correctGravityOfTheEstimate(correctedTransform_o3d);
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
@@ -516,6 +518,111 @@ Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {
 
   return cloud;
 }
+
+// // Write me a function names "correctGravityOfTheEstimate" that takes in a transform and corrects the gravity of the estimate using the
+// last odometry from the buffer.
+void Mapper::correctGravityOfTheEstimate(Transform& transformRobotToMap) {
+  // Assuming gravity is along the positive Z direction in the odometry frame
+  Eigen::Vector3d odometryZAxis = (odometryMotionMemory_.rotation() * Eigen::Vector3d::UnitZ());
+
+  // Check for invalid odometry Z-axis (e.g., zero length)
+  if (odometryZAxis.norm() < 1e-6) {
+    std::cerr << "Odometry Z-axis is invalid." << std::endl;
+    return;
+  }
+
+  // Normalize the odometry Z-axis
+  odometryZAxis.normalize();
+
+  // Compute the robot's Z-axis in the map frame
+  Eigen::Vector3d robotZAxis = transformRobotToMap.rotation() * Eigen::Vector3d::UnitZ();
+
+  // Check for invalid robot Z-axis (e.g., zero length)
+  if (robotZAxis.norm() < 1e-6) {
+    std::cerr << "Robot Z-axis is invalid." << std::endl;
+    return;
+  }
+
+  // Normalize the robot Z-axis
+  robotZAxis.normalize();
+
+  // Compute the alignment rotation
+  Eigen::Quaterniond rotationToAlignZ;
+  rotationToAlignZ.setFromTwoVectors(robotZAxis, odometryZAxis);
+
+  // Apply the alignment rotation to the robot-to-map transformation
+  Eigen::Isometry3d alignedTransformRobotToMap = transformRobotToMap;
+  alignedTransformRobotToMap.linear() = (rotationToAlignZ * Eigen::Quaterniond(transformRobotToMap.linear())).toRotationMatrix();
+
+  // Ensure the resulting rotation is normalized
+  alignedTransformRobotToMap.linear() = Eigen::Quaterniond(alignedTransformRobotToMap.linear()).normalized().toRotationMatrix();
+
+  Eigen::Isometry3d diff = Eigen::Isometry3d::Identity();
+
+  diff.matrix() = transformRobotToMap.matrix().inverse() * alignedTransformRobotToMap.matrix();
+
+  // std::cout << "Initial guess was corrected by:" << std::endl << diff.matrix() << std::endl;
+
+  // Diff as roll pitch yaw
+  Eigen::Vector3d diffRPY = diff.linear().eulerAngles(0, 1, 2);
+
+  // print the angles
+  // std::cout << "Diff as roll pitch yaw: " << diffRPY.transpose() << std::endl;
+
+  // Update the input transformation with the aligned transformation
+  transformRobotToMap = alignedTransformRobotToMap;
+}
+
+// void Mapper::correctGravityOfTheEstimate(Transform& transformRobotToMap) {
+//   // Get the transformation from odometry to robot from a buffer.
+
+//   Time arbitraryLatestTime = odomToRangeSensorBuffer_.latest_time();
+
+//   bool isOdomOkay = odomToRangeSensorBuffer_.has(arbitraryLatestTime);
+//   if (!isOdomOkay) {
+//     std::cerr << "WARNING: Cant correct Gravity no odometry.! \n";
+//   }
+
+//   const Transform T_RO = getTransform(arbitraryLatestTime, odomToRangeSensorBuffer_) * calibration_.inverse();
+
+//   /*Eigen::Isometry3d T_RO;
+//   if (!this->odometryToRobotBuffer_.getTransform(T_RO, transformRobotToMap.stamp_)) {
+//     std::cout <<  "Failed to get transform from odometry to robot from buffer." << std::endl;
+//     return false;
+//   }*/
+
+//   // The robot to map transformation is already in the input parameter.
+//   Eigen::Isometry3d T_MR = Eigen::Isometry3d::Identity();
+//   T_MR.matrix() = transformRobotToMap.matrix().inverse();
+
+//   // Compute the odometry to map transformation.
+//   Eigen::Isometry3d T_MO = T_MR * T_RO;
+
+//   // Normalize the rotation part of the transformation.
+//   T_MO.linear() = Eigen::Quaterniond(T_MO.linear()).normalized().toRotationMatrix();
+
+//   // Compute the current gravity direction.
+//   Eigen::Vector3d O_gravDir = Eigen::Vector3d::UnitZ();
+//   Eigen::Vector3d M_gravDir = T_MO.linear() * O_gravDir;
+//   M_gravDir.normalize();
+
+//   // Compute the alignment rotation.
+//   Eigen::Quaterniond A_gAlign;
+//   A_gAlign.setFromTwoVectors(M_gravDir, O_gravDir);
+
+//   // Change the orientation of the robot frame such that gravity is aligned.
+//   Eigen::Isometry3d T_MR_gAligned = Eigen::Isometry3d::Identity();
+//   T_MR_gAligned.translation() = T_MR.translation();
+//   T_MR_gAligned.linear() = (A_gAlign * Eigen::Quaterniond(T_MR.linear())).normalized().toRotationMatrix();
+
+//   // Sanity output.
+//   // std::cout << "Gravity direction in map frame before alignment:" << std::endl << M_gravDir.transpose() << std::endl;
+//   // std::cout << "Gravity direction in map frame after alignment:" << std::endl
+//   //           << (T_MR_gAligned.linear() * (T_RO.linear() * O_gravDir)).normalized().transpose() << std::endl;
+
+//   // Update the input transform with the aligned transform.
+//   transformRobotToMap.matrix() = T_MR_gAligned.matrix().inverse();
+// }
 
 void Mapper::checkTransformChainingAndPrintResult(bool isCheckTransformChainingAndPrintResult) const {
   if (isCheckTransformChainingAndPrintResult && odomToRangeSensorBuffer_.size() > 70 && mapToRangeSensorBuffer_.size() > 70) {
