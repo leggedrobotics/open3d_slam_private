@@ -140,9 +140,13 @@ void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform
 }
 
 bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time& timestamp) const {
-  if (!(params_.odometry_.useOdometryTopic_) || odometry_->odomToRangeSensorBuffer_.has(timestamp)) {
-    std::cout << "WARNING: you are trying to add an odometry pose to the buffer, but the buffer already has it! \n";
-    std::cout << "The timestamp is: " << toSecondsSinceFirstMeasurement(timestamp) << std::endl;
+  // if (!(params_.odometry_.useOdometryTopic_) || odometry_->odomToRangeSensorBuffer_.has(timestamp)) {
+  //   std::cout << "WARNING: you are trying to add an odometry pose to the buffer, but the buffer already has it! \n";
+  //   std::cout << "The timestamp is: " << toSecondsSinceFirstMeasurement(timestamp) << std::endl;
+  //   return false;
+  // }
+
+  if (!(isUsingOdometryTopic())) {
     return false;
   }
 
@@ -1065,8 +1069,13 @@ void SlamWrapper::updateSubmapsAndTrajectory() {
 
   // loop closing constraints are built such that the source node is always the ne being transformed
   // hence the source node should be the one whose transform we should apply
-  assert_gt(latestLoopClosureConstraint.sourceSubmapIdx_, latestLoopClosureConstraint.targetSubmapIdx_,
-            "Wrapper ros, update submaps and trajectory: ");
+  // assert_gt(latestLoopClosureConstraint.sourceSubmapIdx_, latestLoopClosureConstraint.targetSubmapIdx_,
+  //           "Wrapper ros, update submaps and trajectory: ");
+
+  if (latestLoopClosureConstraint.sourceSubmapIdx_ <= latestLoopClosureConstraint.targetSubmapIdx_) {
+    return;
+  }
+
   const auto dT = optimizedTransformations.at(latestLoopClosureConstraint.sourceSubmapIdx_);
 
   std::cout << "Transforming the pose buffer with the delta T from submap " << latestLoopClosureConstraint.sourceSubmapIdx_

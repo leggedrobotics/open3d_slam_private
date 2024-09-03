@@ -20,6 +20,7 @@ struct TimestampedTransform {
 };
 
 TimestampedTransform interpolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& time);
+TimestampedTransform extrapolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& future_time);
 
 Transform makeTransform(const Eigen::Vector3d& p, const Eigen::Quaterniond& q);
 

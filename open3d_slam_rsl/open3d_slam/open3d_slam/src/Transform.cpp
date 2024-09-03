@@ -66,6 +66,49 @@ TimestampedTransform interpolate(const TimestampedTransform& start, const Timest
   return TimestampedTransform{time, transform};
 }
 
+TimestampedTransform extrapolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& future_time) {
+  if (start.time_ > end.time_) {
+    std::cerr << "Error: Start time is greater than end time.\n";
+    throw std::runtime_error("transform extrapolate:: start time is greater than end time");
+  }
+
+  // Calculate the time difference between start and end
+  const double duration = toSeconds(end.time_ - start.time_);
+  if (duration <= 0) {
+    std::cerr << "Error: Invalid time duration between start and end.\n";
+    throw std::runtime_error("transform extrapolate:: invalid time duration between start and end");
+  }
+
+  // Calculate the velocities
+  const Eigen::Vector3d start_translation = start.transform_.translation();
+  const Eigen::Vector3d end_translation = end.transform_.translation();
+  const Eigen::Vector3d translation_velocity = (end_translation - start_translation) / duration;
+
+  const Eigen::Quaterniond start_rotation(start.transform_.rotation());
+  const Eigen::Quaterniond end_rotation(end.transform_.rotation());
+  const Eigen::Quaterniond rotation_diff = end_rotation * start_rotation.inverse();
+  const Eigen::AngleAxisd rotation_velocity(rotation_diff);
+
+  // Calculate the time difference to the future time
+  const double future_duration = toSeconds(future_time - end.time_);
+  if (future_duration < 0) {
+    // std::cerr << "Error: Future time is before the end time.\n";
+    // throw std::runtime_error("transform extrapolate:: future time is before end time");
+
+    return end;
+  }
+
+  // Extrapolate the translation and rotation
+  const Eigen::Vector3d future_translation = end_translation + translation_velocity * future_duration;
+  const Eigen::Quaterniond future_rotation =
+      end_rotation * Eigen::Quaterniond(Eigen::AngleAxisd(rotation_velocity.angle() * future_duration, rotation_velocity.axis()));
+
+  Transform future_transform(future_rotation);
+  future_transform.translation() = future_translation;
+
+  return TimestampedTransform{future_time, future_transform};
+}
+
 Transform makeTransform(const Eigen::Vector3d& p, const Eigen::Quaterniond& q) {
   Transform transform(q);
   transform.translation() = p;

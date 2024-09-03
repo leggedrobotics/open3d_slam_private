@@ -62,6 +62,8 @@ class TransformInterpolationBuffer {
   const TimestampedTransform& latest_measurement(int offsetFromLastElement = 0) const;
   TimestampedTransform& latest_measurement(int offsetFromLastElement = 0);
 
+  const TimestampedTransform& latest_offseted_measurement(int offsetFromLastElement) const;
+
   void printTimesCurrentlyInBuffer() const;
 
   void applyToAllElementsInTimeInterval(const Transform& t, const Time& begin, const Time& end);

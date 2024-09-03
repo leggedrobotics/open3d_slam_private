@@ -83,6 +83,13 @@ const TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int
   return *lastM;
 }
 
+const TimestampedTransform& TransformInterpolationBuffer::latest_offseted_measurement(int offsetFromLastElement) const {
+  if (empty()) {
+    throw std::runtime_error("TransformInterpolationBuffer:: latest_measurement: Empty buffer");
+  }
+  return *(std::prev(transforms_.end(), offsetFromLastElement + 1));
+}
+
 TimestampedTransform& TransformInterpolationBuffer::latest_measurement(int offsetFromLastElement /*=0*/) {
   if (empty()) {
     throw std::runtime_error("TransformInterpolationBuffer:: latest_measurement: Empty buffer");
@@ -94,6 +101,11 @@ bool TransformInterpolationBuffer::has(const Time& time) const {
   if (transforms_.empty()) {
     return false;
   }
+
+  if (std::abs(toSecondsSinceFirstMeasurement(time) - toSecondsSinceFirstMeasurement(latest_time())) < 0.05) {
+    return true;
+  }
+
   return earliest_time() <= time && time <= latest_time();
 }
 
@@ -181,14 +193,34 @@ void TransformInterpolationBuffer::printTimesCurrentlyInBuffer() const {
 
 Transform getTransform(const Time& time, const TransformInterpolationBuffer& buffer) {
   if (time < buffer.earliest_time()) {
-    std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the past, this should not happen \n";
+    if (toSecondsSinceFirstMeasurement(buffer.earliest_time()) > 1.0) {
+      std::cout << "TransformInterpolationBuffer:: you are trying to get a transform that is in the past, this should not happen \n";
+    }
     return buffer.lookup(buffer.earliest_time());
   }
-  if (time > buffer.latest_time()) {
+  if (time > buffer.latest_measurement().time_) {
+    /*
     std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the future, this should not happen \n";
-    return buffer.lookup(buffer.latest_time());
+
+    // Time
+
+    std::cerr << "Time: " << toSecondsSinceFirstMeasurement(time) << std::endl;
+    std::cerr << "latest_time: " << toSecondsSinceFirstMeasurement(buffer.latest_time()) << std::endl;
+    std::cerr << "latest_measurement time: " << toSecondsSinceFirstMeasurement(buffer.latest_measurement().time_) << std::endl;
+    std::cerr << "start_time: " << toSecondsSinceFirstMeasurement(buffer.latest_offseted_measurement(2).time_) << std::endl;
+
+    // Time
+    std::cerr << "Future Time: " << toSecondsSinceFirstMeasurement(time) << std::endl;
+    std::cerr << "start_time: " << toSecondsSinceFirstMeasurement(buffer.latest_offseted_measurement(2).time_) << std::endl;
+    std::cerr << "end time: " << toSecondsSinceFirstMeasurement(buffer.latest_measurement().time_) << std::endl;
+    */
+
+    auto futureTransform = extrapolate(buffer.latest_offseted_measurement(2), buffer.latest_measurement(), time);
+
+    return futureTransform.transform_;
+
+    // return buffer.lookup(buffer.latest_time());
   }
   return buffer.lookup(time);
 }
-
 }  // namespace o3d_slam
