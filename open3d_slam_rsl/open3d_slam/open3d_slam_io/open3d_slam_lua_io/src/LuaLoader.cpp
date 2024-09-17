@@ -393,6 +393,9 @@ void LuaLoader::loadParameters(const DictPtr dict, Eigen::Isometry3d *T) {
 	loadDoubleIfKeyDefined(dict, "roll", &roll);
 	loadDoubleIfKeyDefined(dict, "pitch", &pitch);
 	loadDoubleIfKeyDefined(dict, "yaw", &yaw);
+	roll *= kDegToRad;
+	pitch *= kDegToRad;
+	yaw *= kDegToRad;
 	const Eigen::Quaterniond q = fromRPY(roll, pitch, yaw).normalized();
 	retVal = makeTransform(Eigen::Vector3d::Zero(), q);
 
