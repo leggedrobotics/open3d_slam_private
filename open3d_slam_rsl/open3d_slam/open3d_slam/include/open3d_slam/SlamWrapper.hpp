@@ -154,6 +154,8 @@ class SlamWrapper {
   // Initialize the frames struct, accessible through the slamWrapper object.
   Frames frames_;
 
+  SlamParameters params_;
+
  private:
   void checkIfOptimizedGraphAvailable();
   void odometryWorker();
@@ -180,7 +182,7 @@ class SlamWrapper {
   ThreadSafeBuffer<TimestampedSubmapId> loopClosureCandidates_;
 
   // parameters
-  SlamParameters params_;
+
   //	MapperParameters mapperParams_;
   //	OdometryParameters odometryParams_;
   //	VisualizationParameters visualizationParameters_;

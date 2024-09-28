@@ -30,6 +30,7 @@
 
 #include <std_srvs/Empty.h>
 
+#include "open3d_slam/croppers.hpp"
 #include "open3d_slam_ros/DataProcessorRos.hpp"
 
 namespace o3d_slam {
@@ -154,6 +155,8 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   ros::Duration timeDiff_;
   rosbag::Bag outBag;
+
+  std::shared_ptr<CroppingVolume> postCropper_;
 
   geometry_msgs::TransformStamped baseToLidarTransform_;
   std::string odometryHeader_{"/bestHeaderThereis"};

@@ -38,22 +38,35 @@ void ConstantVelocityMotionCompensation::estimateLinearAndAngularVelocity(const 
     return;
   }
 
-  if (buffer_.latest_time() < timestamp) {
-    const auto finish = buffer_.latest_measurement();
-    const auto start = buffer_.latest_measurement(offset);
+  // if (buffer_.latest_time() < timestamp) {
+  const auto finish = buffer_.latest_measurement();
+  const auto start = buffer_.latest_offseted_measurement(offset);
 
-    const Transform dT = start.transform_.inverse() * finish.transform_;
-    const double dt = toSeconds(finish.time_ - start.time_);
-    assert_gt(dt, 0.0, "dt should be > 0!!!!");
+  const Transform dT = start.transform_.inverse() * finish.transform_;
+  const double dt = toSeconds(finish.time_ - start.time_);
+  // assert_gt(dt, 0.0, "dt should be > 0!!!!");
+
+  if ((dt < 0.0) || (dt == 0.0)) {
+    //			std::cout << "dt " << dt << std::endl;
+    // const Eigen::Vector3d linearVelocitySensor = Eigen::Vector3d::Zero();
+    // const Eigen::Vector3d angularVelocitySensor = Eigen::Vector3d::Zero();
+    // *linearVelocity = linearVelocitySensor;
+    // *angularVelocity = angularVelocitySensor;
+    std::cout << "WARNING: dt " << dt << std::endl;
+  } else {
     //			std::cout << "dt " << dt << std::endl;
     const Eigen::Vector3d linearVelocitySensor = dT.translation() / (dt + 1e-6);
     const Eigen::Vector3d angularVelocitySensor = toRPY(Eigen::Quaterniond(dT.rotation()).normalized()) / (dt + 1e-6);
     *linearVelocity = linearVelocitySensor;
     *angularVelocity = angularVelocitySensor;
-  } else {
-    // todo handle this case!!!!!
-    std::cout << "Warning buffer has this already!!!! \n";
   }
+
+  // } else {
+  //   // todo handle this case!!!!!
+  //   std::cout << "#################################" << std::endl;
+  //   std::cout << "Warning buffer has this already!!!! \n";
+  //   std::cout << "#################################" << std::endl;
+  // }
 }
 
 void ConstantVelocityMotionCompensation::setParameters(const ConstantVelocityMotionCompensationParameters& p) {

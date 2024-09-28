@@ -20,14 +20,15 @@ params.mapper_localizer.is_attempt_loop_closures = false
 params.mapper_localizer.is_print_timing_information = false
 params.mapper_localizer.map_merge_delay_in_seconds = 10.0
 
-params.mapper_localizer.is_carving_enabled = false
-params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.15
+params.mapper_localizer.is_carving_enabled = true
+params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.08
 params.mapper_localizer.scan_to_map_registration.scan_processing.downsampling_ratio = 1.0
-params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_max = 100.0 --We don't want to crop the scans.
+params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_max = 15.0 --We don't want to crop the scans.
+params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_min = 2.0 --We don't want to crop the scans.
 params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2.0 --NOT USED RIGHT NOW
 params.mapper_localizer.scan_to_map_registration.icp.knn = 10 --Currently only used for surface normal estimation.
 params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 2.0 --Currently only used for surface normal estimation.
-params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 1.5 --sec
+params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_period = 0.1 --sec
 
 --MAP_INITIALIZER
 params.map_initializer.pcd_file_package = "open3d_slam_ros"
@@ -41,16 +42,21 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 120.0
 
 --SUBMAP
-params.submap.submap_size = 15.0 --meters
+params.submap.submap_size = 25.0 --meters
 params.submap.adjacency_based_revisiting_min_fitness = 0.5
 params.submap.min_seconds_between_feature_computation = 5.0
 params.submap.max_num_points = 7500000
 
+params.motion_compensation.is_undistort_scan = false
+params.motion_compensation.is_spinning_clockwise = true
+params.motion_compensation.scan_duration = 0.1
+params.motion_compensation.num_poses_vel_estimation = 3
+
 --MAP_BUILDER
-params.map_builder.map_voxel_size = 0.15
-params.map_builder.scan_cropping.cropping_radius_max = 100.0
+params.map_builder.map_voxel_size = 0.08
+params.map_builder.scan_cropping.cropping_radius_max = 30.0
 params.map_builder.scan_cropping.cropping_radius_min = 2.0
-params.map_builder.space_carving.carve_space_every_n_scans = 10
+params.map_builder.space_carving.carve_space_every_n_scans = 1
 
 --DENSE_MAP_BUILDER
 params.dense_map_builder.map_voxel_size = 0.05

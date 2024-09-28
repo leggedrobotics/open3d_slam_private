@@ -102,7 +102,7 @@ bool TransformInterpolationBuffer::has(const Time& time) const {
     return false;
   }
 
-  if (std::abs(toSecondsSinceFirstMeasurement(time) - toSecondsSinceFirstMeasurement(latest_time())) < 0.05) {
+  if (std::abs(toSecondsSinceFirstMeasurement(time) - toSecondsSinceFirstMeasurement(latest_time())) < 0.2) {
     return true;
   }
 

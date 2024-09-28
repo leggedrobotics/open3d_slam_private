@@ -6,9 +6,9 @@
   <arg name="launch_prefix" default="" doc="gdb -ex run --args"/>
   <arg name="launch_rviz" default="true"/>
   <arg name="launch_tf" default="false"/>
-  <arg name="load_params" default="y" doc="y , n"/>
+  <arg name="load_params" default="n" doc="y , n"/>
   <arg name="robot_description_file_path" default="/home/tutuna/Downloads/celeri_tunnel/2024-05-29-01-49-52_anymal-d020-lpc.yaml"/>
-  <arg name="cloud_topic" default="/gt_box/hesai/points"/> <!-- /hesai/pandar /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
+  <arg name="cloud_topic" default="/lidar_points"/> <!-- /hesai/pandar /point_cloud_filter/lidar_depth_camera/point_cloud_filtered  /lidar/point_cloud -->
   
    <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
   <arg name="odometry_topic" default="/gt_box/cpt7/odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
@@ -22,15 +22,15 @@
   
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="true"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/box_ws/src/grand_tour_box/box_drivers/novatel_oem7_driver/src/novatel_oem7_driver/data/hesai_combine_bags/toMerge/mega.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
+  <arg name="rosbag_filepath" default="/home/ttuna/mit_ws/src/large_scale_gaussian_splatting/dataset/Rosbag/outdoor.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="false"/>
   <arg name="republish_tf_topic" default="true"/>
-  <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/> <!-- /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
+  <arg name="async_pose_topic" default="/zed2i/zed_node/odom"/> <!-- /state_estimator/pose_in_odom  /state_estimator/odometry /zed2i/zed_node/odom -->
   <arg name="relative_sleep_duration" default="0.0"/>
   <arg name="replay_start_time_as_second" default="0.0"/>
   <arg name="replay_end_time_as_second" default="800.0"/>
   <arg name="use_sim_time" default="true"/>
-  <arg name="assumed_external_odometry_tracked_frame" default="box_base"/> <!-- zed2i_base_link This is used to find the transformation to the "tracked_sensor_frame" -->
+  <arg name="assumed_external_odometry_tracked_frame" default="base_link"/> <!-- base_link This is used to find the transformation to the "tracked_sensor_frame" -->
   <arg name="export_imu_data" default="false"/> <!-- This is used to export the IMU data from the rosbag. Also sleeps 10s. -->
 
   <!-- ROS Param -->

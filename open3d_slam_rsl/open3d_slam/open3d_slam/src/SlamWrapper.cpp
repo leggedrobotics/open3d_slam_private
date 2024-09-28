@@ -539,7 +539,15 @@ void SlamWrapper::offlineOdometryWorker() {
 
   const TimestampedPointCloud measurement = odometryBuffer_.pop();
 
-  const auto isOdomOkay = odometry_->addRangeScan(measurement.cloud_, measurement.time_);
+  bool isOdomOkay;
+
+  if (params_.motionCompensation_.isUndistortInputCloud_) {
+    auto undistortedCloud = motionCompensationOdom_->undistortInputPointCloud(measurement.cloud_, measurement.time_);
+    isOdomOkay = odometry_->addRangeScan(*undistortedCloud, measurement.time_);
+
+  } else {
+    isOdomOkay = odometry_->addRangeScan(measurement.cloud_, measurement.time_);
+  }
 
   if (!isOdomOkay) {
     std::cerr << "WARNING: odometry has failed!!!! \n";
@@ -779,7 +787,18 @@ void SlamWrapper::offlineMappingWorker() {
     return;
   }
 
-  TimestampedPointCloud measurement = mappingBuffer_.pop();
+  TimestampedPointCloud measurement;  // = mappingBuffer_.pop();
+
+  if (params_.motionCompensation_.isUndistortInputCloud_) {
+    const TimestampedPointCloud raw = mappingBuffer_.pop();
+    // TODO why double undistortion?
+    auto undistortedCloud = motionCompensationMap_->undistortInputPointCloud(raw.cloud_, raw.time_);
+    measurement.time_ = raw.time_;
+    measurement.cloud_ = *undistortedCloud;
+
+  } else {
+    measurement = mappingBuffer_.pop();
+  }
 
   if (!odometry_->getBuffer().has(measurement.time_)) {
     std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
