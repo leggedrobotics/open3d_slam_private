@@ -399,7 +399,8 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
           } else if (messageInstance.getDataType() == "nav_msgs/Odometry") {
             nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
             if (message != nullptr) {
-              slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
+              // slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
+              slam_->frames_.assumed_external_odometry_tracked_frame = "box_base";
               ROS_WARN_STREAM(topic << " frame_id is set to: " << slam_->frames_.assumed_external_odometry_tracked_frame);
               break;
             }  // if
@@ -591,22 +592,22 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   if (isTimeValid(std::get<1>(cloudTimePair)) && !(std::get<0>(cloudTimePair).IsEmpty())) {
     postCropper_->setPose(Transform::Identity());
-    PointCloudPtr cropped = postCropper_->crop(std::get<0>(cloudTimePair));
+    // PointCloudPtr cropped = postCropper_->crop(std::get<0>(cloudTimePair));
 
-    // Print the size of cropped.
-    // std::cout << "BEFORE Cropped cloud size: " << cropped->points_.size() << std::endl;
+    // // Print the size of cropped.
+    // // std::cout << "BEFORE Cropped cloud size: " << cropped->points_.size() << std::endl;
 
-    auto presoze = cropped->points_.size();
+    // auto presoze = cropped->points_.size();
 
-    auto test1 = cropped->RemoveNonFinitePoints(true, true);
-    auto test = test1.RemoveRadiusOutliers(10, 0.5, false);
-    // cropped->RemoveStatisticalOutliers(20, 0.2);
+    // auto test1 = cropped->RemoveNonFinitePoints(true, true);
+    // auto test = test1.RemoveRadiusOutliers(10, 0.5, false);
+    // // cropped->RemoveStatisticalOutliers(20, 0.2);
 
-    std::cout << "Removed points: " << presoze - std::get<0>(test)->points_.size() << std::endl;
+    // std::cout << "Removed points: " << presoze - std::get<0>(test)->points_.size() << std::endl;
 
     // ROS_WARN_STREAM("Cloud time: " << lastHeader.stamp);
 
-    o3d_slam::publishCloud(*std::get<0>(test), slam_->frames_.rangeSensorFrame, lastHeader.stamp, registeredCloudPub_);
+    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, lastHeader.stamp, registeredCloudPub_);
     ros::spinOnce();
   } else {
     ROS_ERROR_STREAM("Cloud is empty or time is invalid. Skipping the cloud.");

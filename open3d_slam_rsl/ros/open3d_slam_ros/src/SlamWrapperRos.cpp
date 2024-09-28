@@ -244,7 +244,7 @@ void SlamWrapperRos::visualizationWorker() {
 
     const Time scanToMapTimestamp = latestScanToMapRefinementTimestamp_;
     if (isTimeValid(scanToMapTimestamp)) {
-      publishDenseMap(scanToMapTimestamp);
+      // publishDenseMap(scanToMapTimestamp);
       publishMaps(scanToMapTimestamp);
       // std::cout << "republish" << params_.mapper_.republishMap_ << std::endl;
       // std::cout << "initial" << params_.mapper_.isUseInitialMap_ << std::endl;

@@ -221,6 +221,9 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     const Transform odomToRangeSensor = getTransform(arbitraryLatestTime, odomToRangeSensorBuffer_) * calibration_.inverse();
     const Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
     Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
+
+    // Set the rotation of the 4X4 matrix to identity.
+    // odometryMotion.matrix().block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
     Transform backupTransform = mapToRangeSensorPrev_ * odometryMotion;
 
     // Pass to placeholders variables
@@ -254,29 +257,49 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
     // Calculate the motion between the two poses. This immediately allows us get rid of `drift` in the odometry.
     Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
+    // Set the translation to 0.0. This is a hack to prevent the odometry from drifting.
+    // odometryMotion.matrix().block<3, 1>(0, 3) = Eigen::Vector3d::Zero();
+
+    // odometryMotion.matrix().block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
     odometryMotionMemory_ = odometryMotion;
 
     // Apply the calculated odometry motion to the previous scan2map refined pose.
     mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
 
-    if (odometryMotion.translation().norm() == 0.0) {
-      std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. "
-                << "\033[92m" << asString(odometryMotion) << " \n"
-                << "\033[0m";
-    }
+    // if (odometryMotion.translation().norm() == 0.0) {
+    //   std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. "
+    //             << "\033[92m" << asString(odometryMotion) << " \n"
+    //             << "\033[0m";
+    // }
 
-    /*int64_t uts_timestamp = toUniversal(timestamp);
+    int64_t uts_timestamp = toUniversal(timestamp);
     int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    std::cout << " timestamp: " << "\033[92m" << ns_since_unix_epoch << " \n" << "\033[0m";
+    double ff = (double)ns_since_unix_epoch / 1000000000.0;
+    std::cout << " timestamp: "
+              << "\033[92m" << std::setprecision(15) << ff << " \n"
+              << "\033[0m";
 
     int64_t uts_timestamp_prev = toUniversal(lastMeasurementTimestamp_);
     int64_t ns_since_unix_epoch_prev = (uts_timestamp_prev - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    std::cout << " lastMeasurementTimestamp_: " << "\033[92m" << ns_since_unix_epoch_prev << " \n" << "\033[0m";
+    double fsf = (double)ns_since_unix_epoch_prev / 1000000000.0;
+    std::cout << " lastMeasurementTimestamp_: "
+              << "\033[92m" << std::setprecision(15) << fsf << " \n"
+              << "\033[0m";
 
-    std::cout << " odomToRangeSensor: " << "\033[92m" << asString(odomToRangeSensor) << " \n" << "\033[0m";
-    std::cout << " odomToRangeSensorPrev: " << "\033[92m" << asString(odomToRangeSensorPrev) << " \n" << "\033[0m";
-    std::cout << " odometryMotion: " << "\033[92m" << asString(odometryMotion) << " \n" << "\033[0m";
-    */
+    int64_t diff = (ns_since_unix_epoch - ns_since_unix_epoch_prev);
+    std::cout << " Time difference: "
+              << "\033[92m" << diff / 1000000 << " [ms] \n"
+              << "\033[0m";
+
+    std::cout << " odomToRangeSensor: "
+              << "\033[92m" << asString(odomToRangeSensor) << " \n"
+              << "\033[0m";
+    std::cout << " odomToRangeSensorPrev: "
+              << "\033[92m" << asString(odomToRangeSensorPrev) << " \n"
+              << "\033[0m";
+    std::cout << " odometryMotion: "
+              << "\033[92m" << asString(odometryMotion) << " \n"
+              << "\033[0m";
   }
 
   isIgnoreOdometryPrediction_ = false;

@@ -210,8 +210,15 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
   auto removedNans = removePointsWithNonFiniteValues(cloud);
   const TimestampedPointCloud timestampedCloud{timestamp, *removedNans};
 
+  int64_t uts_timestamp = toUniversal(timestamp);
+  int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+  double ff = (double)ns_since_unix_epoch / 1000000000.0;
+  std::cout << " scan time : "
+            << "\033[92m" << std::setprecision(15) << ff << " \n"
+            << "\033[0m";
+
   // Push measurement to the odometry buffer
-  // std::cout << "The scan time I am trying to add is: " <<  o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl ;
+  std::cout << "The scan time I am trying to add is: " << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl;
 
   odometryBuffer_.push(timestampedCloud);
   return true;
@@ -580,9 +587,17 @@ void SlamWrapper::unifiedWorkerOdom() {
 
     const TimestampedPointCloud measurement = odometryBuffer_.pop();
 
+    int64_t uts_timestamp = toUniversal(measurement.time_);
+    int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    double ff = (double)ns_since_unix_epoch / 1000000000.0;
+    std::cout << " unifiedWorkerOdom : "
+              << "\033[92m" << std::setprecision(15) << ff << " \n"
+              << "\033[0m";
+
     const auto isOdomOkay = odometry_->addRangeScan(measurement.cloud_, measurement.time_);
 
     if (!isOdomOkay) {
+      ROS_ERROR("WARNING: odometry has failed!!!!");
       std::cerr << "WARNING: odometry has failed!!!! \n";
       continue;
     }
@@ -602,7 +617,8 @@ void SlamWrapper::unifiedWorkerMap() {
   while (isRunWorkers_) {
     // Mapping worker start
     if (mappingBuffer_.empty()) {
-      checkIfOptimizedGraphAvailable();
+      // ROS_ERROR("Mapping buffer is empty! Waiting for the odometry worker to fill it up.");
+      // checkIfOptimizedGraphAvailable();
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
@@ -620,6 +636,13 @@ void SlamWrapper::unifiedWorkerMap() {
 
     // Get the active submap size.
     const size_t activeSubmapIdx = mapper_->getActiveSubmap().getId();
+
+    int64_t uts_timestamp = toUniversal(measurement_map.time_);
+    int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    double ff = (double)ns_since_unix_epoch / 1000000000.0;
+    std::cout << " unifiedWorkerMap : "
+              << "\033[92m" << std::setprecision(15) << ff << " \n"
+              << "\033[0m";
 
     // Entry point to the mapper. Also does the registration.
     const bool mappingResult = mapper_->addRangeMeasurement(measurement_map.cloud_, measurement_map.time_);

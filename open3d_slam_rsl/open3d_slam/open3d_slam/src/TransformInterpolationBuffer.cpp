@@ -215,7 +215,7 @@ Transform getTransform(const Time& time, const TransformInterpolationBuffer& buf
     std::cerr << "end time: " << toSecondsSinceFirstMeasurement(buffer.latest_measurement().time_) << std::endl;
     */
 
-    auto futureTransform = extrapolate(buffer.latest_offseted_measurement(2), buffer.latest_measurement(), time);
+    auto futureTransform = extrapolate(buffer.latest_offseted_measurement(10), buffer.latest_measurement(), time);
 
     return futureTransform.transform_;
 
