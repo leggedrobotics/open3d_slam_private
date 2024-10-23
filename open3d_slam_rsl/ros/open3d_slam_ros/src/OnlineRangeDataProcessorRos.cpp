@@ -509,9 +509,9 @@ void OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback(const geomet
   int64_t uts_timestamp = toUniversal(ttime);
   int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
   double ff = (double)ns_since_unix_epoch / 1000000000.0;
-  std::cout << " PoseStamped time : "
-            << "\033[92m" << std::setprecision(15) << ff << " \n"
-            << "\033[0m";
+  // std::cout << " PoseStamped time : "
+  //           << "\033[92m" << std::setprecision(15) << ff << " \n"
+  //           << "\033[0m";
 
   ROS_DEBUG_STREAM("Pose with covariance callback is called.");
 }

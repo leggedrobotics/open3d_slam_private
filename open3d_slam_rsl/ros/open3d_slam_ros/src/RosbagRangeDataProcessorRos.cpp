@@ -399,9 +399,13 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
           } else if (messageInstance.getDataType() == "nav_msgs/Odometry") {
             nav_msgs::Odometry::ConstPtr message = messageInstance.instantiate<nav_msgs::Odometry>();
             if (message != nullptr) {
-              // slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
-              slam_->frames_.assumed_external_odometry_tracked_frame = "box_base";
-              ROS_WARN_STREAM(topic << " frame_id is set to: " << slam_->frames_.assumed_external_odometry_tracked_frame);
+              if (message->child_frame_id == "") {
+                slam_->frames_.assumed_external_odometry_tracked_frame = "cpt7_imu";
+              } else {
+                slam_->frames_.assumed_external_odometry_tracked_frame = message->child_frame_id;
+              }
+
+              ROS_WARN_STREAM(topic << " Frame_id is set to: " << slam_->frames_.assumed_external_odometry_tracked_frame);
               break;
             }  // if
           } else {

@@ -26,7 +26,7 @@
   <!--   base   -->
   <!--   zed2i_base_link  -->
   <!--   imu_link   -->
-  <arg name="assumed_external_odometry_tracked_frame" default="box_base"/>
+  <arg name="assumed_external_odometry_tracked_frame" default="zed_base_link"/>
 
   <!-- Currently only used for attitude initialization -->
   <!-- Common Options:  -->
@@ -38,13 +38,13 @@
   <!--   /zed2i/zed_node/odom  -->
   <!--   /state_estimator/odometry  -->
   <!--   /state_estimator/odometry  -->
-  <arg name="odometry_topic" default="/gt_box/odometry2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/gt_box/zed2i/zed_node/odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
   <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   
   <!-- Common Options:  -->
   <!--   /state_estimator/pose_in_odom   -->
-  <arg name="pose_stamped_with_covariance_topic" default="/gt_box/gt_poses_novatel"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom2"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
   <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
@@ -133,6 +133,9 @@
     <!-- x y z qx qy qz qw frame_id child_frame_id  period_in_ms-->
     <node pkg="tf" type="static_transform_publisher" name="base_to_gps" args="0 0 0.4 0 0 0 base gps 10" />
   </group>
+
+  <node pkg="tf" type="static_transform_publisher" name="map3d_mapo3d_viz" args="0 0 0.0 0 3.14 0 map_o3d map_o3d_viz 10" />
+
 
 
 </launch>

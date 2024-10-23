@@ -10,15 +10,15 @@ referenceDataPointsFilters:
 
 matcher:
   KDTreeMatcher:
-    knn: 1              # 1
+    knn: 3              # 1
     maxDist: 0.5        # 0.5
     epsilon: 0.01       # 0.01
 
 outlierFilters:
-  # - RobustOutlierFilter:
-  #     robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
-  #     scaleEstimator: mad    #std, mad, berg
-  #     tuning: 1.0      # gm 4 too good, cauchy 1.0 while Trim is open
+  - RobustOutlierFilter:
+      robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
+      scaleEstimator: mad    #std, mad, berg
+      tuning: 1.0      # gm 4 too good, cauchy 1.0 while Trim is open
   - TrimmedDistOutlierFilter:
      ratio: 0.90         # 0.9
   - SurfaceNormalOutlierFilter:
