@@ -1150,10 +1150,10 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             if (isFirstMessage_ && isStaticTransformFound_) {
               nav_msgs::Odometry initialPose = odomPose_transformed;
 
-              // initialPose.pose.pose.orientation.w = 1.0;
-              // initialPose.pose.pose.orientation.z = 0.0;
-              // initialPose.pose.pose.orientation.y = 0.0;
-              // initialPose.pose.pose.orientation.x = 0.0;
+              initialPose.pose.pose.orientation.w = 1.0;
+              initialPose.pose.pose.orientation.z = 0.0;
+              initialPose.pose.pose.orientation.y = 0.0;
+              initialPose.pose.pose.orientation.x = 0.0;
               ROS_INFO("Initial Transform is set. Nice.");
               slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose.pose).matrix());
               isFirstMessage_ = false;

@@ -272,34 +272,34 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     //             << "\033[0m";
     // }
 
-    int64_t uts_timestamp = toUniversal(timestamp);
-    int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    double ff = (double)ns_since_unix_epoch / 1000000000.0;
-    std::cout << " timestamp: "
-              << "\033[92m" << std::setprecision(15) << ff << " \n"
-              << "\033[0m";
+    // int64_t uts_timestamp = toUniversal(timestamp);
+    // int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    // double ff = (double)ns_since_unix_epoch / 1000000000.0;
+    // std::cout << " timestamp: "
+    //           << "\033[92m" << std::setprecision(15) << ff << " \n"
+    //           << "\033[0m";
 
-    int64_t uts_timestamp_prev = toUniversal(lastMeasurementTimestamp_);
-    int64_t ns_since_unix_epoch_prev = (uts_timestamp_prev - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-    double fsf = (double)ns_since_unix_epoch_prev / 1000000000.0;
-    std::cout << " lastMeasurementTimestamp_: "
-              << "\033[92m" << std::setprecision(15) << fsf << " \n"
-              << "\033[0m";
+    // int64_t uts_timestamp_prev = toUniversal(lastMeasurementTimestamp_);
+    // int64_t ns_since_unix_epoch_prev = (uts_timestamp_prev - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+    // double fsf = (double)ns_since_unix_epoch_prev / 1000000000.0;
+    // std::cout << " lastMeasurementTimestamp_: "
+    //           << "\033[92m" << std::setprecision(15) << fsf << " \n"
+    //           << "\033[0m";
 
-    int64_t diff = (ns_since_unix_epoch - ns_since_unix_epoch_prev);
-    std::cout << " Time difference: "
-              << "\033[92m" << diff / 1000000 << " [ms] \n"
-              << "\033[0m";
+    // int64_t diff = (ns_since_unix_epoch - ns_since_unix_epoch_prev);
+    // std::cout << " Time difference: "
+    //           << "\033[92m" << diff / 1000000 << " [ms] \n"
+    //           << "\033[0m";
 
-    std::cout << " odomToRangeSensor: "
-              << "\033[92m" << asString(odomToRangeSensor) << " \n"
-              << "\033[0m";
-    std::cout << " odomToRangeSensorPrev: "
-              << "\033[92m" << asString(odomToRangeSensorPrev) << " \n"
-              << "\033[0m";
-    std::cout << " odometryMotion: "
-              << "\033[92m" << asString(odometryMotion) << " \n"
-              << "\033[0m";
+    // std::cout << " odomToRangeSensor: "
+    //           << "\033[92m" << asString(odomToRangeSensor) << " \n"
+    //           << "\033[0m";
+    // std::cout << " odomToRangeSensorPrev: "
+    //           << "\033[92m" << asString(odomToRangeSensorPrev) << " \n"
+    //           << "\033[0m";
+    // std::cout << " odometryMotion: "
+    //           << "\033[92m" << asString(odometryMotion) << " \n"
+    //           << "\033[0m";
   }
 
   isIgnoreOdometryPrediction_ = false;

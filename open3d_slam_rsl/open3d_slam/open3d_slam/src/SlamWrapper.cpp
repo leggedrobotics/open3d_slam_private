@@ -210,15 +210,15 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
   auto removedNans = removePointsWithNonFiniteValues(cloud);
   const TimestampedPointCloud timestampedCloud{timestamp, *removedNans};
 
-  int64_t uts_timestamp = toUniversal(timestamp);
-  int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
-  double ff = (double)ns_since_unix_epoch / 1000000000.0;
-  std::cout << " scan time : "
-            << "\033[92m" << std::setprecision(15) << ff << " \n"
-            << "\033[0m";
+  // int64_t uts_timestamp = toUniversal(timestamp);
+  // int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
+  // double ff = (double)ns_since_unix_epoch / 1000000000.0;
+  // std::cout << " scan time : "
+  //           << "\033[92m" << std::setprecision(15) << ff << " \n"
+  //           << "\033[0m";
 
-  // Push measurement to the odometry buffer
-  std::cout << "The scan time I am trying to add is: " << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl;
+  // // Push measurement to the odometry buffer
+  // std::cout << "The scan time I am trying to add is: " << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << std::endl;
 
   odometryBuffer_.push(timestampedCloud);
   return true;
