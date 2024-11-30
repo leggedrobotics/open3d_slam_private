@@ -89,9 +89,9 @@ degeneracyAwareness:
 
 transformationCheckers:
   - DifferentialTransformationChecker:
-      minDiffRotErr: 0.001    # 0.001
-      minDiffTransErr: 0.01   # 0.01
-      smoothLength: 3         # 3
+      minDiffRotErr: 0.0008    # 0.001
+      minDiffTransErr: 0.008   # 0.01
+      smoothLength: 5         # 3
   - CounterTransformationChecker:
       maxIterationCount: 30   # 30 
 #  - BoundTransformationChecker:

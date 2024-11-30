@@ -7,6 +7,12 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_package(PCL 1.10 EXACT REQUIRED PATHS /usr/include/pcl-1.10/
+  COMPONENTS
+    common
+    io
+)
+
 # Set catkin package dependencies
 set(CATKIN_PACKAGE_DEPENDENCIES
   eigen_conversions
@@ -28,11 +34,6 @@ find_package(catkin
     ${CATKIN_PACKAGE_DEPENDENCIES}
 )
 
-find_package(PCL 1.10 REQUIRED
-  COMPONENTS
-    common
-    io
-)
 
 # Catkin package macro
 catkin_package(

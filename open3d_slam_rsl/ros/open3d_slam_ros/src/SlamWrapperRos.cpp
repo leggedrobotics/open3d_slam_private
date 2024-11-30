@@ -10,6 +10,7 @@
 #include <open3d/Open3D.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 
 #include "open3d_conversions/open3d_conversions.h"
@@ -299,6 +300,22 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   folderPath_ = ros::package::getPath("open3d_slam_ros") + "/data/";
   mapSavingFolderPath_ = nh_->param<std::string>("map_saving_folder", folderPath_);
 
+  if (!mapSavingFolderPath_.empty() && mapSavingFolderPath_.back() != '/') {
+    mapSavingFolderPath_ += '/';
+  }
+
+  if (!std::filesystem::is_directory(mapSavingFolderPath_.c_str())) {
+    ROS_INFO_STREAM("\033[92m"
+                    << "Log directory didn't exist. Creating: " << mapSavingFolderPath_ << "\033[0m");
+
+    // Create directory
+    std::filesystem::create_directories(mapSavingFolderPath_);
+
+    // set the permissions of the newly created directory
+    std::filesystem::permissions(mapSavingFolderPath_, std::filesystem::perms::owner_all | std::filesystem::perms::group_all,
+                                 std::filesystem::perm_options::add);
+  }
+
   // Offline advanced parameters
   exportIMUdata_ = nh_->param<bool>("export_imu_data", false);
   useSyncedPoses_ = nh_->param<bool>("use_syncronized_poses_to_replay", false);
@@ -313,10 +330,14 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
 
   if (isOfflineReplay) {
-    ROS_INFO_STREAM("\033[92m"
-                    << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-    // ROS_INFO_STREAM("\033[92m" << "The tracked sensor frame and the expected cloud header frame is: " << frames_.rangeSensorFrame <<
-    // "\033[0m");
+    if (frames_.assumed_external_odometry_tracked_frame != "") {
+      ROS_INFO_STREAM("\033[92m"
+                      << "The assumed external odometry tracked frame is: " << frames_.assumed_external_odometry_tracked_frame
+                      << "\033[0m");
+    } else {
+      ROS_WARN_STREAM("The assumed external odometry tracked frame is not set. Will be read from header of the odometry message.");
+    }
+
     ROS_INFO_STREAM("Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
   }
 
