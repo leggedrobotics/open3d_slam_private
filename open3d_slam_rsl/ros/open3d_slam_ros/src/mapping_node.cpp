@@ -5,8 +5,8 @@
  *      Author: jelavice
  */
 #include <gflags/gflags.h>
-#include <signal.h>
 #include <open3d/Open3D.h>
+#include <signal.h>
 #include "open3d_slam/Parameters.hpp"
 #include "open3d_slam_lua_io/parameter_loaders.hpp"
 #include "open3d_slam_ros/SlamMapInitializer.hpp"
