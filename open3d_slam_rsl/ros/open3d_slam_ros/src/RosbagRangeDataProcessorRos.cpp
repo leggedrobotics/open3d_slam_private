@@ -348,8 +348,6 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   }
 
   ROS_INFO_STREAM("Successfully saved the files. Self terminating the node.");
-  ros::shutdown();
-  raise(SIGINT);
 
   return;
 }

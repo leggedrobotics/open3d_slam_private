@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <launch>
-
-  <!-- Arguments -->
-  <arg name="launch_rviz" default="false"/>
-
   <!-- Must be set by the user -->
-  <arg name="rosbag_filepath" default="/home/ttuna/Videos/dlio_verification/dlio_replayed.bag"/>
+  <arg name="rosbag_filepath" default="/home/ttuna/dlio_replayed.bag"/>
   <arg name="cloud_topic" default="/dlio/deskewed_point_cloud"/>
 
   <!-- /gt_box/inertial_explorer/odometry -->
@@ -19,7 +15,7 @@
   <arg name="map_saving_folder" default="$(find open3d_slam_ros)/maps/test"/>
 
   <arg name="replay_start_time_as_second" default="0.0"/>
-  <arg name="replay_end_time_as_second" default="50.0"/> <!-- Seconds into the bag  -->
+  <arg name="replay_end_time_as_second" default="5000.0"/> <!-- Seconds into the bag  -->
 
 
   <!--  YOU DONT NEED TO TOUCH REST -->
@@ -93,11 +89,5 @@
     <param name="rosbag_filepath" value="$(arg rosbag_filepath)"/>
     <param name="map_saving_folder" value="$(arg map_saving_folder)"/>
   </node>
-
-  <!-- Visualization -->
-  <include
-      file="$(find open3d_slam_ros)/launch/vis.launch"
-      if="$(arg launch_rviz)">
-  </include>
 
 </launch>
