@@ -31,9 +31,9 @@ public:
 
         // In 1 sentence: set the eigenvalue of the degenerate eigenvector to 0. Rest to 1/eigenvalue.
         
-        if ((sinv_external.diagonal().array() == 0.0).any())
+        if ((sinv_external.diagonal().array() == 0.000).any())
         {
-           numTruncated = (sinv_external.diagonal().array() == 0.0).count();
+           numTruncated = (sinv_external.diagonal().array() == 0.000).count();
 
             //
             //std::cout << "numTruncated: " << numTruncated << std::endl;
@@ -94,7 +94,10 @@ public:
                 --j;
             }
             
+        }else{
+            std::cout << "NO EIGENVALUES" << std::endl;
         }
+
         return *this;
     }
 
@@ -112,19 +115,36 @@ public:
             // Use the re-mapped singular values
 
             std::cout << "numTruncated: " << numTruncated << std::endl;
-            //std::cout << "Solve: " << std::endl << sinv.diagonal() << std::endl;
+            std::cout << "Solve: " << std::endl << sinv.diagonal() << std::endl;
 
             //    BOOST_AUTO(solverQR, A.householderQr());
             //x = solverQR.solve(b);
 
             //MatrixType cov = MatrixType::Identity(6,6);
             //MatrixType orj = MatrixType::Identity(6,6);
-            //orj = svd.matrixU() * sinv * svd.matrixV().transpose();
+            //orj = svd.matrixU() * sinv.diagonal().inverse() * svd.matrixV().transpose();
             //cov = orj.transpose() * orj;
 
-            //std::cout << "cov: " << std::endl << cov << std::endl;
+            //std::cout << "orj: " << std::endl << orj << std::endl;
+            
+            MatrixType tbsolved = MatrixType::Identity(6,6);
+            //MatrixType only_v = MatrixType::Identity(6,6);
 
-            out_x = svd.matrixV() * sinv * svd.matrixU().transpose() * b;
+            tbsolved = svd.matrixV() * sinv * svd.matrixU().transpose();
+            //only_v = svd.matrixV() * sinv * svd.matrixV().transpose();
+
+            // std::cout << "tbsolved INV: " << std::endl << tbsolved.inverse() << std::endl;
+            
+            // MatrixType UU = MatrixType::Identity(6,6);
+            // MatrixType VV = MatrixType::Identity(6,6);
+
+            // VV=svd.matrixV();
+            // UU=svd.matrixU();
+            
+            // std::cout << "svd.matrixV(): " << std::endl << VV << std::endl;
+            // std::cout << "svd.matrixU(): " << std::endl << UU << std::endl;
+
+            out_x = tbsolved * b;
         } else {
             out_x = svd.solve(b);
         }

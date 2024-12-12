@@ -281,13 +281,11 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
         break;
         case PointMatcher<T>::DegeneracyAwarenessMethod::kSolutionRemapping: {
 
-
-            if (localizabilityParametersForErrorMinimization.useTruncatedSVD)
-            {
-
-                const int numberOfConstraints = A.rows()
+            const int numberOfConstraints = A.rows()
                     - (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.sum()
                     + localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.sum());
+            if (localizabilityParametersForErrorMinimization.useTruncatedSVD)
+            {
 
                 if (numberOfConstraints == 0)
                 {
@@ -298,10 +296,12 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
                     TruncatedSVD<Matrix> tsvd;
                     //tsvd.setEigenValueThreshold(120);
                     //tsvd.compute(A);
+                    std::cout << "A: " << std::endl << A << std::endl;
                     tsvd.computeSVD(A);
                     tsvd.computeFromExistingSinv(localizabilityParametersForErrorMinimization.sinv_external_);
                     tsvd.solve(b, x);
                     //std::cout << "numTruncatedSingularValues: " << std::endl << tsvd.numTruncatedSingularValues() << std::endl;
+                    localizabilityParametersForErrorMinimization.constraintResidual_ = (A*x - b).tail(numberOfConstraints).norm();
                 }
 
             }else{
@@ -312,6 +312,8 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
                 // TODO Do we really need the copy here?
                 const Eigen::Matrix<T, 6, 1> deltaXcopy{ x };
                 x = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.solutionRemappingProjectionMatrix_ * deltaXcopy;
+
+                localizabilityParametersForErrorMinimization.constraintResidual_ = (A*x - b).tail(numberOfConstraints).norm();
             }
 
         }
@@ -430,7 +432,7 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
     int& totalNumberOfConstraints,
     const Matrix& A,
     const Vector& b,
-    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
+    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization)
 {
     const int numberOfConstraints = A.rows()
         - (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityXyz_.sum()
@@ -523,6 +525,8 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
         x.row(3) << xQPfloat(3);
         x.row(4) << xQPfloat(4);
         x.row(5) << xQPfloat(5);
+
+        localizabilityParametersForErrorMinimization.constraintResidual_ = (constraintMatrix.template cast<float>()*xQPfloat).tail(numberOfEqConstraints).norm();
     }
 }
 
@@ -702,8 +706,8 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
             }else
             {
                 //std::cout << "Fixed Regularization Weight: " << localizabilityParametersForErrorMinimization.regularizationWeight_ << std::endl;
-                T realWeight = std::pow(localizabilityParametersForErrorMinimization.regularizationWeight_, 2);
-                //T realWeight = localizabilityParametersForErrorMinimization.regularizationWeight_;
+                //T realWeight = std::pow(localizabilityParametersForErrorMinimization.regularizationWeight_, 2);
+                T realWeight = localizabilityParametersForErrorMinimization.regularizationWeight_;
                 std::cout << "realWeight: " << realWeight << std::endl;
                 std::cout << "Before postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
                 postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * realWeight; //; lcurveOptimizer->getOptimalRegularizationWeight();
@@ -753,9 +757,37 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
             //std::cout << std::setprecision(12) << "Augmentedb: " << std::endl << Augmentedb << std::endl;
 
             solvePossiblyUnderdeterminedLinearSystem<T>(postAugmentedA, Augmentedb, x, true);
+
+            std::cout << "postAugmentedA:" << std::endl;
+            std::cout << postAugmentedA << std::endl;
+            
+            std::cout << "x" << std::endl;
+            std::cout << x << std::endl;
+
+            std::cout << "Does Constraints satisfied?" << std::endl;
+            std::cout << postAugmentedA*x << std::endl;
+
+
+            localizabilityParametersForErrorMinimization.constraintResidual_ = (postAugmentedA*x - Augmentedb).tail(numberOfConstraints).norm();
+
+
         }else{
             solvePossiblyUnderdeterminedLinearSystem<T>(augmentedA, Augmentedb, x, false);
+            
+            std::cout << "augmentedA:" << std::endl;
+            std::cout << augmentedA << std::endl;
+            
+            std::cout << "x" << std::endl;
+            std::cout << x << std::endl;
+
+            std::cout << "Does Constraints satisfied?" << std::endl;
+            std::cout << augmentedA*x << std::endl;
+
+            localizabilityParametersForErrorMinimization.constraintResidual_ = (augmentedA*x - Augmentedb).tail(numberOfConstraints).norm();
+
         }
+
+
 
         for (Eigen::Index b = 0; b < A.rows(); b++)
         {

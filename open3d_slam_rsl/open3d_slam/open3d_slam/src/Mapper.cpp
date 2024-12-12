@@ -392,9 +392,24 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       deeperICPLogs_.totalICPtime = icp_.getTotalICPtime();
       deeperICPLogs_.localizationCategory = icp_.getLocalizationCategory();
       deeperICPLogs_.numberOfIterations = icp_.getTotalNumberOfIterations();
-      deeperICPLogs_.pointCloudOverlap_ = icp_.errorMinimizer->getOverlap();
-      deeperICPLogs_.residualError_ = icp_.errorMinimizer->getIterationWiseResidualErrors().back();
-      deeperICPLogs_.nbMatches_ = int(icp_.getIterationMatches().back());
+      // deeperICPLogs_.pointCloudOverlap_ = icp_.errorMinimizer->getOverlap();
+      // deeperICPLogs_.nbMatches_ = int(icp_.getIterationMatches().back());
+
+      if (icp_.getIterationMatches().size() > 0) {
+        std::cout << "getIterationMatches().back(): " << int(icp_.getIterationMatches().back()) << std::endl;
+
+        deeperICPLogs_.nbMatches_ = int(icp_.getIterationMatches().back());
+
+      } else {
+        deeperICPLogs_.nbMatches_ = 0;
+      }
+
+      if (icp_.errorMinimizer->getIterationWiseResidualErrors().size() > 0) {
+        deeperICPLogs_.residualError_ = icp_.errorMinimizer->getIterationWiseResidualErrors().back();
+      } else {
+        deeperICPLogs_.residualError_ = -1;
+      }
+
       deeperICPLogs_.time_ = timestamp;
     }
 

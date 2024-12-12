@@ -1,6 +1,8 @@
 # See https://github.com/anybotics/libpointmatcher/blob/master/doc/Datafilters.md
 
 readingDataPointsFilters:
+  # - CovarianceSamplingDataPointsFilter:
+  #     nbSample: 50000000
 #  - RandomSamplingDataPointsFilter:
 #      prob: 0.35
 #  - SimpleSensorNoiseDataPointsFilter:
@@ -40,17 +42,22 @@ printingDegeneracy:
   Enabled: # "Enabled" or "Disabled
 
 regularization:
-  Enabled: # "Enabled" or "Disabled
-    regularizationWeight: 200.0 #forest 10 equally bad 15 worse 20 better than (30) but different drift, 30 better than (40) but still bad 40 bad but not explode 50 explode 60 excellent 70 fuzzy  80 excellent  100 good, 10k low error.
+  Disabled: # "Enabled" or "Disabled
+    regularizationWeight: 440.0 #forest 10 equally bad 15 worse 20 better than (30) but different drift, 30 better than (40) but still bad 40 bad but not explode 50 explode 60 excellent 70 fuzzy  80 excellent  100 good, 10k low error.
     useLcurve: 0
 
 # Leave it enabled, just affects solRemap style
 forceXICPdetection:
   Enabled: # "Enabled" or "Disabled
 
+# Enables the RMS filtering by Petracek et al.
+enableRMSfiltering:
+  Disabled: # "Enabled" or "Disabled
+    rmsLambda: 0.0042 
+
 ceresDegeneracyAnalysis:
   CeresDegeneracyState:
-    isActive: 0 # "Enabled" or "Disabled
+    isActive: 1 # "Enabled" or "Disabled
     useSophusParametrization: 0
     useSophusAutoDiffParametrization: 0
     useAngleAxisParametrization: 1 # by default enabled
@@ -60,8 +67,8 @@ ceresDegeneracyAnalysis:
     useSymmetricPointToPlaneCost: 0
     useBoundConstraints: 1 # needs the detection either from SolRemap or xicp
     useSixDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH SOLUTION REMAPPING
-    useThreeDofRegularization: 1 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
-    regularizationWeight: 425.0 # you need to set  .0  as double
+    useThreeDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
+    regularizationWeight: 675.0 # you need to set  .0  as double
 
 degeneracyAwareness:
   #InequalityConstraints:
@@ -72,11 +79,11 @@ degeneracyAwareness:
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 0.0014
   #None:
-  OptimizedEqualityConstraints:
-    enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
-    insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
-    point2NormalMinimalAlignmentAngleThreshold: 60 # excavator 60 ELSE 80
-    point2NormalStrongAlignmentAngleThreshold: 45
+   OptimizedEqualityConstraints:
+     enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
+     insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
+     point2NormalMinimalAlignmentAngleThreshold: 60 # excavator 60 ELSE 80
+     point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 350   ##  STANDALONE 1650
   #  enoughInformationThreshold: 150  #  850

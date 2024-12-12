@@ -28,6 +28,7 @@ class PointCloudRegistrationCeres{
   Eigen::Affine3d transformation();
   Eigen::Affine3d transformationSophus();
   Eigen::Affine3d transformationSeparate();
+  float violation();
 
 
   Sophus::SE3d isoToSophusTurcan(const Eigen::Isometry3d& pose){

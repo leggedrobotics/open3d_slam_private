@@ -33,6 +33,7 @@
 
 #include <std_srvs/Empty.h>
 
+#include <rms/rms.h>
 #include "open3d_slam_ros/DataProcessorRos.hpp"
 
 namespace o3d_slam {
@@ -128,6 +129,10 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   geometry_msgs::Pose addUniformNoiseToPose(const geometry_msgs::Pose& original_pose, double position_noise_magnitude,
                                             double orientation_noise_magnitude);
 
+  geometry_msgs::Pose addNoiseToPose_with_mean(const geometry_msgs::Pose& original_pose, double position_noise_magnitude,
+                                               double orientation_noise_magnitude, double position_mean, double orientation_mean,
+                                               bool use_zero_mean);
+
   geometry_msgs::Pose motionBasedNoise(const geometry_msgs::Pose poseMsg, double transNoise, double directionalTransNoise,
                                        double rotationNoise);
   geometry_msgs::Pose matrix_to_pose_stamped(const Eigen::Matrix4d& matrix);
@@ -203,6 +208,11 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   std::ofstream file_localizability;
   std::ofstream file_stats;
+
+  // rms::RMS rms;
+  std::shared_ptr<rms::RMS> rms;
+  std::vector<float> rmsTimeVector_;
+  float rmsTiming_{0.0f};
 
   const std::unordered_map<int, std::vector<float>> arrowColors_ = {
       {0, {1, 1, 0.2, 1}},             // Yellow.

@@ -699,6 +699,8 @@ struct PointMatcher
 		bool useTruncatedSVD{false};
 		bool skipRegistration{false};
 
+		float constraintResidual_{0.0f};
+
 		Eigen::DiagonalMatrix<T, 6> sinv_external_;
 		//Eigen::Matrix<T, 6, 1> sinv_external_ = Eigen::Matrix<T, 6, 1>::Zero(6, 1); 
 
@@ -764,9 +766,12 @@ struct PointMatcher
 
 		bool enforceLocalizabilityMethod_{false};
 
+		bool isRMSenabled_{false};
+
 		// Enables weighted regularization.
 		bool enableStandardWeightRegularization_{false};
 
+		//float constraintResidual_{0.0f};
 		bool useLcurve_{ false };
 
     };
@@ -1032,6 +1037,16 @@ struct PointMatcher
 		T totalICPtime_{0.0f};
 		const T& getTotalICPtime() const { return totalICPtime_;}
 
+		bool rmsEnabled{false};
+		const bool& isRMSenabled() const { return rmsEnabled;}
+
+		T rmsLambda{-1.0f};
+		const T& getRMSlambda() const { return rmsLambda;}
+
+		T totalConstraintViolationSingle_;
+		VectorT totalConstraintViolation_;
+		const VectorT& getTotalConstraintViolation() const { return totalConstraintViolation_;}
+
 		VectorT iterationTimings_;
 		const VectorT& getIterationTimings() const { return iterationTimings_;}
 
@@ -1100,6 +1115,7 @@ struct PointMatcher
 		bool readRegularization(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 		bool readLocalizabilityPrint(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 		bool readEnforcedLocalizability(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
+		bool readRMSfilterng(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 
 		bool readCeresDegeneracyAnalysis(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc);
 	};

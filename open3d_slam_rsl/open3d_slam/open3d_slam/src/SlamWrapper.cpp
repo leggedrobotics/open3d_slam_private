@@ -143,6 +143,11 @@ bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time
   if (!(params_.odometry_.useOdometryTopic_) || odometry_->odomToRangeSensorBuffer_.has(timestamp)) {
     std::cout << "WARNING: you are trying to add an odometry pose to the buffer, but the buffer already has it! \n";
     std::cout << "The timestamp is: " << toSecondsSinceFirstMeasurement(timestamp) << std::endl;
+
+    // if (toSecondsSinceFirstMeasurement(timestamp) > 0.0) {
+    //   return false;
+    // }
+
     return false;
   }
 

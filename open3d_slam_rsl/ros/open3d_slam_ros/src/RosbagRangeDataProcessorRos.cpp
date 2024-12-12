@@ -33,6 +33,13 @@ void RosbagRangeDataProcessorRos::initialize() {
   rosbagFilename_ = nh_->param<std::string>("rosbag_filepath", "");
   ROS_INFO_STREAM("Reading from rosbag: " << rosbagFilename_);
 
+  if (slam_->isRMSenabled_) {
+    mrs_lib::ParamLoader param_loader(*nh_, "RMS");
+    rms = std::make_shared<rms::RMS>(param_loader);
+    rms->setLambda(slam_->rmsLambda_);
+    rms->setRMSVoxelSize(slam_->rmsVoxelSize_);
+  }
+
   // GNSS Handler
   mapEnuTransform_ = Eigen::Isometry3d::Identity();
   gnssHandlerPtr_ = std::make_shared<o3d_slam::GnssHandler>();
@@ -325,7 +332,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   }
 
   if (slam_->saveNoisedPrior_) {
-    std::string noisedoutBagPath_ = buildUpLogFilename("noised_prior", ".bag");
+    std::string noisedoutBagPath_ = buildUpLogFilename("very_noised_prior", ".bag");
     std::remove(noisedoutBagPath_.c_str());
     noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
   }
@@ -891,6 +898,14 @@ void RosbagRangeDataProcessorRos::generateSystemStatsFile() {
   auto& numberOfIterations = deeperICPLogs_.numberOfIterations;
   auto& motion = deeperICPLogs_.transform_;
 
+  if (slam_->isRMSenabled_) {
+    // int sum = std::accumulate(rmsTimeVector_.begin(), rmsTimeVector_.end(), 0);
+    // ROS_INFO_STREAM("\033[33m"
+    //                 << " RMS EXTRA AVG TIME: " << sum / rmsTimeVector_.size() << "\033[39m");
+    // totalICPtime_ = totalICPtime_ + sum / rmsTimeVector_.size();
+    totalICPtime_ = totalICPtime_ + rmsTiming_;
+  }
+
   file_stats << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << " " << numberOfIterations << " " << totalICPtime_ << " "
              << residualError_ << " " << motion.matrix().norm() << " " << nbMatches_ << std::endl;
 }
@@ -1445,8 +1460,22 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
         // ROS_ERROR_STREAM("message->height: " << message->height);
         // ROS_ERROR_STREAM("message->width: " << message->width);
 
-        // Add point cloud to buffer.
-        slamInputs->pointCloud_ = message;
+        if (slam_->isRMSenabled_) {
+          sensor_msgs::PointCloud2::Ptr rmsPointCloud = sensor_msgs::PointCloud2::Ptr(new sensor_msgs::PointCloud2);
+          *rmsPointCloud = *message;
+          const auto startTime__ = std::chrono::steady_clock::now();
+          rms->sample(rmsPointCloud);
+          const auto endTime__ = std::chrono::steady_clock::now();
+          rmsTiming_ = std::chrono::duration_cast<std::chrono::microseconds>(endTime__ - startTime__).count() / 1e3;
+
+          // ROS_ERROR_STREAM("rmsTiming: " << rmsTiming);
+
+          // rmsTimeVector_.push_back(rmsTiming);
+          // Add point cloud to buffer.
+          slamInputs->pointCloud_ = rmsPointCloud;
+        } else {
+          slamInputs->pointCloud_ = message;
+        }
 
         if (slamInputs->pointCloud_) {
           // Read the point cloud frame from the topic. Think whether having the option to change it makes sense.
@@ -1458,6 +1487,9 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             ROS_ERROR("Terminating the replayer node.");
             return false;
           }
+        } else {
+          isInvalidMessageInBag = true;
+          ROS_WARN("Invalid message found in ROS bag.");
         }
 
         if (!slam_->useSyncedPoses_) {
@@ -1498,6 +1530,20 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           if (message != nullptr) {
             geometry_msgs::PoseStamped odomPose;
             odomPose.pose = message->pose.pose;
+
+            // // This was used for initial experiments
+            // geometry_msgs::Pose noisy_pose = addNoiseToPose_with_mean(odomPose.pose, 0.05, 0.02, 0.05, 0.0, false);
+
+            // geometry_msgs::PoseStamped saveNoisedPose;
+            // saveNoisedPose.pose = noisy_pose;
+            // saveNoisedPose.header = message->header;
+
+            // ROS_INFO_STREAM("\033[92m"
+            //                 << "SAVING NOISED PRIOR"
+            //                 << "\033[0m");
+
+            // noisedoutBag.write("/very_noised_prior", message->header.stamp, saveNoisedPose);
+            // odomPose.pose = noisy_pose;
 
             geometry_msgs::PoseStamped odomPose_transformed;
             Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
@@ -1610,24 +1656,41 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
               isFirstMessage_ = false;
             }
 
-            if (slam_->asyncOdometryTopic_ == "/noised_prior") {
-              ROS_INFO_STREAM("\033[92m"
-                              << "You are working with a noised prior care."
-                              << "\033[0m");
-
-            } /*else {
-              geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose, 0.01, 0.005);  // Adjust noise magnitudes as needed
-              if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
-                ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
-                return false;
+            if ((slam_->asyncOdometryTopic_ == "/noised_prior") || (slam_->asyncOdometryTopic_ == "/very_noised_prior")) {
+              if ((slam_->asyncOdometryTopic_ == "/noised_prior")) {
+                ROS_INFO_STREAM_THROTTLE(1, "\033[92m"
+                                                << "You are working with a noised prior care."
+                                                << "\033[0m");
               }
 
-              geometry_msgs::PoseStamped saveNoisedPose;
-              saveNoisedPose.pose = noisy_pose;
-              saveNoisedPose.header = message->header;
+              if ((slam_->asyncOdometryTopic_ == "/very_noised_prior")) {
+                ROS_INFO_STREAM_THROTTLE(1, "\033[92m"
+                                                << "You are working with VERY HIGH noised prior care."
+                                                << "\033[0m");
+              }
 
-              noisedoutBag.write("/noised_prior", message->header.stamp, saveNoisedPose);
-            }*/
+            } else {
+              // // This was used for initial experiments
+              // geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose, 0.01, 0.005);  // Adjust noise magnitudes as needed
+
+              // This was used for initial experiments
+              // geometry_msgs::Pose noisy_pose = addNoiseToPose_with_mean(odomPose.pose, 0.01, 0.005, 0.05, 0.0, false);
+
+              // ROS_INFO_STREAM("\033[92m"
+              //                 << "SAVING NOISED PRIOR"
+              //                 << "\033[0m");
+
+              // if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
+              //   ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
+              //   return false;
+              // }
+
+              // geometry_msgs::PoseStamped saveNoisedPose;
+              // saveNoisedPose.pose = noisy_pose;
+              // saveNoisedPose.header = message->header;
+
+              // noisedoutBag.write("/very_noised_prior", message->header.stamp, saveNoisedPose);
+            }
 
             if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose), fromRos(message->header.stamp)))) {
               ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
@@ -1703,6 +1766,60 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
   slam_->offlineFinishProcessing();
 
   return true;
+}
+// (odomPose.pose, 0.05, 0.02, 0.05, 0.0, false);
+geometry_msgs::Pose RosbagRangeDataProcessorRos::addNoiseToPose_with_mean(const geometry_msgs::Pose& original_pose,
+                                                                          double position_noise_magnitude,
+                                                                          double orientation_noise_magnitude, double position_mean,
+                                                                          double orientation_mean, bool use_zero_mean) {
+  // Copy the original pose to modify
+  geometry_msgs::Pose noisy_pose = original_pose;
+
+  // Random device
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  if (use_zero_mean) {
+    // Uniform distributions for zero-mean noise
+    std::uniform_real_distribution<> pos_dist(-position_noise_magnitude, position_noise_magnitude);
+    std::uniform_real_distribution<> orient_dist(-orientation_noise_magnitude, orientation_noise_magnitude);
+
+    // Add uniform noise to position
+    noisy_pose.position.x += pos_dist(gen);
+    noisy_pose.position.y += pos_dist(gen);
+    noisy_pose.position.z += pos_dist(gen);
+
+    // Add uniform noise to orientation quaternion
+    noisy_pose.orientation.x += orient_dist(gen);
+    noisy_pose.orientation.y += orient_dist(gen);
+    noisy_pose.orientation.z += orient_dist(gen);
+    noisy_pose.orientation.w += orient_dist(gen);
+  } else {
+    // Gaussian distributions for non-zero mean noise
+    std::normal_distribution<> pos_dist(position_mean, position_noise_magnitude);
+    std::normal_distribution<> orient_dist(orientation_mean, orientation_noise_magnitude);
+
+    // Add Gaussian noise to position
+    noisy_pose.position.x += pos_dist(gen);
+    noisy_pose.position.y += pos_dist(gen);
+    noisy_pose.position.z += pos_dist(gen);
+
+    // Add Gaussian noise to orientation quaternion
+    noisy_pose.orientation.x += orient_dist(gen);
+    noisy_pose.orientation.y += orient_dist(gen);
+    noisy_pose.orientation.z += orient_dist(gen);
+    noisy_pose.orientation.w += orient_dist(gen);
+  }
+
+  // Normalize quaternion to ensure it represents a valid rotation
+  double norm = std::sqrt(noisy_pose.orientation.x * noisy_pose.orientation.x + noisy_pose.orientation.y * noisy_pose.orientation.y +
+                          noisy_pose.orientation.z * noisy_pose.orientation.z + noisy_pose.orientation.w * noisy_pose.orientation.w);
+  noisy_pose.orientation.x /= norm;
+  noisy_pose.orientation.y /= norm;
+  noisy_pose.orientation.z /= norm;
+  noisy_pose.orientation.w /= norm;
+
+  return noisy_pose;
 }
 
 geometry_msgs::Pose RosbagRangeDataProcessorRos::addUniformNoiseToPose(const geometry_msgs::Pose& original_pose,

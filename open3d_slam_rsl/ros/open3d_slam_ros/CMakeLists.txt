@@ -41,6 +41,7 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   rosbag
   interactive_markers
   open3d_slam_lua_io
+  rms
   )
 
 # We pass the path of the `FindXYZ.cmake` files to `CMAKE_MODULE_PATH`

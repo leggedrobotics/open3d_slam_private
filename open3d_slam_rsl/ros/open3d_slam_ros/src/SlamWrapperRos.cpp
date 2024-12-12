@@ -262,6 +262,17 @@ bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
     return false;
   }
   mapper_->icp_.loadFromYaml(fileStream);
+  isRMSenabled_ = mapper_->icp_.isRMSenabled();
+  rmsLambda_ = mapper_->icp_.getRMSlambda();
+  rmsVoxelSize_ = params_.mapper_.mapBuilder_.mapVoxelSize_;
+
+  if (isRMSenabled_) {
+    ROS_WARN_STREAM("##################################################");
+    ROS_WARN_STREAM("Open3D-SLAM: RMS by Petracek et al. is enabled.");
+    ROS_WARN_STREAM("Tunable parameter Lambda is set : " << rmsLambda_);
+    ROS_WARN_STREAM("Voxel Size : " << rmsVoxelSize_);
+    ROS_WARN_STREAM("##################################################");
+  }
 
   return true;
 }

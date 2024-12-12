@@ -147,6 +147,9 @@ class SlamWrapper {
   bool exportIMUdata_{false};
   bool useGPSforGroundTruth_{false};
   bool downsamplePointCloudForReplay_{false};
+  bool isRMSenabled_{false};
+  float rmsLambda_ = -1.0f;
+  float rmsVoxelSize_ = -1.0f;
   bool saveNoisedPrior_{false};
   bool saveProcessedBag_{false};
   int downSamplingSkippingRate_{5};

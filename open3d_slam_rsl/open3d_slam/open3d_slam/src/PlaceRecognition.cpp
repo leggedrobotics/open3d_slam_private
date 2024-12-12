@@ -264,11 +264,11 @@ std::vector<size_t> PlaceRecognition::getLoopClosureCandidatesIdxs(const Transfo
       continue;
     }
 
-    const int consecutiveThreshold = (int)std::ceil(maxDistance / params_.submaps_.radius_);
-    const bool isConsecutive = std::abs<int>(i - lastFinishedSubmapIdx) <= consecutiveThreshold;
-    if (isConsecutive) {
-      continue;
-    }
+    // const int consecutiveThreshold = (int)std::ceil(maxDistance / params_.submaps_.radius_);
+    // const bool isConsecutive = std::abs<int>(i - lastFinishedSubmapIdx) <= consecutiveThreshold;
+    // if (isConsecutive) {
+    //   continue;
+    // }
 
     const int loopClosingDistance = adjMatrix.getDistanceToNearestLoopClosureSubmap(lastFinishedSubmapIdx);
     //		std::cout << "submap " << lastFinishedSubmapIdx<<" has lc dist of: " << loopClosingDistance << "\n";

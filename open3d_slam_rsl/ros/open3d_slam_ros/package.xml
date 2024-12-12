@@ -32,5 +32,6 @@
   <depend>rosbag</depend>
   <depend>open3d_slam_lua_io</depend>
   <depend>nav_msgs</depend>
+  <depend>rms</depend>
 
 </package>

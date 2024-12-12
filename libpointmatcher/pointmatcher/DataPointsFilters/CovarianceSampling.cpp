@@ -76,13 +76,22 @@ void CovarianceSamplingDataPointsFilter<T>::inPlaceFilter(DataPoints& cloud)
 	assert(featDim == 4); //3D pts only
 	
 	//Check number of points
-	const std::size_t nbPoints = cloud.getNbPoints();		
+	const std::size_t nbPoints = cloud.getNbPoints();
+
+	if (nbPoints > 1000)
+	{
+		nbSample = std::size_t(nbPoints * 0.6);
+	}else{
+		nbSample = std::size_t(nbPoints * 0.9);
+	}
+	
+
 	if(nbSample >= nbPoints)
 		return;
 	
 	//Check if there is normals info
 	if (!cloud.descriptorExists("normals"))
-		throw InvalidField("OrientNormalsDataPointsFilter: Error, cannot find normals in descriptors.");
+		throw InvalidField("CovarianceSamplingDataPointsFilter: Error, cannot find normals in descriptors.");
 
 	const auto& normals = cloud.getDescriptorViewByName("normals");
 	

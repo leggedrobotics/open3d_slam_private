@@ -34,7 +34,7 @@
   <arg name="rosbag_filepath" default="/home/tutuna/Music/only_x_analysis_dataset/revision_very_noisy_request/merged_high_noise.bag"/> <!-- /home/tutuna/Downloads/mergedBag.bag -->
   <arg name="use_syncronized_poses_to_replay" default="false"/>
   <arg name="republish_tf_topic" default="false"/>
-  <arg name="async_pose_topic" default="/noised_prior"/> <!-- /state_estimator/pose_in_odom  /noised_prior  /very_noised_prior -->
+  <arg name="async_pose_topic" default="/very_noised_prior"/> <!-- /state_estimator/pose_in_odom  /noised_prior  /very_noised_prior -->
   <arg name="relative_sleep_duration" default="0.0"/>
   <arg name="replay_start_time_as_second" default="0.0"/> <!-- 1440 for tunnel-->
   <arg name="replay_end_time_as_second" default="5170.0"/> <!-- 380  for hongg anymal  2170 for tunnel -->

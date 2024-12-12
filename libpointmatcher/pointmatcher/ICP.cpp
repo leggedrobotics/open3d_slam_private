@@ -188,18 +188,29 @@ void PointMatcher<T>::ICPChainBase::loadFromYaml(std::istream& in)
     else
     {
         std::cout << "No degeneracy printing parameters are found" << std::endl;
-        usedModuleTypes.insert("degeneracyDebug");
+        usedModuleTypes.insert("printingDegeneracy");
     }
 
-    // Read localizability print parameters.
+    // Force XICP localizability detection for all methods.
     if (readEnforcedLocalizability("forceXICPdetection", doc))
     {
         usedModuleTypes.insert("forceXICPdetection");
     }
     else
     {
-        std::cout << "No degeneracy printing parameters are found" << std::endl;
-        usedModuleTypes.insert("degeneracyDebug");
+        std::cout << "Enforced XICP detection is desabled" << std::endl;
+        usedModuleTypes.insert("forceXICPdetection");
+    }
+
+    // RMS method from Petracek et al. is enabled. (Libpointmatcher just tracks the parameter, the actual operations happen on the ROS level.)
+    if (readRMSfilterng("enableRMSfiltering", doc))
+    {
+        usedModuleTypes.insert("enableRMSfiltering");
+    }
+    else
+    {
+        std::cout << "RMS by Petracek et al. is Disabled." << std::endl;
+        usedModuleTypes.insert("enableRMSfiltering");
     }
 
     // Read localizability debug parameters.
@@ -463,6 +474,57 @@ bool PointMatcher<T>::ICPChainBase::readEnforcedLocalizability(const std::string
         MELO_WARN("Localizability method enforcement is to disabled.");
         localizabilityDetectionParameters.enforceLocalizabilityMethod_ = false;
         //return false;
+    }
+
+    return true;
+}
+
+template<typename T>
+bool PointMatcher<T>::ICPChainBase::readRMSfilterng(const std::string& yamlKey, const PointMatcherSupport::YAML::Node& doc)
+{
+    const YAML::Node* reg = doc.FindValue(yamlKey);
+    if (reg == nullptr)
+    {
+        MELO_WARN("RMS enable / disable is not set.");
+        return false;
+    }
+
+    std::string methodName{ "" };
+    Parametrizable::Parameters params;
+    PointMatcherSupport::getNameParamsFromYAML(*reg, methodName, params);
+
+    if (methodName == "Enabled")
+    {
+        // localizabilityDetectionParameters.isRMSenabled_ = true;
+        this->rmsEnabled = true;
+        MELO_WARN("RMS by Petracek et al. is enabled.");
+
+        if ((params.count("rmsLambda") > 0))
+        {
+            if ((PointMatcherSupport::lexical_cast<T>(params.at("rmsLambda")) >= T(0)) && (PointMatcherSupport::lexical_cast<T>(params.at("rmsLambda")) <= T(1)))
+            {
+                // localizabilityDetectionParameters.regularizationWeight_ = PointMatcherSupport::lexical_cast<float>(params.at("regularizationWeight"));
+                this->rmsLambda = PointMatcherSupport::lexical_cast<float>(params.at("rmsLambda"));
+                MELO_WARN_STREAM("================ RMS Lambda is set. ================" <<  this->rmsLambda);
+
+            }
+            else
+            {
+                MELO_WARN("RMS Lambda is not within 0-1");
+                return false;
+            }
+        }else
+        {
+            return false;
+        }
+
+    }
+    else
+    {
+        // If not set correctly set none and return false.
+        MELO_WARN("RMS by Petracek et al. is disabled.");
+        // localizabilityDetectionParameters.isRMSenabled_ = false;
+        this->rmsEnabled = false;
     }
 
     return true;
@@ -1161,18 +1223,20 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     localizabilityParametersForErrorMinimization.angularVelocityVector_= this->localizabilityDetectionParameters.angularVelocityVector_;
     localizabilityParametersForErrorMinimization.regularizationWeight_ = this->degeneracySolverOptions_.regularizationWeight_;
 
-    // A zero eigen vector
-    Vector zeroVector = Vector::Zero(6, 1);
-
-
-
-    localizabilityParametersForErrorMinimization.sinv_external_ =zeroVector.asDiagonal();
-
-
     // Print how long take the algo
     timer t;
-    std::shared_ptr<PointMatcher<T>::DataPointsFilter> boundingBoxFilter;
-    bool keepInside = true;
+
+    // A zero eigen vector
+    Vector zeroVector = Vector::Zero(6, 1);
+    localizabilityParametersForErrorMinimization.sinv_external_ = zeroVector.asDiagonal();
+
+    // std::shared_ptr<PointMatcher<T>::DataPointsFilter> covsFilter;
+    // size_t nbSamplingSamples = 5000;
+    // covsFilter = PointMatcher<T>::get().DataPointsFilterRegistrar.create("CovarianceSamplingDataPointsFilter", { "nbSample", PointMatcherSupport::toParam(nbSamplingSamples) });
+
+
+    // std::shared_ptr<PointMatcher<T>::DataPointsFilter> boundingBoxFilter;
+    // bool keepInside = true;
     /*
     boundingBoxFilter = PointMatcher<T>::get().DataPointsFilterRegistrar.create("BoundingBoxDataPointsFilter",
                                                                         { { "xMin", PointMatcherSupport::toParam(-10.0f) },
@@ -1183,20 +1247,24 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
                                                                           { "zMax", PointMatcherSupport::toParam(20.0f) },
                                                                           { "removeInside", PointMatcherSupport::toParam(!keepInside) } });
     */
-    boundingBoxFilter =
-        PointMatcher<T>::get().DataPointsFilterRegistrar.create("BoundingBoxDataPointsFilter",
-                                                                { { "xMin", PointMatcherSupport::toParam(-25.0f) },
-                                                                  { "xMax", PointMatcherSupport::toParam(25.0f) },
-                                                                  { "yMin", PointMatcherSupport::toParam(-25.0f) },
-                                                                  { "yMax", PointMatcherSupport::toParam(25.0f) },
-                                                                  { "zMin", PointMatcherSupport::toParam(-0.5f) },
-                                                                  { "zMax", PointMatcherSupport::toParam(40.0f) },
-                                                                  { "removeInside", PointMatcherSupport::toParam(!keepInside) } });
+    // boundingBoxFilter =
+    //     PointMatcher<T>::get().DataPointsFilterRegistrar.create("BoundingBoxDataPointsFilter",
+    //                                                             { { "xMin", PointMatcherSupport::toParam(-25.0f) },
+    //                                                               { "xMax", PointMatcherSupport::toParam(25.0f) },
+    //                                                               { "yMin", PointMatcherSupport::toParam(-25.0f) },
+    //                                                               { "yMax", PointMatcherSupport::toParam(25.0f) },
+    //                                                               { "zMin", PointMatcherSupport::toParam(-0.5f) },
+    //                                                               { "zMax", PointMatcherSupport::toParam(40.0f) },
+    //                                                               { "removeInside", PointMatcherSupport::toParam(!keepInside) } });
 
 
     // Apply readings filters
     // reading is express in frame <dataIn>
     DataPoints reading(readingIn);
+    // MELO_WARN_STREAM("Reading Nbpoints: " << reading.getNbPoints());
+
+    const auto startTime__ = std::chrono::steady_clock::now();
+
     this->readingDataPointsFilters.init();
     this->readingDataPointsFilters.apply(reading);
 
@@ -1240,14 +1308,15 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     size_t iterationCount(0);
 
     // statistics on last step
-    this->inspector->addStat("ReadingPreprocessingDuration", t.elapsed());
-    this->inspector->addStat("ReadingInPointCount", readingIn.features.cols());
-    this->inspector->addStat("ReadingPointCount", reading.features.cols());
+    // this->inspector->addStat("ReadingPreprocessingDuration", t.elapsed());
+    // this->inspector->addStat("ReadingInPointCount", readingIn.features.cols());
+    // this->inspector->addStat("ReadingPointCount", reading.features.cols());
     LOG_INFO_STREAM("PointMatcher::icp - reading pre-processing took " << t.elapsed() << " [s]");
     this->prefilteredReadingPtsCount = reading.features.cols();
     t.restart();
     std::vector<T> scalabilityVect;
     std::vector<T> NbMatchesVet;
+    std::vector<T> constraintViolationsPerIteration;
 
     TransformationParameters T_convert_from_base_to_lidar_mat = Matrix::Identity(4,4);
     /*Eigen::Transform<T, 3, Eigen::Affine> T_convert_from_base_to_lidar;
@@ -1264,7 +1333,8 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     timer totalScalabilityStudy; // Print how long take the algo
     totalScalabilityStudy.restart();
 
-    const auto startTime__ = std::chrono::steady_clock::now();
+    // This was here
+    // const auto startTime__ = std::chrono::steady_clock::now();
 
     // iterations
     while (iterate)
@@ -1476,6 +1546,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
                     {
                         MELO_DEBUG_THROTTLE_STREAM(10, "Early return on localizability detection. (Throttled 10s)");
                     }
+
                     /*
 
                     //if (localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_)
@@ -1602,17 +1673,6 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 
         //options.gradient_check_relative_precision = 1e-3;
         //options.check_gradients = true;
-
-
-
-
-
-
-
-
-
-
-
 // working in tunnel
 /*        options.linear_solver_type = ceres::DENSE_QR; // DENSE_SVD DENSE_QR
         //options.linear_solver_type = ceres::CGNR;
@@ -1645,8 +1705,8 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
 */
 
         // dont forget this here (currently we solve double time because of this, libpointmatcher expects this func to to called)
-        TransformationParameters real =
-            this->errorMinimizer->computeFromErrorElements(matchedPoints, localizabilityParametersForErrorMinimization);
+
+
 
         this->errorMinimizer->setLambdaAnalysisNorms(localizabilityParametersForErrorMinimization.residuals_);
         this->errorMinimizer->setLambdaAnalysisRegularizationNorms(localizabilityParametersForErrorMinimization.regNorms_);
@@ -1691,6 +1751,9 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
                 resultingTransform = registration.transformationSeparate();
             }
 
+            localizabilityParametersForErrorMinimization.constraintResidual_ = registration.violation();
+            this->totalConstraintViolationSingle_ = this->totalConstraintViolationSingle_ +  localizabilityParametersForErrorMinimization.constraintResidual_;
+            constraintViolationsPerIteration.emplace_back(this->totalConstraintViolationSingle_);
             //resultingTransform= registration.transformation();
             //resultingTransform= registration.transformationSophus();
 
@@ -1702,6 +1765,13 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
             //TransformationParameters tesst = resultingTransform.matrix().template cast<T>();
             T_iter = resultingTransform.matrix().template cast<T>() * T_iter;
         }else{
+
+            TransformationParameters real =
+                this->errorMinimizer->computeFromErrorElements(matchedPoints, localizabilityParametersForErrorMinimization);
+
+            this->totalConstraintViolationSingle_ = this->totalConstraintViolationSingle_ +  localizabilityParametersForErrorMinimization.constraintResidual_;
+            constraintViolationsPerIteration.emplace_back(this->totalConstraintViolationSingle_);
+
             T_iter = real * T_iter;
         }
 
@@ -1899,7 +1969,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     //   T_iter(i+1)_dataIn = T_iter(i+1)_iter(0) * T_iter(0)_dataIn
     // T_refIn_refMean remove the temperary frame added during initialization
 
-
+    this->totalConstraintViolation_ = constraintViolationsPerIteration;
     this->iterationTimings_ = scalabilityVect;
     this->iterationMatches_ = NbMatchesVet;
     this->numberOfIterations_ = iterationCount;
@@ -2285,18 +2355,18 @@ void PointMatcher<T>::ICP::solutionRemappingProjectionCalculation(Matrix& projec
             if (alignmentMax >= 0.5f)
             {
                 //std::cout << "To be replaced Replaced Eigenvector: " << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
-                std::cout << "igenvectorsCopy.col(maxElementIndex): " << std::endl << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
+                //std::cout << "igenvectorsCopy.col(maxElementIndex): " << std::endl << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
                 eigenvectorsCopy.col(maxElementIndex) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
 
-                params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
+                params.sinv_external_.diagonal()[maxElementIndex] = 0.000f;
             }
             else{
                 MELO_ERROR_STREAM("Alignment is below 0.5 doesnt make any sense. Val: "<< alignmentMax << " Still going for it.");
 
-                std::cout << "igenvectorsCopy.col(maxElementIndex): " << std::endl << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
+                //std::cout << "igenvectorsCopy.col(maxElementIndex): " << std::endl << eigenvectorsCopy.col(maxElementIndex).transpose() << std::endl;
                 eigenvectorsCopy.col(maxElementIndex) = Eigen::Matrix<T, 6, 1>::Zero(6, 1);
 
-                params.sinv_external_.diagonal()[maxElementIndex] = 0.0f;
+                params.sinv_external_.diagonal()[maxElementIndex] = 0.000f;
             
             }
        }

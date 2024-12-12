@@ -95,7 +95,7 @@ template<typename T, typename Matrix, typename Vector, typename LocalizabilityPa
 void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
     Vector& x, int& activeInequalityConstraints, int& numberOfEqualityConstraints,
     int& totalNumberOfConstraints, const Matrix& A, const Vector& b,
-    const LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
+    LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization);
 
 // Main wrapper for equality constrained optimization problem.
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>

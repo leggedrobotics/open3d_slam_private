@@ -20,6 +20,7 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
   // For now these 2 options are used together. Onky very slight computational overhead.
   if ((degenOptions.useSixDofRegularization_) || (degenOptions.useThreeDofRegularization_))
   {
+    std::cout << " NL-REG ENABLED WITH DEGENERACY BOUNDS " << std::endl;
     // Generate and assign degeneracy regularization rediduals.
     for (Eigen::Index j = 0; j < degenerateEigenVectors.cols(); j++){
       //std::cout << " degenerateEigenVectors.col(j): " << std::endl << degenerateEigenVectors.col(j) << std::endl;
@@ -231,3 +232,21 @@ Eigen::Affine3d PointCloudRegistrationCeres::transformationSeparate() {
   // affine.pretranslate(Eigen::Vector3d(translation_));
   return affine;
 }
+
+float PointCloudRegistrationCeres::violation() {
+
+//float val = 0.0f;
+Eigen::Matrix<float, 6, 1> state = state_.template cast<float>();
+Eigen::Matrix<float, 6, 1> res = degenerateEigenVector_.transpose()*state;
+
+std::cout << "MY angleAxis_ : " << angleAxis_ << std::endl;
+std::cout << "MY translation_ : " << translation_ << std::endl;
+std::cout << "MY degenerateEigenVector_ : " << std::endl << degenerateEigenVector_ << std::endl;
+std::cout << "MY state : " << std::endl << state_ << std::endl;
+std::cout << "MY VALLLLLLLLLLLLLLL  : " << res << std::endl;
+
+
+//val = (degenerateEigenVector_.template cast<double>()*state_.head(6)).tail(1).norm();
+return res.sum();
+}
+
