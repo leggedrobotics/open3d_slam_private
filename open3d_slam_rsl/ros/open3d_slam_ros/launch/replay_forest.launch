@@ -129,15 +129,4 @@
       if="$(arg launch_rviz)">
   </include>
 
-  <!-- Robot Description & Parameter Loading -->
-  <group if="$(eval load_params == 'y')">
-       <rosparam command="load" file="$(arg robot_description_file_path)" />
-  </group>
-
-    <!-- Anymal tf publisher, you are responsible to load the robot description. -->
-  <include 
-       file="$(find anymal_tf_publisher)/launch/anymal_tf_publisher.launch"
-       if="$(arg launch_tf)">
-  </include>
-
 </launch>

@@ -33,6 +33,13 @@ void RosbagRangeDataProcessorRos::initialize() {
   rosbagFilename_ = nh_->param<std::string>("rosbag_filepath", "");
   ROS_INFO_STREAM("Reading from rosbag: " << rosbagFilename_);
 
+  package_path_ = ros::package::getPath("open3d_slam_ros");
+  if (package_path_.empty()) {
+    ROS_ERROR("Could not find package open3d_slam_ros");
+    return;
+  }
+  ROS_INFO_STREAM("Package path: " << package_path_);
+
   if (slam_->isRMSenabled_) {
     mrs_lib::ParamLoader param_loader(*nh_, "RMS");
     rms = std::make_shared<rms::RMS>(param_loader);
@@ -337,8 +344,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
   }
 
-  const std::string filename_localizability =
-      "/home/tutuna/open3d_slam_private_ws/src/open3d_slam_private/maps/replayed_localizability_categories.txt";
+  const std::string filename_localizability = package_path_ + "/data/maps/replayed_localizability_categories.txt";
 
   // Remove the existing file.
   std::remove(filename_localizability.c_str());
@@ -349,7 +355,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   file_localizability.precision(std::numeric_limits<double>::max_digits10);
   file_localizability << poseLogFileHeader_localizability << std::endl;
 
-  const std::string filename_stats = "/home/tutuna/open3d_slam_private_ws/src/open3d_slam_private/maps/replayed_statistics.txt";
+  const std::string filename_stats = package_path_ + "/data/maps/replayed_statistics.txt";
 
   // Remove the existing file.
   std::remove(filename_stats.c_str());

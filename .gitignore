@@ -1,0 +1,5 @@
+.vscode/
+*.bag
+*.txt
+*.tum
+*.ply

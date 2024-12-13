@@ -537,22 +537,16 @@ bool SlamWrapper::saveSubmaps(const std::string& directory, const bool& isDenseM
   const std::string cloudName = isDenseMap ? "denseSubmap" : "submap";
   const bool savingResult = mapper_->getSubmaps().dumpToFile(directory, cloudName, isDenseMap);
 
-  RegisteredPointCloud copyCloud = registeredCloudBuffer_.peek_back();
-  RegisteredPointCloud copyCloud2 = registeredCloudBuffer_.getImplementation()[5];
-  PointCloud registeredCloud = copyCloud.raw_.cloud_;
-  PointCloud registeredCloud2 = copyCloud2.raw_.cloud_;
+  // Save a live point cloud for later analysis.  
+  // RegisteredPointCloud last_cloud = registeredCloudBuffer_.peek_back();
+  // RegisteredPointCloud last_cloud_5 = registeredCloudBuffer_.getImplementation()[5];
+  // PointCloud registeredCloud = last_cloud.raw_.cloud_;
+  // PointCloud registeredCloud2 = last_cloud_5.raw_.cloud_;
+  // Transform curr = last_cloud.transform_;
+  // Transform prevv = last_cloud_5.transform_;
+  // Transform delta = prevv.inverse() * curr;
+  // std::cout << "Delta: \n" << delta.matrix() << std::endl;
 
-  Transform curr = copyCloud.transform_;
-  Transform prevv = copyCloud2.transform_;
-
-  Transform delta = prevv.inverse() * curr;
-
-  std::cout << "Delta: \n" << delta.matrix() << std::endl;
-
-  open3d::io::WritePointCloudToPCD("/home/tutuna/quatro_ws/src/Quatro/src/cloud_curr.pcd", registeredCloud,
-                                   open3d::io::WritePointCloudOption());
-  open3d::io::WritePointCloudToPCD("/home/tutuna/quatro_ws/src/Quatro/src/cloud_prev.pcd", registeredCloud2,
-                                   open3d::io::WritePointCloudOption());
   return savingResult;
 }
 

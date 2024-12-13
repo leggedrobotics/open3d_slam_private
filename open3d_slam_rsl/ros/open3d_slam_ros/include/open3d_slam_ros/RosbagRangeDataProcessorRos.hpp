@@ -202,6 +202,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   bool isBagReadyToPlay_ = false;
 
   o3d_slam::RgbaColorMap colorMap_;
+  std::string package_path_="";
 
   geometry_msgs::Pose prePoseStamped_;
   DeeperICPLogs deeperICPLogs_;
