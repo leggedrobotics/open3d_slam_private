@@ -2,7 +2,7 @@
 
 <launch>
   <!-- Important things -->
-  <arg name="rosbag_filepath" default="/home/ttuna/Videos/anymal_forest_experiment.bag"/>
+  <arg name="rosbag_filepath" default=""/>
   <arg name="cloud_topic" default="/lidar/point_cloud"/>
   <arg name="assumed_external_odometry_tracked_frame" default="base"/>
   <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/>

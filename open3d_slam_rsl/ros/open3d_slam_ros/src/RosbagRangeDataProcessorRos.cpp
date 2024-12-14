@@ -353,11 +353,11 @@ bool RosbagRangeDataProcessorRos::validateAnalysisTopic(const rosbag::Bag& bag, 
       if (topic == clockTopic_) {
         // This means this is our second time coming here. So actually the the alternative topic is not working either.
         if (topic == slam_->asyncOdometryTopic_) {
-          ROS_ERROR_STREAM(clockTopic_ << " topic does not exist in the rosbag. This is breaking.");
+          ROS_WARN_STREAM(clockTopic_ << " topic does not exist in the rosbag. This is breaking.");
           mandatoryTopicsInRosbag = false;
         } else {
           ROS_WARN_STREAM(clockTopic_ << " topic does not exist in the rosbag. Using alternative topic: " << slam_->asyncOdometryTopic_
-                                       << " as clock.");
+                                      << " as clock.");
           clockTopic_ = slam_->asyncOdometryTopic_;
         }
 
