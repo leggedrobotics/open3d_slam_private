@@ -59,9 +59,8 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
                                                                                    const ros::Time& timestamp,
                                                                                    const o3d_slam::RgbaColorMap::Values& color);
 
-  bool validateTopicsInRosbag(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics);
+  bool validateAnalysisTopic(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics);
   bool readCalibrationIfNeeded();
-  bool run();
 
   std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> usePairForRegistration();
 
@@ -73,7 +72,6 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   //! Parameters.
   Parameters parameters_;
-
   nav_msgs::Path trackedPath_;
   nav_msgs::Path bestGuessPath_;
   std::ofstream poseFile_;
@@ -89,10 +87,6 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array, const int num_samples);
 
   void calculateSurfaceNormals(o3d_slam::PointCloud& cloud);
-
-  void processRosbagForIMU();
-
-  void exportIMUData();
 
   void addToPathMsg(nav_msgs::PathPtr pathPtr, const std::string& frameName, const ros::Time& stamp, const Eigen::Vector3d& t,
                     const int maxBufferLength);
@@ -126,11 +120,10 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   // GNSS Handler
   std::shared_ptr<o3d_slam::GnssHandler> gnssHandlerPtr_;
-
   nav_msgs::PathPtr measGnss_worldGnssPathPtr_;
 
   // Initialization
-  bool gpsInitialized_ = false;
+  bool gpsInitialized_{false};
 
   //! Tf2.
   tf2_ros::TransformBroadcaster transformBroadcaster_;

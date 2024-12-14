@@ -209,61 +209,6 @@ void RosbagRangeDataProcessorRos::calculateSurfaceNormals(o3d_slam::PointCloud& 
   cloud.OrientNormalsTowardsCameraLocation();
 }
 
-void RosbagRangeDataProcessorRos::processRosbagForIMU() {
-  std::vector<std::string> topics;
-  topics.push_back("/sensors/imu");
-
-  Timer rosbagTimer;
-
-  // Open ROS bag.
-  rosbag::Bag bag;
-  try {
-    bag.open(rosbagFilename_, rosbag::bagmode::Read);
-  } catch (const rosbag::BagIOException& e) {
-    ROS_ERROR_STREAM("Error opening ROS bag: '" << rosbagFilename_ << "'");
-    return;
-  }
-  ROS_INFO_STREAM("ROS bag '" << rosbagFilename_ << "' open.");
-
-  if (!validateTopicsInRosbag(bag, topics)) {
-    ROS_ERROR("FAILED TO SUCCESSFULLY VALIDATE THE ROSBAG.");
-    bag.close();
-    return;
-  }
-
-  ROS_INFO_STREAM("\033[92m"
-                  << " Exporting IMU MSGs... "
-                  << "\033[0m");
-  const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(2.0)};
-  ros::WallTime::sleepUntil(first);
-
-  // The bag view we iterate over.
-  rosbag::View view(bag, rosbag::TopicQuery(topics));
-
-  for (const auto& messageInstance : view) {
-    // If the node is shutdown, stop processing and do early return.
-    if (!ros::ok()) {
-      return;
-    }
-
-    if (messageInstance.getTopic() == topics[0]) {
-      sensor_msgs::Imu::ConstPtr message = messageInstance.instantiate<sensor_msgs::Imu>();
-      if (message != nullptr) {
-        // msg->linear_acceleration.x
-        sensor_msgs::Imu imuMsg = *message;
-
-        const double stamp = imuMsg.header.stamp.toSec();
-        imuFile_ << stamp << " ";
-        imuFile_ << imuMsg.linear_acceleration.x << " " << imuMsg.linear_acceleration.y << " " << imuMsg.linear_acceleration.z << " ";
-        imuFile_ << imuMsg.angular_velocity.x << " " << imuMsg.angular_velocity.y << " " << imuMsg.angular_velocity.z << std::endl;
-
-      } else {
-        ROS_WARN("Invalid message found in ROS bag.");
-      }
-    }
-  }
-}
-
 void RosbagRangeDataProcessorRos::startProcessing() {
   if (!createOutputDirectory()) {
     std::cout << "Couldn't create the directory "
@@ -294,6 +239,7 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     std::string outBagPath_ = buildUpLogFilename("processed_slam", ".bag");
     std::remove(outBagPath_.c_str());
     outBag.open(outBagPath_, rosbag::bagmode::Write);
+    outBag.setCompression(rosbag::compression::LZ4);
   }
 
   const std::string filename_localizability = package_path_ + "/data/maps/replayed_localizability_categories.txt";
@@ -396,9 +342,9 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   return;
 }
 
-bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics) {
+bool RosbagRangeDataProcessorRos::validateAnalysisTopic(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics) {
   // Get a view on the data and check if all mandatory topics are present.
-  bool areMandatoryTopicsInRosbag{true};
+  bool mandatoryTopicsInRosbag{true};
 
   // Iterate over the mandatory topics and check if they are in the bag.
   for (const auto& topic : mandatoryTopics) {
@@ -408,9 +354,9 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
         // This means this is our second time coming here. So actually the the alternative topic is not working either.
         if (topic == slam_->asyncOdometryTopic_) {
           ROS_ERROR_STREAM(clockTopic_ << " topic does not exist in the rosbag. This is breaking.");
-          areMandatoryTopicsInRosbag = false;
+          mandatoryTopicsInRosbag = false;
         } else {
-          ROS_ERROR_STREAM(clockTopic_ << " topic does not exist in the rosbag. Using alternative topic: " << slam_->asyncOdometryTopic_
+          ROS_WARN_STREAM(clockTopic_ << " topic does not exist in the rosbag. Using alternative topic: " << slam_->asyncOdometryTopic_
                                        << " as clock.");
           clockTopic_ = slam_->asyncOdometryTopic_;
         }
@@ -424,7 +370,7 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
         continue;
       } else {
         ROS_ERROR_STREAM("No data under the topic: " << topic << " was found.");
-        areMandatoryTopicsInRosbag = false;
+        mandatoryTopicsInRosbag = false;
       }
     } else {
       if (topic == slam_->asyncOdometryTopic_) {
@@ -463,7 +409,7 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
                     << slam_->frames_.assumed_external_odometry_tracked_frame);
   }
 
-  if (!areMandatoryTopicsInRosbag) {
+  if (!mandatoryTopicsInRosbag) {
     ROS_ERROR("All required topics are not within the rosbag. Replay operations are terminated. Waiting user to terminate.");
     return false;
   }
@@ -630,7 +576,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   odometryPose.header.stamp = toRos(std::get<1>(cloudTimePair));
   odometryPose.header.frame_id = slam_->frames_.mapFrame;
-  odometryPose.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
+  odometryPose.child_frame_id = slam_->frames_.rangeSensorFrame;
   odometryPose.pose.pose.position.x = calculatedTransform.translation().x();
   odometryPose.pose.pose.position.y = calculatedTransform.translation().y();
   odometryPose.pose.pose.position.z = calculatedTransform.translation().z();
@@ -703,21 +649,18 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     transformedRosCloud.header.stamp = toRos(std::get<1>(cloudTimePair));
     outBag.write("/transformed_registered_cloud", toRos(std::get<1>(cloudTimePair)), transformedRosCloud);
 
-    // Convert geometry_msgs::PoseStamped to geometry_msgs::TransformStamped
     geometry_msgs::TransformStamped transformStamped;
     transformStamped.header.stamp = poseStamped.header.stamp;
     transformStamped.header.frame_id = slam_->frames_.mapFrame;
-    transformStamped.child_frame_id = slam_->frames_.rangeSensorFrame;  // The child frame_id should be your robot's frame
+    transformStamped.child_frame_id = slam_->frames_.rangeSensorFrame;
     transformStamped.transform.translation.x = poseStamped.pose.position.x;
     transformStamped.transform.translation.y = poseStamped.pose.position.y;
     transformStamped.transform.translation.z = poseStamped.pose.position.z;
     transformStamped.transform.rotation = poseStamped.pose.orientation;
 
-    // Encapsulate geometry_msgs::TransformStamped into tf2_msgs/TFMessage
     tf2_msgs::TFMessage tfMessage;
     tfMessage.transforms.push_back(transformStamped);
 
-    // Write the TFMessage to the bag
     outBag.write("/tf", toRos(std::get<1>(cloudTimePair)), tfMessage);
   }
 
@@ -1076,7 +1019,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
   }
   ROS_INFO_STREAM("ROS bag '" << rosbagFilename_ << "' open.");
 
-  if (!validateTopicsInRosbag(bag, topics)) {
+  if (!validateAnalysisTopic(bag, topics)) {
     bag.close();
     return false;
   }

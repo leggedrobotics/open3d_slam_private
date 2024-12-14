@@ -3,15 +3,11 @@
 #include <vector>
 
 #include <ceres/ceres.h>
-
 #include <Eigen/Core>
 #include <Eigen/Sparse>
-
 #include "PointMatcher.h"
 #include "PointMatcherPrivate.h"
-
 #include "error_term.hpp"
-
 #include "utils.hpp"
 
 class PointCloudRegistrationCeres{

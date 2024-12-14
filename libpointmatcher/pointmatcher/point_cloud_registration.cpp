@@ -11,10 +11,10 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
   // Pointer is deleted by ceres an a new one is generated.
   problem_.reset(new ceres::Problem());
 
-  // For now these 2 options are used together. Onky very slight computational overhead.
+  // For now these 2 options are used together.
   if ((degenOptions.useSixDofRegularization_) || (degenOptions.useThreeDofRegularization_))
   {
-    std::cout << " NL-REG ENABLED WITH DEGENERACY BOUNDS " << std::endl;
+    std::cout << " NL-REG is enabled with degeneracy regularization " << std::endl;
     // Generate and assign degeneracy regularization rediduals.
     for (Eigen::Index j = 0; j < degenerateEigenVectors.cols(); j++){
       //std::cout << " degenerateEigenVectors.col(j): " << std::endl << degenerateEigenVectors.col(j) << std::endl;
@@ -22,13 +22,11 @@ PointCloudRegistrationCeres::PointCloudRegistrationCeres(const Eigen::Matrix<flo
       if ((localEig != Eigen::Matrix<double, 6, 1>::Zero(6, 1)))
       {
 
-        std::cout << " Degeneracy bound added " << std::endl<< localEig << std::endl;
+        std::cout << " Degeneracy bound added. " << std::endl<< localEig << std::endl;
         float realWeight = degenOptions.regularizationWeight_;
 
         if (realWeight > 0.0001)
         {
-          std::cout << " Regularization Weight: " << degenOptions.regularizationWeight_ << std::endl;
-          std::cout << " Real Regularization Weight: " << realWeight << std::endl;
           DegeneracyCost* error_termDegen = new DegeneracyCost(localEig, degenOptions.regularizationWeight_);
           ceres::LossFunction* data_loss = new ceres::ScaledLoss(new ceres::TrivialLoss(), realWeight, ceres::TAKE_OWNERSHIP);
           problem_->AddResidualBlock(new ceres::AutoDiffCostFunction<DegeneracyCost, 1, 3, 3>(error_termDegen), data_loss,

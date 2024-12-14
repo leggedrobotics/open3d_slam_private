@@ -21,25 +21,17 @@ outlierFilters:
   - SurfaceNormalOutlierFilter:
      maxAngle: 1.57
 
-degeneracyDebug:
-  Enabled: # "Enabled" or "Disabled.
-
-printingDegeneracy:
-  Enabled: # "Enabled" or "Disabled.
-
+# This enables L-Reg. Method. Needs to be run together with "OptimizedEqualityConstraints:" degeneracyAwareness method
 regularization:
   Disabled: # "Enabled" or "Disabled. This is the L-Reg. Method. Needs to be run together with "OptimizedEqualityConstraints:"
     regularizationWeight: 440.0
-
-# Leave it enabled, this enforces the XICP detection.
-forceXICPdetection:
-  Enabled: # "Enabled" or "Disabled
 
 # Enables the RMS filtering by Petracek et al.
 enableRMSfiltering:
   Disabled: # "Enabled" or "Disabled
     rmsLambda: 0.0042 
 
+# This enables L-Reg. Method. Needs to be run together with "OptimizedEqualityConstraints:" degeneracyAwareness
 ceresDegeneracyAnalysis:
   CeresDegeneracyState:
     isActive: 0 # "Enabled -> 1" or "Disabled -> 0. This is the NL-Reg. Method. Needs to be run together with "OptimizedEqualityConstraints:" for correct detection.
@@ -97,3 +89,13 @@ logger:
 
 errorMinimizer:
   PointToPlaneErrorMinimizer
+
+degeneracyDebug:
+  Enabled: # "Enabled" or "Disabled.
+
+printingDegeneracy:
+  Enabled: # "Enabled" or "Disabled.
+
+# Leave it enabled, this enforces the XICP detection.
+forceXICPdetection:
+  Enabled: # "Enabled" or "Disabled

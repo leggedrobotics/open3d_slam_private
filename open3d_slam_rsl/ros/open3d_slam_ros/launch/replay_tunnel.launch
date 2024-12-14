@@ -2,9 +2,8 @@
 
 <launch>
 
-  <!-- Most important parameters to double check -->
-
-  <arg name="rosbag_filepath" default="/home/tutuna/Music/uemliberg/mergedBags.bag"/>
+  <!-- Important parameters -->
+  <arg name="rosbag_filepath" default=""/>
   <arg name="cloud_topic" default="/cloud_registered_body"/>
   <arg name="assumed_external_odometry_tracked_frame" default="body"/>
   <arg name="async_pose_topic" default="/Odometry"/>

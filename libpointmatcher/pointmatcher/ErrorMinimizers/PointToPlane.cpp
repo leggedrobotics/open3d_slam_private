@@ -188,7 +188,7 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
                 {
                     // TSVD
                     TSVD<Matrix> tsvd;
-                    tsvd.computeFromExistingSinv(localizabilityParametersForErrorMinimization.sinv_external_);
+                    tsvd.computeFromExistingSinv(A, localizabilityParametersForErrorMinimization.sinv_external_);
                     tsvd.solve(b, x);
                     localizabilityParametersForErrorMinimization.constraintResidual_ = (A*x - b).tail(numberOfConstraints).norm();
                 }
@@ -304,8 +304,6 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
     }
     return mOut;
 }
-
-
 
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
 void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
@@ -437,7 +435,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
         if (localizabilityParametersForErrorMinimization.enableStandardWeightRegularization_){
 
             // L-REG, generate the regularized optimization problem.
-
             // Populate constrained optimization variables.
             generateRegularizedOptimizationProblem<T>(
                 augmentedA, Augmentedb, degenerateDirectionIndices, localizabilityParametersForErrorMinimization, numberOfConstraints);
@@ -516,8 +513,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
 
         }
 
-
-
         for (Eigen::Index b = 0; b < A.rows(); b++)
         {
             const T val = x.row(b).col(0).value();
@@ -556,22 +551,10 @@ void generateRegularizedOptimizationProblem(Matrix& augmentedA,
             for (Eigen::Index b = 0; b < 3; b++)
             {
                 augmentedA.row(sizeOfTheProblem + constraintCounter).col(b) << temp[b];
-
-                // augmentedA.row(sizeOfTheProblem + constraintCounter).col(b) =
-                //     localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.row(b).col(index);
-
-                   
             }
-
 
             // Append the constraint value.
             augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) << 0.0f;
-            
-            /*augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) =
-                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                    .rotationConstraintValues_.row(index)
-                    .col(0);*/
-            //++rotationConstraintCounter;
             
         }
         else{
@@ -581,38 +564,14 @@ void generateRegularizedOptimizationProblem(Matrix& augmentedA,
             for (Eigen::Index b = 0; b < 3; b++)
             {
 
-                //augmentedA.row(sizeOfTheProblem + constraintCounter).tail(3) = temp.tail(3);
                 augmentedA.row(sizeOfTheProblem + constraintCounter).col(b+translationIndexOffset) << temp[b];
-
-                // augmentedA.row(sizeOfTheProblem + constraintCounter).col(b+translationIndexOffset) =
-                //         localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.row(b+translationIndexOffset).col(
-                //             index - translationIndexOffset);
-
-
-                //std::cout << "val: " << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.translationEigenvectors_.row(b+translationIndexOffset).col(
-                //            index - translationIndexOffset) << std::endl;
-
             }
 
             // Append the constraint value.
             augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) << 0.0f;
-            /*
-            augmentedb.row(sizeOfTheProblem + constraintCounter).col(0) =
-                localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
-                    .translationConstraintValues_.row(index - translationIndexOffset)
-                    .col(0);
-                    */
         }
         ++constraintCounter;
     }
-
-
-    // Set the transl ation coefficients to 0, since there is an issue with templated version.
-    //augmentedA.block(sizeOfTheProblem, 3, sizeOfTheProblem + rotationConstraintCounter, sizeOfTheProblem) << 0.0f, 0.0f, 0.0f;
-
-    // Set the rotation coefficients to 0, since there is an issue with templated version.
-//    augmentedA.block(sizeOfTheProblem + rotationConstraintCounter, 0, sizeOfTheProblem + constraintCounter, 3) << 0.0f, 0.0f, 0.0f;
-    //   augmentedA.block(sizeOfTheProblem + rotationConstraintCounter, 0, sizeOfTheProblem + constraintCounter, 3) << 0.0f, 0.0f, 0.0f;
 
     // Set the rhs of the constraints to 0.
     augmentedb.block(sizeOfTheProblem, 0, sizeOfTheProblem + constraintCounter, 1) << 0.0f;
@@ -696,7 +655,6 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
         if (inRotationSubpace)
         {
             T velocityAlignment = localizabilityParametersForErrorMinimization.angularVelocityVector_.normalized().dot(localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.col(index));
-            //MELO_INFO_STREAM(message_logger::color::yellow << "Rotation Velocity alignment of index:" <<index << " is " << velocityAlignment);
             MELO_INFO_STREAM(message_logger::color::yellow << "The rotation bound: " << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5);
 
             for (Eigen::Index i = 0; i < 3; i++)
@@ -706,10 +664,6 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
                     localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.row(i)
                         .col(index)
                         .template cast<double>();
-
-                //constraintMatrix.row(constraintCount).col(i + translationIndexOffset) << 0.0;
-                //std::cout << " SAnity check value: " << localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.rotationEigenvectors_.row(i)
-                //        .col(index).value() << std::endl;
             }
 
             if (localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityConstraints_
@@ -720,8 +674,8 @@ void generateConstrainedOptimizationProblem(Eigen::MatrixXd& constraintMatrix,
             {
                 ++numberOfEqualityConstraints;
                 // These constraints simply prevents optimization to update in the given direction.
-                Alb.row(constraintCount).col(0) << -localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5;//;-0.001;
-                Aub.row(constraintCount).col(0) << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5;//;0.001;
+                Alb.row(constraintCount).col(0) << -localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5;
+                Aub.row(constraintCount).col(0) << localizabilityParametersForErrorMinimization.inequalityBoundMultiplier_ * 0.5;
                 MELO_INFO_STREAM(message_logger::color::white << "----Adding Inequality Constraint (rot)------");
                 MELO_INFO_STREAM(message_logger::color::white << "----Constraint Value : " << Alb.row(constraintCount).col(0) << " " << Aub.row(constraintCount).col(0));
 

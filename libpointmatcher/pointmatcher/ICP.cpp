@@ -396,7 +396,7 @@ bool PointMatcher<T>::ICPChainBase::readRegularization(const std::string& yamlKe
         localizabilityDetectionParameters.enableStandardWeightRegularization_ = false;
     }
 
-    MELO_INFO("Regularization: '%s'", methodName.c_str());
+    MELO_WARN("Regularization: '%s'", methodName.c_str());
 
     return true;
 }
@@ -418,7 +418,7 @@ bool PointMatcher<T>::ICPChainBase::readLocalizabilityPrint(const std::string& y
     if (methodName == "Enabled")
     {
         localizabilityDetectionParameters.isPrintingEnabled_ = true;
-        MELO_WARN("LOCALIZABILITY Printing IS SET TO TRUE");
+        // MELO_WARN("LOCALIZABILITY Printing IS SET TO TRUE");
     }
     else
     {
@@ -448,7 +448,7 @@ bool PointMatcher<T>::ICPChainBase::readEnforcedLocalizability(const std::string
     if (methodName == "Enabled")
     {
         localizabilityDetectionParameters.enforceLocalizabilityMethod_ = true;
-        MELO_WARN("Localizability method enforcement is SET");
+        MELO_WARN("X-ICP based localizability analysis is enforced.");
     }
     else
     {
@@ -1166,8 +1166,8 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     while (iterate)
     {
 
-        timer scalabilityStudy; // Print how long take the algo
-        scalabilityStudy.restart();
+        timer analysisTime; // Print how long take the algo
+        analysisTime.restart();
 
         // Check whether it is the first iteration.
         localizabilityParametersForErrorMinimization.debugging_.isItFirstIteration_ = (iterationCount == 0u);
@@ -1397,7 +1397,7 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         }
 
         ceres::Solver::Options options;
-        options.linear_solver_type = ceres::DENSE_QR; // DENSE_SVD DENSE_QR
+        options.linear_solver_type = ceres::DENSE_QR;
         options.function_tolerance = 1e-3;
         options.gradient_tolerance = 1e-6;
         options.parameter_tolerance = 1e-3;
@@ -1568,10 +1568,6 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
         }
 
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        //std::cout << "Registered categories " << std::endl;
-        //std::cout << "degenerateDirectionsInMapFrame_: " << this->degenerateDirectionsInMapFrame_ << std::endl;
-
         // Test whether to continue ICP.
         try
         {
@@ -1583,29 +1579,19 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
             this->maxNumIterationsReached = true;
         }
 
-        T scalabilityStudyInMiliSeconds = 1000.0f * scalabilityStudy.elapsed();
+        T timeInMiliSeconds = 1000.0f * analysisTime.elapsed();
 
         if (this->localizabilityDetectionParameters.isDebugModeENabled_)
         {
             NbMatchesVet.emplace_back(this->localizabilityDetectionParameters.numberOfPoints);
-            scalabilityVect.emplace_back(scalabilityStudyInMiliSeconds);
+            scalabilityVect.emplace_back(timeInMiliSeconds);
         }
-
-        //this->errorMinimizer->appendTransformation(T_refIn_refMean * T_iter * T_refIn_refMean.inverse() * T_refIn_readIn);
-        //this->errorMinimizer->appendErrorElements(this->errorMinimizer->getErrorElements());
-
-        // std::cout << "scalabilityStudy: " << scalabilityStudyInMiliSeconds << " NbMatches: " << this->localizabilityDetectionParameters.numberOfPoints << std::endl;
 
         ++iterationCount;
     }
 
     const auto endTime__ = std::chrono::steady_clock::now();
-    const T steadyy =  std::chrono::duration_cast<std::chrono::microseconds>(endTime__ - startTime__).count() / 1e3;
-
-    T timingSum = std::accumulate(scalabilityVect.begin(), scalabilityVect.end(), 0.0);
-    T totalICPtime = 1000.0f * totalScalabilityStudy.elapsed();
-
-    MELO_WARN_STREAM("totalICPtime: " << totalICPtime << " timingSum: " << timingSum << " steadyy: " << steadyy << " iterationCount: " << iterationCount);
+    const T steadyTime =  std::chrono::duration_cast<std::chrono::microseconds>(endTime__ - startTime__).count() / 1e3;
 
     this->inspector->addStat("IterationsCount", iterationCount);
     this->inspector->addStat("PointCountTouched", this->matcher->getVisitCount());
@@ -1629,14 +1615,10 @@ typename PointMatcher<T>::TransformationParameters PointMatcher<T>::ICP::compute
     this->iterationMatches_ = NbMatchesVet;
     this->numberOfIterations_ = iterationCount;
     T nbMatchesSum = std::accumulate(NbMatchesVet.begin(), NbMatchesVet.end(), 0.0);
-    //this->totalICPtime_ = timingSum;
-    //this->totalICPtime_ =totalICPtime;
-    this->totalICPtime_ = steadyy;
+    this->totalICPtime_ = steadyTime;
     this->activeInequalityConstraintSize_ = this->errorMinimizer->getActiveInequalityConstraints();
     this->totalConstraintSize_ = this->errorMinimizer->getTotalNumberOfConstraints();
     this->equalityConstraintSize_ = this->errorMinimizer->getNumberOfEqualityConstraints();
-
-    //std::cout << "Mean Extra Scalability Time: " << timingSum / scalabilityVect.size() << " Mean Matches Per Iteration: " << int(nbMatchesSum / NbMatchesVet.size()) << " [s]" << std::endl;
 
     TransformationParameters icpLocalizationInMap;
     if (localizabilityParametersForErrorMinimization.debugging_.whetherToReturnPrior_)
@@ -1843,22 +1825,11 @@ void PointMatcher<T>::ICP::calculateOptimizationHessian(
         F.row(i + cross.rows()) = referenceSurfaceNormals.row(i);
     }
     // Unadjust covariance A = wF * F'
-    //Matrix F_T = F.transpose();
-    //hessian = F * F.transpose();
     hessian.noalias() = wF.lazyProduct(F.transpose());
-    /*std::cout << std::setprecision(12) << "hessian: " << hessian.norm() << std::endl;
-    std::cout << std::setprecision(12) << "hessianblueNorm: " << hessian.blueNorm() << std::endl;
-    std::cout << std::setprecision(12) << "hessian2: " << hessian2.norm() << std::endl;
-    std::cout << std::setprecision(12) << "hessian2 blueNorm: " << hessian2.blueNorm() << std::endl;*/
-
-    //std::cout << std::setprecision(12) << " MAT hessian: " << std::endl << hessian << std::endl;
-    //std::cout << std::setprecision(12) << " MAT hessian2: " << std::endl << hessian2 << std::endl;
 
     if (this->localizabilityDetectionParameters.isDebugModeENabled_)
     {
-        //PointToPlaneErrorMinimizer::setCovarianceMatrixForAnalysis(hessian.topLeftCorner(6, 6));
-
-        // Commented 01.03.2024
+        // For even deeper analysis, however leaks memory heavily.
         //this->errorMinimizer->setCovarianceMatrixForAnalysis(hessian.topLeftCorner(6, 6));
     }
 
@@ -2207,7 +2178,6 @@ bool PointMatcher<T>::ICP::detectLocalizabilityWithTernaryLevelDetection(
 
         // The eigenvector
         this->eigenVectorsDistribution_.col(eigenvectorIndex) = rotationEigenVector;
-
 
         // Cleanup
         this->localizabilityDetectionParameters.contributingNumberOfPoints = 0u;

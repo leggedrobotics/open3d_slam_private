@@ -17,9 +17,7 @@
 #include "open3d_slam_ros/helpers_ros.hpp"
 namespace o3d_slam {
 
-OnlineRangeDataProcessorRos::OnlineRangeDataProcessorRos(ros::NodeHandlePtr nh) : BASE(nh), tfListener_(tfBuffer_) {
-  // tfBroadcaster_.reset(new tf2_ros::TransformBroadcaster());
-}
+OnlineRangeDataProcessorRos::OnlineRangeDataProcessorRos(ros::NodeHandlePtr nh) : BASE(nh), tfListener_(tfBuffer_) {}
 
 void OnlineRangeDataProcessorRos::initialize() {
   initCommonRosStuff();
@@ -142,12 +140,6 @@ void OnlineRangeDataProcessorRos::startProcessing() {
   // Number of spinners should be equal to the number of bscribers
   ros::MultiThreadedSpinner spinner(4);
   spinner.spin();
-  // ros::Rate r(10); // 10 hz
-  // while (ros::ok())
-  //{
-  //  ros::spinOnce();
-  //  r.sleep();
-  //}
   slam_->stopWorkers();
 }
 
@@ -182,11 +174,6 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
       odomPose_transformed.pose.orientation.y = 0.0;
       odomPose_transformed.pose.orientation.x = 0.0;
       ROS_INFO("Initial Transform is set. Nice. The rotation is enforced to be identity.");
-
-      // std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" << o3d_slam::asString(latestOdomMeasurement.transform_) << "
-      // \n"
-      // << "\033[0m"; std::cout << " Initial Transform time: " << "\033[92m" << toString(latestOdomMeasurement.time_) << " \n" <<
-      // "\033[0m";
 
       if (!slam_->isUseExistingMapEnabled()) {
         slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
