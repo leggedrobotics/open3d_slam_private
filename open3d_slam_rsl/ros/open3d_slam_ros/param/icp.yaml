@@ -1,145 +1,94 @@
-# See https://github.com/anybotics/libpointmatcher/blob/master/doc/Datafilters.md
-
 readingDataPointsFilters:
-  # - CovarianceSamplingDataPointsFilter:
-  #     nbSample: 10000000 #not-used
-#  - RandomSamplingDataPointsFilter:
-#      prob: 0.35
-#  - SimpleSensorNoiseDataPointsFilter:
-#       gain: 2
+  # - CovarianceSamplingDataPointsFilter: # Gelfand et al.
+  #     nbSample: 50000000
 
 referenceDataPointsFilters:
-#  - RandomSamplingDataPointsFilter:
-#      prob: 0.25
-#  - SamplingSurfaceNormalDataPointsFilter:
-#      knn: 10
-#      ratio: 0.666666
-#      samplingMethod: 1
-#      averageExistingDescriptors: 0
+# No specific filters.
 
 matcher:
   KDTreeMatcher:
-    knn: 1              # 1
-    maxDist: 0.5        # 0.5
-    epsilon: 0.01       # 0.01
+    knn: 1
+    maxDist: 0.5
+    epsilon: 0.01
 
 outlierFilters:
-  # - RobustOutlierFilter:
-  #     robustFct: cauchy   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
-  #     scaleEstimator: mad    #std, mad, berg
-  #     tuning: 1.0      # gm 4 too good, cauchy 1.0 while Trim is open
+  # - RobustOutlierFilter: # Cauchy method.
+  #     robustFct: cauchy
+  #     scaleEstimator: mad
+  #     tuning: 1.0
   - TrimmedDistOutlierFilter:
-     ratio: 0.95         # 0.95 is the best for tunnel
+     ratio: 0.95
   - SurfaceNormalOutlierFilter:
-     maxAngle: 1.57   # 1.57 == 90 deg,  0.57 == 30 deg 0.785398 == 45 deg 1.39626 == 80 deg
-  #- MaxDistOutlierFilter:
-  #     maxDist: 200.0
+     maxAngle: 1.57
 
 degeneracyDebug:
-  Enabled: # "Enabled" or "Disabled
+  Enabled: # "Enabled" or "Disabled.
 
 printingDegeneracy:
-  Enabled: # "Enabled" or "Disabled
+  Enabled: # "Enabled" or "Disabled.
 
 regularization:
-  Disabled: # "Enabled" or "Disabled
-    regularizationWeight: 440.0 #forest 10 equally bad 15 worse 20 better than (30) but different drift, 30 better than (40) but still bad 40 bad but not explode 50 explode 60 excellent 70 fuzzy  80 excellent  100 good, 10k low error.
-    useLcurve: 0
+  Disabled: # "Enabled" or "Disabled. This is the L-Reg. Method. Needs to be run together with "OptimizedEqualityConstraints:"
+    regularizationWeight: 440.0
 
-# Leave it enabled, just affects solRemap style
+# Leave it enabled, this enforces the XICP detection.
 forceXICPdetection:
   Enabled: # "Enabled" or "Disabled
-
 
 # Enables the RMS filtering by Petracek et al.
 enableRMSfiltering:
   Disabled: # "Enabled" or "Disabled
-    rmsLambda: 0.0036
-    ##### FOR OUSTER LIDAR (tunnel + exca) 0.0042
-    ##### For VLP16 use (sim + forest) 0.0036
+    rmsLambda: 0.0036 ##### FOR OUSTER LIDAR (tunnel + exca) 0.0042, For VLP16 use (sim + forest) 0.0036
 
 ceresDegeneracyAnalysis:
   CeresDegeneracyState:
-    isActive: 0 # "Enabled" or "Disabled
-    useSophusParametrization: 0
-    useSophusAutoDiffParametrization: 0
-    useAngleAxisParametrization: 1 # by default enabled
+    isActive: 0 # "Enabled -> 1" or "Disabled -> 0. This is the NL-Reg. Method. Needs to be run together with "OptimizedEqualityConstraints:" for correct detection.
     usePointToPointCost: 0
-    usePointToLineCost: 0
-    usePointToPlaneCost: 1 # by default enabled
-    useSymmetricPointToPlaneCost: 0
-    useBoundConstraints: 1 # needs the detection either from SolRemap or xicp
-    useSixDofRegularization: 0 #YOU HAVE TO USE IN COMBINATION WITH SOLUTION REMAPPING
-    useThreeDofRegularization: 1 #YOU HAVE TO USE IN COMBINATION WITH X-ICP
-    regularizationWeight: 675.0 # you need to set  .0  as double
+    usePointToPlaneCost: 1
+    useBoundConstraints: 1 # This is the transition from NL-Reg. to NL-Solver. 1: NL-Reg. 0: NL-Solver.
+    useSixDofRegularization: 0
+    useThreeDofRegularization: 1
+    regularizationWeight: 675.0 # The weight of NL-Reg.
 
 degeneracyAwareness:
   #InequalityConstraints:
-  #  highInformationThreshold: 300   ##       RUMLANG GICIK     
-  #  enoughInformationThreshold: 300  # was 150 17 sept when was 250 it crasahed. investigate
-  #  insufficientInformationThreshold: 150   ### RUMLANG GICIK  30
-  #  point2NormalMinimalAlignmentAngleThreshold: 80 # OUSTER 60  
+  #  highInformationThreshold: 300
+  #  enoughInformationThreshold: 300
+  #  insufficientInformationThreshold: 150
+  #  point2NormalMinimalAlignmentAngleThreshold: 80
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 0.0014
-  None:
+  # None:
   # OptimizedEqualityConstraints:
-  #   enoughInformationThreshold: 300   #tunnel use 350    250 still works but not as good as 200
-  #   insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
-  #   point2NormalMinimalAlignmentAngleThreshold: 80 # excavator 60 ELSE 80
+  #   enoughInformationThreshold: 300
+  #   insufficientInformationThreshold: 150
+  #   point2NormalMinimalAlignmentAngleThreshold: 80
   #   point2NormalStrongAlignmentAngleThreshold: 45
-  #EqualityConstraints:
-  #  highInformationThreshold: 350   ##  STANDALONE 1650
-  #  enoughInformationThreshold: 150  #  850
-  #  insufficientInformationThreshold: 40 # 450
-  #  point2NormalMinimalAlignmentAngleThreshold: 80 # 17 sept was 80 when was 70 it crashed 
-  #  point2NormalStrongAlignmentAngleThreshold: 45
-  # SolutionRemapping:
-  #   threshold: 100
-  #   use2019: 0
-  #   useTruncatedSVD: 1
-  #   skipRegistration: 0
-  #   enoughInformationThreshold: 300   #tunnel use 200    250 still works but not as good as 200
-  #   insufficientInformationThreshold: 150  #tunnel use 150 XXX still works but not as good as 150
-  #   point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 80
-  #   point2NormalStrongAlignmentAngleThreshold: 45
-
-  #OptimizedEqualityConstraints:
-  #  enoughInformationThreshold: 250   #tunnel 400 and 450 works
-  #  insufficientInformationThreshold: 180  #250 (225 also works)
-  #  point2NormalMinimalAlignmentAngleThreshold: 80 # tunnel 60
-  #  point2NormalStrongAlignmentAngleThreshold: 45
-  #InequalityConstraints:
-  #  highInformationThreshold: 450   ##       RUMLANG GICIK     
-  #  enoughInformationThreshold: 450  # was 150 17 sept when was 250 it crasahed. investigate
-  #  insufficientInformationThreshold: 250   ### RUMLANG GICIK  30
-  #  point2NormalMinimalAlignmentAngleThreshold: 60 # OUSTER 60  
-  #  point2NormalStrongAlignmentAngleThreshold: 45
-  #  inequalityboundmultiplier: 8
-
-  #None:
+  SolutionRemapping:
+    threshold: 100
+    use2019: 0
+    useTruncatedSVD: 1
+    skipRegistration: 0
+    #
+    # Hacky solution to use X-ICP degeneracy detection for Zhang et al., and TSVD.
+    enoughInformationThreshold: 300
+    insufficientInformationThreshold: 150
+    point2NormalMinimalAlignmentAngleThreshold: 80
+    point2NormalStrongAlignmentAngleThreshold: 45
 
 transformationCheckers:
   - DifferentialTransformationChecker:
-      minDiffRotErr: 0.001    # 0.001
-      minDiffTransErr: 0.01   # 0.01
-      smoothLength: 3         # 3
+      minDiffRotErr: 0.001
+      minDiffTransErr: 0.01
+      smoothLength: 3
   - CounterTransformationChecker:
-      maxIterationCount: 30   # 30 
-#  - BoundTransformationChecker:
-#      maxRotationNorm: 0.80
-#      maxTranslationNorm: 5.0
-#  - BoundTransformationChecker:
-#      maxRotationNorm: 0.26
-#      maxTranslationNorm: 0.25
+      maxIterationCount: 30
 
 inspector:
-#  VTKFileInspector
   NullInspector
 
 logger:
-#  FileLogger
   NullLogger
 
 errorMinimizer:
   PointToPlaneErrorMinimizer
-#  PointToPlaneWithCovErrorMinimizer

@@ -32,41 +32,7 @@ const bool isCheckTransformChainingAndPrintResult = false;
 
 Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std::shared_ptr<SubmapCollection> submaps)
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
-  // `updates` with default parameters
   update(params_);
-  pmPointCloudFilter_ = std::make_shared<open3d_conversions::PmPointCloudFilters>();
-
-  // These filters are currently not used.
-  {
-    auto RemoveNaNDataPointsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create("RemoveNaNDataPointsFilter");
-    pmPointCloudFilter_->emplace_back(std::move(RemoveNaNDataPointsFilter));
-
-    auto surfaceNormalsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
-        "SurfaceNormalDataPointsFilter", {{"knn", PointMatcherSupport::toParam(10)},
-                                          {"epsilon", PointMatcherSupport::toParam(0.03)},
-                                          {"keepNormals", PointMatcherSupport::toParam(1)},
-                                          {"keepDensities", PointMatcherSupport::toParam(1)},
-                                          {"keepEigenValues", PointMatcherSupport::toParam(0)},
-                                          {"keepEigenVectors", PointMatcherSupport::toParam(0)},
-                                          {"keepMatchedIds", PointMatcherSupport::toParam(0)}});
-    pmPointCloudFilter_->emplace_back(std::move(surfaceNormalsFilter));
-
-    auto ObservationDirectionDataPointsFilter =
-        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("ObservationDirectionDataPointsFilter");
-    pmPointCloudFilter_->emplace_back(std::move(ObservationDirectionDataPointsFilter));
-
-    auto OrientNormalsDataPointsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
-        "OrientNormalsDataPointsFilter", {{"towardCenter", PointMatcherSupport::toParam(true)}});
-    pmPointCloudFilter_->emplace_back(std::move(OrientNormalsDataPointsFilter));
-
-    auto maxDensityFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
-        "MaxDensityDataPointsFilter", {{"maxDensity", PointMatcherSupport::toParam(8000)}});
-    pmPointCloudFilter_->emplace_back(std::move(maxDensityFilter));
-  }
-
-  // ANYmal-D base -> lidar
-  // Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(-0.31, -0.0, -0.1585) * Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ());
-  // calibration_ = calibrationIsometry.matrix();
 }
 
 void Mapper::setParameters(const MapperParameters& p) {
@@ -184,7 +150,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     } else {
       mapToRangeSensorPrev_ = mapToRangeSensor_;
       const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
-      // TODO(TT) the init of submap is changed from identity to mapToRangeSensor_. This allows nice start of the mapping.
+
       // Depending more on the initial transform.
       submaps_->insertScan(rawScan, *processed.merge_, mapToRangeSensor_, timestamp);
       mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
@@ -309,7 +275,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
               << "\033[0m";
   }
 
-  // mapToRangeSensorEstimate.rotation().normalized();
   // Convert the initial guess to pointmatcher
   pointmatcher_ros::PmTfParameters transformReadingToReferenceInitialGuess;
   transformReadingToReferenceInitialGuess.matrix() = mapToRangeSensorEstimate.matrix().cast<float>();
@@ -331,9 +296,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   pointmatcher_ros::PmTfParameters correctedTransform = transformReadingToReferenceInitialGuess;
 
   try {
-    // std::cout << "activeSubmap: " << activeSubmap->dataPoints_.features.cols() << " x " << activeSubmap->dataPoints_.features.rows() <<
-    // std::endl;
-
     double passedTime =
         std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
     // std::cerr << "Passed Time: " << passedTime << std::endl;
@@ -351,7 +313,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
         referenceInitTimer_.startStopwatch();
 
         lastReferenceInitializationTimestamp_ = timestamp;
-        // std::cout << "INITTING REFERENCE. Size: " << activeSubmapPm_.dataPoints_.features.cols() << std::endl;
         if (!icp_.initReference(activeSubmapPm_.dataPoints_)) {
           std::cout << "Failed to initialize reference cloud. Exitting. " << std::endl;
           return false;
@@ -366,13 +327,9 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
                   << "\033[92m" << referenceInittimeElapsed << " msec \n"
                   << "\033[0m";
       }
-
     } else {
       referenceInitTimer_.reset();
     }
-
-    // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
-    // if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
 
     {
       std::lock_guard<std::mutex> lck(mapManipulationMutex_);
@@ -380,24 +337,14 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       // We are explicitly setting the reference cloud above. Hence the empty placeholder.
       open3d_conversions::PmStampedPointCloud emptyPlaceholder;
 
-      // std::cout << "croppedCloud->dataPoints_ rows: " << croppedCloud->dataPoints_.features.rows() << std::endl;
-      // const auto& normals = croppedCloud->dataPoints_.getDescriptorViewByName("normals");
-      // std::cout << "normals cols: " << normals.cols() << std::endl;
-      // std::cout << "croppedCloud->dataPoints_ cols: " << croppedCloud->dataPoints_.features.cols() << std::endl;
-      // std::cout << "croppedCloud->data point: " << croppedCloud->dataPoints_.features.col(3).transpose() << std::endl;
-
       correctedTransform =
           icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
       deeperICPLogs_.degenerateDirections_ = icp_.getDegenerateDirections();
       deeperICPLogs_.totalICPtime = icp_.getTotalICPtime();
       deeperICPLogs_.localizationCategory = icp_.getLocalizationCategory();
       deeperICPLogs_.numberOfIterations = icp_.getTotalNumberOfIterations();
-      // deeperICPLogs_.pointCloudOverlap_ = icp_.errorMinimizer->getOverlap();
-      // deeperICPLogs_.nbMatches_ = int(icp_.getIterationMatches().back());
 
       if (icp_.getIterationMatches().size() > 0) {
-        std::cout << "getIterationMatches().back(): " << int(icp_.getIterationMatches().back()) << std::endl;
-
         deeperICPLogs_.nbMatches_ = int(icp_.getIterationMatches().back());
 
       } else {
@@ -430,32 +377,14 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
                 << "\033[0m";
     }
 
-    //}else{
-    // std::cout << "open3d_slam Submap dont have enough points" << " (" << activeSubmapPm_->dataPoints_.features.cols() << ") vs (" <<
-    // croppedCloud->dataPoints_.features.cols() + 1000 << ") " << "to register to. Skipping scan2map refinement. (Expect few times during
-    // start-up)"<< std::endl;
-    //  //correctedTransform = transformReadingToReferenceInitialGuess;
-    //}
-
   } catch (const std::runtime_error& error) {
     std::cout << "Experienced a runtime error while running libpointmatcher ICP: " << error.what() << std::endl;
   }
-
-  // TODO(TT) Add a failsafe checker for health?
-  /*if (!params_.isIgnoreMinRefinementFitness_ && result.fitness_ < params_.scanMatcher_.minRefinementFitness_) {
-    std::cout << "Skipping the refinement step, fitness: " << result.fitness_ << std::endl;
-    std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
-    std::cout << "postIcp: " << asString(Transform(result.transformation_)) << "\n\n";
-    return false;
-  }
-  */
 
   // Pass the calculated transform to o3d transform.
   Transform correctedTransform_o3d;
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
   deeperICPLogs_.transform_ = mapToRangeSensorEstimate.matrix().inverse() * correctedTransform_o3d.matrix();
-  // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
-  // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
 
   if (isNewValueSetMapper_) {
     if (isTimeValid(timestamp)) {

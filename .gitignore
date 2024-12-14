@@ -3,3 +3,5 @@
 *.txt
 *.tum
 *.ply
+*.pcd
+open3d_slam_rsl/open3d_catkin/*

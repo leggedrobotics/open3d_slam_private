@@ -1,10 +1,3 @@
-/*
- * RosbagRangeDataProcessorRos.cpp
- *
- *  Created on: Apr 21, 2022
- *      Author: jelavice
- */
-
 #include "open3d_slam_ros/RosbagRangeDataProcessorRos.hpp"
 #include <open3d/io/PointCloudIO.h>
 #include <ros/ros.h>
@@ -62,12 +55,7 @@ void RosbagRangeDataProcessorRos::initialize() {
   baseToLidarTransform_.transform.translation.y = 0.0;
   baseToLidarTransform_.transform.translation.x = 0.0;
 
-  // to gps_mock
-  //- Translation: [0.006, 0.455, 0.484]
-  //- Rotation: in Quaternion [0.000, 0.000, 0.707, 0.707]
-  //          in RPY (radian) [0.000, -0.000, 1.571]
-  //          in RPY (degree) [0.000, -0.000, 90.000]
-
+  // For ANYmal Forest GPS
   gpsToLidarTransform_.transform.translation.x = 0.006;  //;0.081;
   gpsToLidarTransform_.transform.translation.y = 0.455;
   gpsToLidarTransform_.transform.translation.z = 0.484;  // 0.64
@@ -221,24 +209,6 @@ void RosbagRangeDataProcessorRos::calculateSurfaceNormals(o3d_slam::PointCloud& 
   cloud.OrientNormalsTowardsCameraLocation();
 }
 
-void RosbagRangeDataProcessorRos::exportIMUData() {
-  // An auxiliary function to save the IMU data, useful for offline operations.
-  std::string IMUFilename_ = buildUpLogFilename("imu");
-  std::remove(IMUFilename_.c_str());
-
-  const std::string imuFileHeader_ = "timestamp acc_x acc_y acc_z w_x w_y w_z";
-
-  // Open file and set numerical precision to the max.
-  imuFile_.open(IMUFilename_, std::ios_base::app);
-  imuFile_.precision(std::numeric_limits<double>::max_digits10);
-  // Save data to file.
-  imuFile_ << imuFileHeader_ << std::endl;
-
-  processRosbagForIMU();
-  // Close file handle.
-  imuFile_.close();
-}
-
 void RosbagRangeDataProcessorRos::processRosbagForIMU() {
   std::vector<std::string> topics;
   topics.push_back("/sensors/imu");
@@ -301,18 +271,6 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     return;
   }
 
-  if (slam_->exportIMUdata_) {
-    exportIMUData();
-    std::cout << "IMU Exporting is complete"
-              << "\n";
-
-    const ros::WallTime first{ros::WallTime::now() + ros::WallDuration(10.0)};
-    ros::WallTime::sleepUntil(first);
-
-    std::cout << "Sleeping 10 seconds.."
-              << "\n";
-  }
-
   std::string trackedPosesFilename_ = buildUpLogFilename("slam_poses");
   std::remove(trackedPosesFilename_.c_str());
 
@@ -336,12 +294,6 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     std::string outBagPath_ = buildUpLogFilename("processed_slam", ".bag");
     std::remove(outBagPath_.c_str());
     outBag.open(outBagPath_, rosbag::bagmode::Write);
-  }
-
-  if (slam_->saveNoisedPrior_) {
-    std::string noisedoutBagPath_ = buildUpLogFilename("very_noised_prior", ".bag");
-    std::remove(noisedoutBagPath_.c_str());
-    noisedoutBag.open(noisedoutBagPath_, rosbag::bagmode::Write);
   }
 
   const std::string filename_localizability = package_path_ + "/data/maps/replayed_localizability_categories.txt";
@@ -422,8 +374,6 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     }
 
     std::string nameWithCorrectSuffix = slam_->mapSavingFolderPath_ + "robotPathAsMesh.pcd";
-    // size_t found = nameWithCorrectSuffix.find(".pcd");
-
     open3d::io::WritePointCloudToPCD(nameWithCorrectSuffix, tube_cloud, open3d::io::WritePointCloudOption());
     ROS_INFO_STREAM("Successfully saved the poses as point cloud. Waiting for user to terminate.");
   }
@@ -432,9 +382,6 @@ void RosbagRangeDataProcessorRos::startProcessing() {
   poseFile_.close();
   if (slam_->saveProcessedBag_) {
     outBag.close();
-  }
-  if (slam_->saveNoisedPrior_) {
-    noisedoutBag.close();
   }
   if (slam_->useGPSforGroundTruth_) {
     gnssFile_.close();
@@ -525,13 +472,7 @@ bool RosbagRangeDataProcessorRos::validateTopicsInRosbag(const rosbag::Bag& bag,
 }
 
 void RosbagRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
-  /*bool success = slam_->addRangeScan(cloud, timestamp);
-  std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
-  const bool isCloudEmpty = std::get<0>(cloudTimePair).IsEmpty();
-  if (isTimeValid(std::get<1>(cloudTimePair)) && !isCloudEmpty) {
-    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)), rawCloudPub_);
-  }
-  */
+  // placeholder
 }
 
 bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
@@ -542,7 +483,6 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   }
 
   if (slam_->useSyncedPoses_) {
-    // Sync poses are currently is only X-ICP type. Thus not well supported.
     // Provide the pose prior
     auto& odometryPose = buffer.front()->odometryPose_;
     geometry_msgs::Pose odomPose = odometryPose->pose;
@@ -613,11 +553,7 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
 
   // Add the cloud to queue, internally checks if there is a matching odometry pose in the odometryBuffer
   if (slam_->addRangeScan(cloud, timestamp)) {
-    // std::cout << "Adding cloud with stamp: " << o3d_slam::toString(timestamp) << std::endl;
-    // Timer mapperOnlyTimer_;
-    // mapperOnlyTimer_.startStopwatch();
     auto timeTuple = usePairForRegistration();
-    // const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
   } else {
     std::cout << "RosbagReplayer:: Couldn't add range scan. Popping this measurement from the buffer." << std::endl;
     buffer.pop_front();
@@ -746,7 +682,6 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
         generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(std::get<1>(cloudTimePair)), colorMap_[ColorKey::kRed])};
 
     if (surfaceNormalLineMarker != std::nullopt) {
-      // ROS_DEBUG("Publishing point cloud surface normals for publisher '%s'.", parameters_.pointCloudPublisherTopic_.c_str());
       surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
     }
   }
@@ -808,7 +743,7 @@ visualization_msgs::Marker RosbagRangeDataProcessorRos::generateEigenVectorArrow
     colorId = 3;  // cyan
   }
 
-  const auto& itColor{arrowColors_.find(colorId)};
+  const auto& itColor{localizabilityArrorColors_.find(colorId)};
   marker.color.r = itColor->second[0];
   marker.color.g = itColor->second[1];
   marker.color.b = itColor->second[2];
@@ -816,18 +751,18 @@ visualization_msgs::Marker RosbagRangeDataProcessorRos::generateEigenVectorArrow
   marker.ns = ns;
   marker.id = id;
   marker.lifetime = ros::Duration();
-  marker.scale.x = 0.8;  // 0.1   0.8
-  marker.scale.y = 2.4;  // 0.3   2.4
-  marker.scale.z = 0.8;  // 0.1   0.8
+  marker.scale.x = 0.8;
+  marker.scale.y = 2.4;
+  marker.scale.z = 0.8;
   marker.points.resize(2u);
 
   if (eigVector.isZero()) {
-    marker.scale.x = 0.05;  // 0.1
-    marker.scale.y = 0.05;  // 0.3
-    marker.scale.z = 0.05;  // 0.1
+    marker.scale.x = 0.05;
+    marker.scale.y = 0.05;
+    marker.scale.z = 0.05;
     scale = 0.1;
   } else {
-    scale = 4.0;  // 6.0
+    scale = 4.0;
   }
 
   marker.pose.orientation.x = 0.0;
@@ -851,7 +786,7 @@ void RosbagRangeDataProcessorRos::drawDegeneracyArrows(const Transform currentPo
     return;
   }
 
-  std::vector<float> vec;  //(vecE.data(), vecE.data() + vecE.rows() * vecE.cols());
+  std::vector<float> vec;
   vec.push_back(currentPose.translation().x());
   vec.push_back(currentPose.translation().y());
   vec.push_back(currentPose.translation().z());
@@ -859,8 +794,6 @@ void RosbagRangeDataProcessorRos::drawDegeneracyArrows(const Transform currentPo
   Eigen::Matrix<float, 3, 6> PharosArrows_ = deeperICPLogs_.degenerateDirections_;
 
   if (condNumberArrowPublisher_.getNumSubscribers() > 0u || condNumberArrowPublisher_.isLatched()) {
-    // Eigen::Matrix<float, 3, 6> zeros = Eigen::Matrix<float, 3, 6>::Zero(3,6);
-    // if (!(PharosArrows_.isZero())) {
     visualization_msgs::MarkerArray arrowArray;
     for (int i = 0; i < 6; i++) {
       std::string ns = "rotation";
@@ -868,18 +801,15 @@ void RosbagRangeDataProcessorRos::drawDegeneracyArrows(const Transform currentPo
         ns = "translation";
       }
 
-      // if(!(PharosArrows_.col(i).isZero())){
       visualization_msgs::Marker arrow;
       visualization_msgs::Marker reverseArrow;
       arrow = generateEigenVectorArrowMarkers(vec, PharosArrows_.col(i), i, i, ns, 1.0, stamp);
       reverseArrow = generateEigenVectorArrowMarkers(vec, -PharosArrows_.col(i), i + 3, i, ns, 1.0, stamp);
       arrowArray.markers.emplace_back(std::move(arrow));
       arrowArray.markers.emplace_back(std::move(reverseArrow));
-      //}
     }
 
     condNumberArrowPublisher_.publish(arrowArray);
-    //}
   }
 }
 
@@ -888,14 +818,12 @@ void RosbagRangeDataProcessorRos::logToFiles() {
     return;
   }
 
-  // Test
   generateLocalizabilityCategory();
   generateSystemStatsFile();
 }
 
 void RosbagRangeDataProcessorRos::generateSystemStatsFile() {
-  // Values
-
+  // Logging Values
   auto& size = deeperICPLogs_.numberOfIterations;
   auto& timestamp = deeperICPLogs_.time_;
   auto& totalICPtime_ = deeperICPLogs_.totalICPtime;
@@ -905,10 +833,6 @@ void RosbagRangeDataProcessorRos::generateSystemStatsFile() {
   auto& motion = deeperICPLogs_.transform_;
 
   if (slam_->isRMSenabled_) {
-    // int sum = std::accumulate(rmsTimeVector_.begin(), rmsTimeVector_.end(), 0);
-    // ROS_INFO_STREAM("\033[33m"
-    //                 << " RMS EXTRA AVG TIME: " << sum / rmsTimeVector_.size() << "\033[39m");
-    // totalICPtime_ = totalICPtime_ + sum / rmsTimeVector_.size();
     totalICPtime_ = totalICPtime_ + rmsTiming_;
   }
 
@@ -920,10 +844,6 @@ void RosbagRangeDataProcessorRos::generateLocalizabilityCategory() {
   // Values
   auto& categories = deeperICPLogs_.localizationCategory;
   auto& timestamp = deeperICPLogs_.time_;
-
-  // std::vector<double> norm = aligner_->getNorms();
-  // std::vector<double> lambdas = aligner_->getLambdas();
-  // std::vector<double> regNorms = aligner_->getRegularizationNorms();
 
   // auto size = regNorms.size();
   file_localizability << o3d_slam::toSecondsSinceFirstMeasurement(timestamp) << " " << categories.col(0).row(3).value() << " "
@@ -988,7 +908,8 @@ void RosbagRangeDataProcessorRos::drawLinesBetweenPoses(const nav_msgs::Path& pa
   }
 
   visualization_msgs::Marker line_list;
-  line_list.header.frame_id = slam_->frames_.mapFrame;  // Change the frame_id as per your requirement
+  // Change the frame_id as per your requirement
+  line_list.header.frame_id = slam_->frames_.mapFrame;
   line_list.header.stamp = stamp;
   line_list.ns = "paths";
   line_list.action = visualization_msgs::Marker::ADD;
@@ -1026,7 +947,6 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
   slam_->callofflineOdometryWorker();
 
   const auto odometryProcessingElapsed{ros::WallTime::now() - odometryProcessingStartTime};
-  // ROS_INFO_STREAM("Odometry Operations took " << "\033[92m" << odometryProcessingElapsed.toNSec() / 1000000u << "ms" << "\033[0m");
 
   // Odometry is processed, now mapping
   const ros::WallTime mappingProcessingStartTime{ros::WallTime::now()};
@@ -1044,8 +964,6 @@ std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> RosbagRangeD
   slam_->callofflineLoopClosureWorker();
 
   const auto loopclosureProcessingElapsed{ros::WallTime::now() - loopclosureProcessingStartTime};
-  // ROS_INFO_STREAM("Loop closure Operations took " << "\033[92m" << loopclosureProcessingElapsed.toNSec() / 1000000u << "ms" <<
-  // "\033[0m");
 
   slam_->callofflineDenseMapWorker();
 
@@ -1131,7 +1049,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
 
   if (slam_->isUsingOdometryTopic()) {
     if (slam_->useSyncedPoses_) {
-      // This is currently very specific
       topics.push_back(poseStampedTopic_);
     } else {
       // This is alternating between different common ROS msg types. I.e. poseStampedWithCovariance and Odometry
@@ -1216,7 +1133,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
                  (messageInstance.getDataType() == "geometry_msgs/PoseWithCovarianceStamped")) {
         ROS_WARN_STREAM_ONCE("SHOWN ONCE: Using async odometry topic as clock master. This is sub-optimal. Topic: " << clockTopic_);
 
-        rosgraph_msgs::Clock clockMessage;  // = messageInstance.instantiate<rosgraph_msgs::Clock>();
+        rosgraph_msgs::Clock clockMessage;
         clockMessage.clock = messageInstance.getTime();
         clockPublisher_.publish(clockMessage);
         // Assign the current "time" to a global variable for async operations.
@@ -1226,12 +1143,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
         ROS_ERROR("This type of clock alternative is not supported");
         return false;
       }
-
-      // rosgraph_msgs::Clock::ConstPtr clockMessage = messageInstance.instantiate<rosgraph_msgs::Clock>();
-      // if (clockMessage != nullptr) {
-      // clockPublisher_.publish(clockMessage);
-      // Assign the current "time" to a global variable for async operations.
-      // tracker = clockMessage->clock;
 
       // Spins once here.
       if (!readCalibrationIfNeeded()) {
@@ -1262,8 +1173,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
         isBagReadyToPlay_ = true;
       }
 
-      // const ros::WallTime processingStartTime{ros::WallTime::now()};
-
       // Process data in buffers.
       if (processBuffers(slamInputsBuffer)) {
         // const auto processingElapsed{ros::WallTime::now() - processingStartTime};
@@ -1280,11 +1189,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           break;
         }
       }
-
-      //} else {
-      // This is where there is no clock.
-      //  isInvalidMessageInBag = true;
-      //}
     }
 
     // Gnss message.
@@ -1326,18 +1230,9 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             odomPose.pose.orientation.x = 0.0;
             odomPose.pose.orientation.y = 0.0;
             odomPose.pose.orientation.z = 0.0;
-            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
-
-            // ROS_WARN_STREAM("Gnss BEFORE transform " << odomPose.pose.position.x << " " << odomPose.pose.position.y << " "
-            //                                         << odomPose.pose.position.z);
 
             Eigen::Affine3d transform = Eigen::Affine3d::Identity();
-            // baseToLidarTransform_ = tf2::eigenToTransform(transform); // gpsToLidarTransform_
             tf2::doTransform(odomPose, odomPose_transformed, tf2::eigenToTransform(transform));
-
-            // ROS_WARN_STREAM("Gnss AFTER transform " << odomPose_transformed.pose.position.x << " " <<
-            // odomPose_transformed.pose.position.y
-            //                                        << " " << odomPose_transformed.pose.position.z);
 
             // TODO: Clean up
             double initYawEnuLidar = 0.0;
@@ -1416,25 +1311,8 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           transformStamped.header.stamp = tracker;
           transformStamped.header.frame_id = slam_->frames_.mapFrame;
           transformStamped.child_frame_id = "enu";
-          // geometry_msgs::TransformStamped transformStamped = o3d_slam::toRos(Mat, time, slam_->frames_.mapFrame, "enu");
           transformBroadcaster_.sendTransform(transformStamped);
         }
-
-        /*if (tf_msg.header.frame_id == "world" && tf_msg.child_frame_id == "base_link")
-        {
-            geometry_msgs::PoseStamped pos_msg;
-
-            pos_msg.header =tf_msg.header;
-            pos_msg.pose.position.x = tf_msg.transform.translation.x;
-            pos_msg.pose.position.y = tf_msg.transform.translation.y;
-            pos_msg.pose.position.z = tf_msg.transform.translation.z;
-            pos_msg.pose.orientation.x = tf_msg.transform.rotation.x;
-            pos_msg.pose.orientation.y = tf_msg.transform.rotation.y;
-            pos_msg.pose.orientation.z = tf_msg.transform.rotation.z;
-            pos_msg.pose.orientation.w = tf_msg.transform.rotation.w;
-
-            pos_pub.publish(pos_msg);
-        }*/
 
       } else {
         isInvalidMessageInBag = true;
@@ -1450,22 +1328,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
     if (messageInstance.getTopic() == cloudTopic_) {
       sensor_msgs::PointCloud2::ConstPtr message = messageInstance.instantiate<sensor_msgs::PointCloud2>();
       if (message != nullptr) {
-        // ROS_ERROR_STREAM("message->fields[0].name: " << message->fields[0].name);
-        // ROS_ERROR_STREAM("message->fields[1].name: " << message->fields[1].name);
-        // ROS_ERROR_STREAM("message->fields[2].name: " << message->fields[2].name);
-        // ROS_ERROR_STREAM("message->fields[3].name: " << message->fields[3].name);
-        // ROS_ERROR_STREAM("message->fields[4].name: " << message->fields[4].name);
-        // ROS_ERROR_STREAM("message->fields[5].name: " << message->fields[5].name);
-        // ROS_ERROR_STREAM("message->fields[6].name: " << message->fields[6].name);
-        // ROS_ERROR_STREAM("message->fields[7].name: " << message->fields[7].name);
-        // ROS_ERROR_STREAM("message->fields[8].name: " << message->fields[8].name);
-        // ROS_ERROR_STREAM("message->fields[9].name: " << message->fields[9].name);
-        // ROS_ERROR_STREAM("message->fields[10].name: " << message->fields[10].name);
-        // ROS_ERROR_STREAM("message->fields[11].name: " << message->fields[11].name);
-        // ROS_ERROR_STREAM("message->fields[12].name: " << message->fields[12].name);
-        // ROS_ERROR_STREAM("message->height: " << message->height);
-        // ROS_ERROR_STREAM("message->width: " << message->width);
-
         if (slam_->isRMSenabled_) {
           sensor_msgs::PointCloud2::Ptr rmsPointCloud = sensor_msgs::PointCloud2::Ptr(new sensor_msgs::PointCloud2);
           *rmsPointCloud = *message;
@@ -1473,11 +1335,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
           rms->sample(rmsPointCloud);
           const auto endTime__ = std::chrono::steady_clock::now();
           rmsTiming_ = std::chrono::duration_cast<std::chrono::microseconds>(endTime__ - startTime__).count() / 1e3;
-
-          // ROS_ERROR_STREAM("rmsTiming: " << rmsTiming);
-
-          // rmsTimeVector_.push_back(rmsTiming);
-          // Add point cloud to buffer.
           slamInputs->pointCloud_ = rmsPointCloud;
         } else {
           slamInputs->pointCloud_ = message;
@@ -1503,7 +1360,7 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             // std::cout << " slamInputs IS HEALTHY adding to buffer  " << std::endl;
             slamInputsBuffer.emplace_back(std::move(slamInputs));
           } else {
-            std::cout << " slamInputs IS NOT HEALTHY  " << std::endl;
+            std::cout << " slamInputs is not initialized.  " << std::endl;
           }
         }
 
@@ -1537,32 +1394,12 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
             geometry_msgs::PoseStamped odomPose;
             odomPose.pose = message->pose.pose;
 
-            // // This was used for initial experiments
-            // geometry_msgs::Pose noisy_pose = addNoiseToPose_with_mean(odomPose.pose, 0.05, 0.02, 0.05, 0.0, false);
-
-            // geometry_msgs::PoseStamped saveNoisedPose;
-            // saveNoisedPose.pose = noisy_pose;
-            // saveNoisedPose.header = message->header;
-
-            // ROS_INFO_STREAM("\033[92m"
-            //                 << "SAVING NOISED PRIOR"
-            //                 << "\033[0m");
-
-            // noisedoutBag.write("/very_noised_prior", message->header.stamp, saveNoisedPose);
-            // odomPose.pose = noisy_pose;
-
             geometry_msgs::PoseStamped odomPose_transformed;
             Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
-            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
             slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
             tf2::doTransform(odomPose, odomPose_transformed, baseToLidarTransform_);
 
             if (isFirstMessage_ && isStaticTransformFound_) {
-              // std::cout << " Initial Transform value PRE CALIB: " << "\033[92m" <<
-              // o3d_slam::asString(o3d_slam::getTransform(odomPose.pose)) << " \n" << "\033[0m"; std::cout << " Initial Transform time: "
-              // <<
-              // "\033[92m" << toString(fromRos(message->header.stamp)) << " \n" << "\033[0m";
-
               geometry_msgs::PoseStamped initialPose = odomPose_transformed;
 
               // initialPose.position=odomPose.position;
@@ -1597,7 +1434,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
 
             nav_msgs::Odometry odomPose_transformed;
             Eigen::Isometry3d eigenTransform = tf2::transformToEigen(baseToLidarTransform_);
-            // geometry_msgs::TransformStamped inverseTransform = tf2::eigenToTransform(eigenTransform.inverse());
             slam_->setExternalOdometryFrameToCloudFrameCalibration(eigenTransform);
             tf2::doTransform(odomPose.pose.pose, odomPose_transformed.pose.pose, baseToLidarTransform_);
 
@@ -1612,22 +1448,6 @@ bool RosbagRangeDataProcessorRos::processRosbag() {
               slam_->setInitialTransform(o3d_slam::getTransform(initialPose.pose.pose).matrix());
               isFirstMessage_ = false;
             }
-
-            // geometry_msgs::Pose noisy_pose = motionBasedNoise(
-            //    odomPose.pose.pose, 0.0, 0.0, 0.0);  // trans noise variance, directionalTransNoise variance ,  rot noise variance
-
-            /*geometry_msgs::Pose noisy_pose = addUniformNoiseToPose(odomPose.pose.pose, 0.05, 0.01);  // Adjust noise magnitudes as needed
-            if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(noisy_pose), fromRos(message->header.stamp)))) {
-              ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");
-              return false;
-            }*/
-
-            // nav_msgs::Odometry saveNoisedPose;
-
-            // saveNoisedPose.pose.pose = noisy_pose;
-            // saveNoisedPose.header = message->header;
-
-            // noisedoutBag.write("/Odometry_noised", message->header.stamp, saveNoisedPose);
 
             if (!(slam_->addOdometryPoseToBuffer(o3d_slam::getTransform(odomPose.pose.pose), fromRos(message->header.stamp)))) {
               ROS_ERROR("Couldn't Add pose to buffer. This is not unexpected, you should be concerned.");

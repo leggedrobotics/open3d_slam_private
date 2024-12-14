@@ -23,18 +23,18 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   visualization_msgs
 )
 
+find_package(PCL 1.10 EXACT REQUIRED PATHS /usr/include/pcl-1.10/ 
+  COMPONENTS
+    common
+    io
+)
+
 find_package(Boost REQUIRED)
 
 # Find catkin macros and libraries
 find_package(catkin
   REQUIRED COMPONENTS
     ${CATKIN_PACKAGE_DEPENDENCIES}
-)
-
-find_package(PCL 1.10 REQUIRED
-  COMPONENTS
-    common
-    io
 )
 
 # Catkin package macro

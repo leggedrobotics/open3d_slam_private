@@ -48,13 +48,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 #include "Eigen/Eigenvalues"
-
 #include "Eigen/SparseQR"
 #include "Eigen/SparseLU"
 #include "Eigen/OrderingMethods"
-
 #include "Eigen/IterativeLinearSolvers"
-
 #include <boost/thread/mutex.hpp>
 
 #include <stdexcept>
@@ -570,9 +567,9 @@ struct PointMatcher
     /* Degeneracy Awareness Methods */
     // kNone = Default libpointmatcher ICP. No degeneracy awareness.
     // kSolutionRemapping = Solution Remapping approach from (On Degeneracy of Optimization-based State Estimation Problems) does active degeneracy detection.
-    // kOptimizedEqualityConstraints = Turcan's geometry based localizability detection module. Optimized for reduced latency. Utilizes equality constraints.
-    // kEqualityConstraints = Turcan's geometry based localizability detection module, doing ternary level detection. Utilizes equality constraints.
-    // kInequalityConstraints =   Turcan's geometry based localizability detection module, doing ternary level detection. Utilizes inequality constraints.
+    // kOptimizedEqualityConstraints = geometry based localizability detection module. Optimized for reduced latency. Utilizes equality constraints.
+    // kEqualityConstraints = geometry based localizability detection module, doing ternary level detection. Utilizes equality constraints.
+    // kInequalityConstraints =  geometry based localizability detection module, doing ternary level detection. Utilizes inequality constraints.
     enum class DegeneracyAwarenessMethod
     {
         kNone = 0,
@@ -666,7 +663,7 @@ struct PointMatcher
         LocalizabilityAnalysisResults localizabilityAnalysisResults_;
 
 		// Arbitrary centring of the points from base to lidar. 
-		TransformationParameters T_convert_from_base_to_lidar_mat;
+		TransformationParameters T_operation_frame;
 
 		T inequalityBoundMultiplier_{1.0};
 
@@ -675,10 +672,9 @@ struct PointMatcher
 
 		float regularizationWeight_{ 0.0f };
 
-		// inequality constraint mapping matrix
+		// Mapping Matrix
         Eigen::Matrix<float, -1, 6> constraintMappingMatrix_;
 
-		// L-Curve vectors
 		std::vector<double> residuals_;
 		std::vector<double> regNorms_;
 		std::vector<double> lambdas_;
@@ -687,14 +683,11 @@ struct PointMatcher
 		std::vector<double> regNorms_d2;
 		std::vector<double> residuals_d1;
 		std::vector<double> residuals_d2;
-		std::vector<double> curveEval_y1;
-		std::vector<double> curveEval_y2;
 
 		int iterationNumber_{0};
 
 		// Enables weighted regularization.
 		bool enableStandardWeightRegularization_{false};
-		bool useLcurve_{ false };
 
 		bool useTruncatedSVD{false};
 		bool skipRegistration{false};
@@ -702,7 +695,6 @@ struct PointMatcher
 		float constraintResidual_{0.0f};
 
 		Eigen::DiagonalMatrix<T, 6> sinv_external_;
-		//Eigen::Matrix<T, 6, 1> sinv_external_ = Eigen::Matrix<T, 6, 1>::Zero(6, 1); 
 
     };
 
@@ -771,9 +763,6 @@ struct PointMatcher
 		// Enables weighted regularization.
 		bool enableStandardWeightRegularization_{false};
 
-		//float constraintResidual_{0.0f};
-		bool useLcurve_{ false };
-
     };
 
     //! An error minimizer will compute a transformation matrix such as to minimize the error between the reading and the reference.
@@ -798,9 +787,9 @@ struct PointMatcher
 			ErrorElements(const DataPoints& requestedPts, const DataPoints& sourcePts, const OutlierWeights& outlierWeights, const Matches& matches);
 		};
 
-		VectorMatrix turcanCovarianceVectorMatrix_;
+		VectorMatrix analysisCovarianceVectorMatrix_;
 		VectorT iterationWiseResidualErrors_;
-		Matrix turcanCovariance_; 
+		Matrix analysisCovariance_; 
 		VectorT lagrangianVector_;
 
 		ErrorMinimizer();
@@ -837,11 +826,11 @@ struct PointMatcher
 		static Matrix crossProduct(const Matrix& A, const Matrix& B);//TODO: this might go in pointmatcher_support namespace
 
 		// Investigation Debug
-		void setCovarianceMatrixTurcan(const Matrix& A);
+		void setCovarianceMatrixForAnalysis(const Matrix& A);
 		void setLagrangian(const T& lagrangeMultiplier);
 		VectorT getLagrangian();
-		Matrix getCovarianceMatrixTurcan();
-		VectorMatrix getCovarianceVectorMatrixTurcan();
+		Matrix getCovarianceMatrixForAnalysis();
+		VectorMatrix getCovarianceVectorMatrixForAnalysis();
 		VectorT getIterationWiseResidualErrors();
 
 		void setActiveInequalityConstraintSize(const int& activeSize);
@@ -856,28 +845,10 @@ struct PointMatcher
 		int getNumberOfEqualityConstraints();
 		int equalityConstraintSize{0};
 
-		int coco{0};
-
-		std::vector<double> getLambdaAnalysisNorms();
-		std::vector<double> getLambdaAnalysisRegularizationNorms();
-		std::vector<double> getLambdas();
-
-		std::vector<double> getRegNorms_d1();
-		std::vector<double> getRegNorms_d2();
-
-		std::vector<double> getResiduals_d1();
-		std::vector<double> getResiduals_d2();
-
-		std::vector<double> getCurveEval_y1();
-		std::vector<double> getCurveEval_y2();
-
-
 		void setRegNorms_d2(const std::vector<double>& norms);
 		void setRegNorms_d1(const std::vector<double>& norms);
 		void setResiduals_d1(const std::vector<double>& norms);
 		void setResiduals_d2(const std::vector<double>& norms);
-		void setCurveEval_y1(const std::vector<double>& norms);
-		void setCurveEval_y2(const std::vector<double>& norms);
 
 		void setLambdas(const std::vector<double>& lambdas);
 		void setLambdaAnalysisRegularizationNorms(const std::vector<double>& norms);
@@ -891,8 +862,6 @@ struct PointMatcher
 		std::vector<double> regNorms_d2;
 		std::vector<double> residuals_d1;
 		std::vector<double> residuals_d2;
-		std::vector<double> curveEval_y1;
-		std::vector<double> curveEval_y2;
 
 	protected:
 		//T pointUsedRatio; //!< the ratio of how many points were used for error minimization

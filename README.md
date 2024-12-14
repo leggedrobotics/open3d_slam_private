@@ -7,15 +7,15 @@ The work investigates different degeneracy mitigation methods for the problem of
 - This work builds on the open-source version of [Open3D SLAM](https://github.com/leggedrobotics/open3d_slam).
 - This work uses libpointmatcher point cloud registration library in the backend. The locally available libpointmatcher library is based on this [version](https://github.com/ANYbotics/libpointmatcher).
 - The locally available `pointmatcher_ros` package is based on [this version](https://github.com/ANYbotics/pointmatcher-ros).
-- For NL-Reg. and NL-Solver methods, this work depends on [Ceres](https://github.com/ceres-solver/ceres-solver).
-- For the Ineq. Con. method, this work relies on the QPmad quadratic problem library [link](https://github.com/asherikov/qpmad).
-- To replicate the result of the work of Petracek et al. (RMS), the authors [forked](https://github.com/leggedrobotics/RMS) the [original work](https://github.com/ctu-mrs/RMS).
+- For NL-Reg. and NL-Solver methods, this work depends on [Ceres](https://github.com/ceres-solver/ceres-solver). Version 2.1.0
+- For the Ineq. Con. method, this work relies on an old version of QPmad quadratic problem library [link](https://github.com/leggedrobotics/qpmad).
+- To replicate the result of the work of Petracek et al. (RMS), the authors [forked](https://github.com/leggedrobotics/RMS) the [original work](https://github.com/ctu-mrs/RMS). Please also install the dependencies of this repository.
 
 
 ## Dependencies (on top of the Components / or part of them)
-1. Ubuntu 20.04
+1. Ubuntu 20.04 (PCL 1.10)
 2. ROS Noetic
-3. CMake > 3.18
+3. CMake > 3.18 (tested 3.25)
 ```bash
 cmake --version
 ```
@@ -77,3 +77,15 @@ We would like to thank all the researchers who made their work open-source to th
 
 ## License
 All the 3rd party libraries and repositories are subject to the license of their own.
+
+## Common Issues
+
+```
+CMake Error at /usr/local/share/cmake-3.25/Modules/CMakeFindDependencyMacro.cmake:47 (find_package):
+  find_package called with invalid argument ".."
+  /usr/local/lib/cmake/Ceres/CeresConfig.cmake:182 (find_dependency)
+  CatkinBuild.cmake:27 (find_package)
+  CMakeLists.txt:81 (include)
+```
+
+On certain Ceres / Cmake versions this error prevents correct build. In that case, just go to the errorous file (/usr/local/lib/cmake/Ceres/CeresConfig.cmake) and remove `..` which is out of date. `find_dependency(CXSparse .. )` -> `find_dependency(CXSparse)`

@@ -306,7 +306,6 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   mapSavingFolderPath_ = nh_->param<std::string>("map_saving_folder", folderPath_);
 
   // Offline advanced parameters
-  exportIMUdata_ = nh_->param<bool>("export_imu_data", false);
   useSyncedPoses_ = nh_->param<bool>("use_syncronized_poses_to_replay", false);
   rePublishTf_ = nh_->param<bool>("republish_tf_topic", false);
 
@@ -315,15 +314,14 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   bagReplayEndTime_ = nh_->param<double>("replay_end_time_as_second", 8000.0);
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
   gpsTopic_ = nh_->param<std::string>("gps_topic", "");
-  // Read whether subscribe to GPS.
+
+  // Read whether subscribe to GPS. (Only for anymal forest experiment)
   useGPSforGroundTruth_ = nh_->param<bool>("use_gps_for_ground_truth", false);
   downsamplePointCloudForReplay_ = nh_->param<bool>("downsample_cloud_for_replay", false);
-  saveNoisedPrior_ = nh_->param<bool>("save_noised_prior", false);
   saveProcessedBag_ = nh_->param<bool>("save_processed_bag", false);
   downSamplingSkippingRate_ = nh_->param<int>("downSamplingSkippingRate_", 5);
 
   // We read this from the pointcloud header. We dont support frame moving yet.
-  // TODO do I need this?
   frames_.rangeSensorFrame = "default";
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
   frames_.gpsFrame = nh_->param<std::string>("gps_frame", "default");

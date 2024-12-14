@@ -45,9 +45,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // qpmad InEqualityConstrained Opt. Module
 #include <qpmad/solver.h>
-#include <nlopt.hpp>
-#include "l_curve_optimization.hpp"
-#include "TruncatedSVD.hpp"
+
+// TSVD
+#include "TSVD.hpp"
 
 // message logger
 #include <message_logger/message_logger.hpp>
@@ -126,20 +126,6 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
     assert(x.rows() == A.cols());
 
     typedef typename PointMatcher<T>::Matrix Matrix;
-
-    //TruncatedSVD<Matrix> tsvd;
-    //tsvd.setEigenValueThreshold(120);
-    //tsvd.compute(A);
-    //tsvd.computeFromExistingSinv(sinv_external);
-    //tsvd.solve(b, x);
-    //std::cout << "numTruncatedSingularValues: " << std::endl << tsvd.numTruncatedSingularValues() << std::endl;
-
-    //std::cout << std::setprecision(12) << "Augmented A: " << std::endl << A << std::endl;
-    //std::cout << std::setprecision(12) << "Augmented b: " << std::endl << b << std::endl;
-
-    // ALWAYS USE THIS
-    //BOOST_AUTO(solverQR, A.householderQr());
-    //x = solverQR.solve(b);
     
     if (isConstrained)
     {
@@ -150,99 +136,6 @@ void solvePossiblyUnderdeterminedLinearSystem(const MatrixA& A, const Vector& b,
         BOOST_AUTO(solverQR, A.householderQr());
         x = solverQR.solve(b);
     }
-    
-    //std::cout << std::setprecision(12) << "found x: " << std::endl << x << std::endl;
-
-    /// Compute SVD  - check sorting ORDER
-    /*Eigen::JacobiSVD<MatrixA> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);  
-    std::cout << "\neigen vals:\n" << svd.singularValues() << std::endl;  
-    std::cout << "\nU\n:" << svd.matrixU() << std::endl;  
-    std::cout << "\nV\n:" << svd.matrixV() << std::endl;  
-
-    Vector x_test = svd.solve(b);  
-    std::cout << "\nx = pseudoInv(A)*b:\n" << x_test << std::endl;  
-    std::cout << std::setprecision(12) << "\n|| Ax-b ||/|| b || = " << (A*x_test - b).norm() / b.norm() << std::endl;  
-
-    const Eigen::JacobiSVD<MatrixA>::SingularValuesType &S = svd.singularValues();  
-    Matrix S_Regularized(6, 6);  
-    S_Regularized = Matrix::Zero( 6, 6);  
-    for(int i = 0; i < S.size(); ++i)  {
-        S_Regularized(i,i) = S(i) < 120.0f ? 0.0 : 1.0f/S(i);  
-    }
-    std::cout << "\nRegularized inverse eigen vals:\n" << S_Regularized << std::endl;  
-    x = svd.matrixV()*S_Regularized*svd.matrixU().inverse()*b;  
-    std::cout << "\nx_n = V*SReg_Inv*U_Inv*b:\n" << x << std::endl;  
-    std::cout << std::setprecision(12) << "\n|| Ax-b ||/|| b || = " << (A*x - b).norm() / b.norm() << std::endl;  
-    */
-
-
-    //std::cout << "Calculated Solution: " << std::endl << x << std::endl;
-
-    /*
-    if (isConstrained)
-    {
-        // TODO(ynava) Investigate the effects of using SVD directly.
-
-        // Alternative to doing SVD. Note: Constrained ICP methods are not solvable with fullHouseHolderQR method since this solver does column shifting to make the problem full rank. Whereas, our augmented optimization hessian might be rank deficient practically.
-        BOOST_AUTO(solverQR, A.householderQr());
-        x = solverQR.solve(b);
-
-        // SVD, exists for all matrices without exception. If there is a solution it will find it despite not being optimum.
-        //x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-    }
-    else
-    {
-        // Regular Least Squares Optimization problem solving.
-        BOOST_AUTO(Aqr, A.fullPivHouseholderQr());
-        if (!Aqr.isInvertible())
-        {
-            // Solve reduced problem R1 x = Q1^T b instead of QR x = b, where Q = [Q1 Q2] and R = [ R1 ; R2 ] such that ||R2|| is small (or zero) and therefore A = QR ~= Q1 * R1
-            const int rank = Aqr.rank();
-            const int rows = A.rows();
-            const Matrix Q1t = Aqr.matrixQ().transpose().block(0, 0, rank, rows);
-            const Matrix R1 = (Q1t * A * Aqr.colsPermutation()).block(0, 0, rank, rows);
-
-            const bool findMinimalNormSolution = true; // TODO is that what we want?
-
-            // The under-determined system R1 x = Q1^T b is made unique ..
-            if (findMinimalNormSolution)
-            {
-                // by getting the solution of smallest norm (x = R1^T * (R1 * R1^T)^-1 Q1^T b.
-                x = R1.template triangularView<Eigen::Upper>().transpose() * (R1 * R1.transpose()).llt().solve(Q1t * b);
-            }
-            else
-            {
-                // by solving the simplest problem that yields fewest nonzero components in x
-                x.block(0, 0, rank, 1) = R1.block(0, 0, rank, rank).template triangularView<Eigen::Upper>().solve(Q1t * b);
-                x.block(rank, 0, rows - rank, 1).setZero();
-            }
-
-            x = Aqr.colsPermutation() * x;
-
-            BOOST_AUTO(ax, (A * x).eval());
-            if (!b.isApprox(ax, 1e-5))
-            {
-                LOG_INFO_STREAM("PointMatcher::icp - encountered almost singular matrix while minimizing point to plane distance. QR "
-                                "solution was too inaccurate. Trying more accurate approach using double precision SVD.");
-                x = A.template cast<double>().jacobiSvd(ComputeThinU | ComputeThinV).solve(b.template cast<double>()).template cast<T>();
-                ax = A * x;
-
-                if ((b - ax).norm() > 1e-5 * std::max(A.norm() * x.norm(), b.norm()))
-                {
-                    LOG_WARNING_STREAM("PointMatcher::icp - encountered numerically singular matrix while minimizing point to plane "
-                                       "distance and the current workaround remained inaccurate."
-                                       << " b=" << b.transpose() << " !~ A * x=" << (ax).transpose().eval()
-                                       << ": ||b- ax||=" << (b - ax).norm() << ", ||b||=" << b.norm() << ", ||ax||=" << ax.norm());
-                }
-            }
-        }
-        else
-        {
-            // Cholesky decomposition, expects the problem to be invertible and full rank. Extremely fast but also fragile under a not well-conditioned problem.
-            x = A.llt().solve(b);
-        }
-    }
-    */
 }
 
 template<typename T>
@@ -286,33 +179,29 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
                     + localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.localizabilityRpy_.sum());
             if (localizabilityParametersForErrorMinimization.useTruncatedSVD)
             {
-
+                // TSVD
                 if (numberOfConstraints == 0)
                 {
                     // Regular vanilla ICP.
                     solvePossiblyUnderdeterminedLinearSystem<T>(A, b, x, false);
                 }else
                 {
-                    TruncatedSVD<Matrix> tsvd;
-                    //tsvd.setEigenValueThreshold(120);
-                    //tsvd.compute(A);
-                    std::cout << "A: " << std::endl << A << std::endl;
-                    tsvd.computeSVD(A);
+                    // TSVD
+                    TSVD<Matrix> tsvd;
                     tsvd.computeFromExistingSinv(localizabilityParametersForErrorMinimization.sinv_external_);
                     tsvd.solve(b, x);
-                    //std::cout << "numTruncatedSingularValues: " << std::endl << tsvd.numTruncatedSingularValues() << std::endl;
                     localizabilityParametersForErrorMinimization.constraintResidual_ = (A*x - b).tail(numberOfConstraints).norm();
                 }
 
             }else{
-
+                
+                // Zhang et al. (Solution Remapping)
                 solvePossiblyUnderdeterminedLinearSystem<T>(A, b, x, false);
 
                 // Project the solution based on the detection results.
                 // TODO Do we really need the copy here?
-                const Eigen::Matrix<T, 6, 1> deltaXcopy{ x };
-                x = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.solutionRemappingProjectionMatrix_ * deltaXcopy;
-
+                const Eigen::Matrix<T, 6, 1> optVariablesCopied{ x };
+                x = localizabilityParametersForErrorMinimization.localizabilityAnalysisResults_.solutionRemappingProjectionMatrix_ * optVariablesCopied;
                 localizabilityParametersForErrorMinimization.constraintResidual_ = (A*x - b).tail(numberOfConstraints).norm();
             }
 
@@ -386,12 +275,6 @@ typename PointMatcher<T>::TransformationParameters PointToPlaneErrorMinimizer<T>
         {
             transform.translation() = x.segment(1, 3); //x=[gamma,x,y,z]
         }
-        //Eigen::AngleAxis<T> tt= Eigen::AngleAxis<T>(x.head(3).norm(), x.head(3).normalized());
-        //MELO_INFO_STREAM("XICP transformation translation: ");
-        //MELO_INFO_STREAM(transform.translation().transpose());
-        //MELO_INFO_STREAM("XICP transformation rotation norm: " << x.head(3).norm());
-        //MELO_INFO_STREAM("XICP transformation rotation axis: " << x.head(3).normalized());
-
         mOut = transform.matrix();
 
         if (mOut != mOut)
@@ -457,7 +340,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
         Eigen::VectorXd xQP;
         Eigen::VectorXd lb;
         Eigen::VectorXd ub;
-        //Eigen::MatrixXd constraintMatrix = Eigen::MatrixXd::Zero(numberOfConstraints, A.rows());
         Eigen::MatrixXd constraintMatrix = Eigen::MatrixXd::Zero(numberOfConstraints, 6);
         Eigen::VectorXd Alb = Eigen::VectorXd::Zero(numberOfConstraints, 1);
         Eigen::VectorXd Aub = Eigen::VectorXd::Zero(numberOfConstraints, 1);
@@ -473,24 +355,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
             constraintMatrix, Alb, Aub, numberOfEqConstraints, degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
 
         numberOfEqualityConstraints = numberOfEqConstraints;
-        //constraintMatrix.conservativeResize(constraintMatrix.rows(), A.rows());
-        // Store the constraintMapping Matrix
-        /*
-        std::cout << "numberOfConstraints: " << numberOfConstraints << std::endl;
-        std::cout << "size: " << constraintMatrix.size() << std::endl;
-
-        std::cout << "constraintMatrix row0 : " << constraintMatrix.row(0) << std::endl;
-        std::cout << "constraintMatrix row1 : " << constraintMatrix.row(1) << std::endl;
-        std::cout << "constraintMatrix row2 : " << constraintMatrix.row(2) << std::endl;
-        std::cout << "constraintMatrix row3 : " << constraintMatrix.row(3) << std::endl;
-        std::cout << "constraintMatrix row4 : " << constraintMatrix.row(4) << std::endl;
-        std::cout << "constraintMatrix row5 : " << constraintMatrix.row(5) << std::endl;
-        */
-       std::cout << "Alb.tranpose : " << Alb.transpose() << std::endl;
-       std::cout << "Aub.tranpose : " << Aub.transpose() << std::endl;
-
-        ///////// DO I NEED THIS BACK?
-        //localizabilityParametersForErrorMinimization.constraintMappingMatrix_ = constraintMatrix.template cast<float>();
 
         qpmad::Solver solverStandard;
         qpmad::SolverParameters param;
@@ -511,10 +375,10 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
         Eigen::Matrix<bool, Eigen::Dynamic, 1> is_lower;
         int activeInequalityConstraintSize = 0;
         solverStandard.getInequalityDual(dual, indices, is_lower);
-        std::cout << "Active Inquality Constraints: " << dual.size() << std::endl;
+        std::cout << "Number of active Inquality Constraints: " << dual.size() << std::endl;
         activeInequalityConstraints = dual.size();
 
-        std::cout << "Does Constraints satisfied?" << std::endl;
+        std::cout << "Do Constraints satisfied? 0 == satisfied: " << std::endl;
         std::cout << constraintMatrix*xQP << std::endl;
 
         // Convert from double to float.
@@ -528,31 +392,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithInequalityConstraints(
 
         localizabilityParametersForErrorMinimization.constraintResidual_ = (constraintMatrix.template cast<float>()*xQPfloat).tail(numberOfEqConstraints).norm();
     }
-}
-
-double lambdaObjective(const std::vector<double> &x, std::vector<double> &grad, void *solver) {
-    auto sp = reinterpret_cast<LcurveOptimizer*>(solver);
-    /**
-     * Setting regularization parameter
-     */
-    sp->setLambda(x[0]);
-    /**
-     * Finding a numerical solution
-     */
-    // Internally assign / process whatever required.
-    sp->evaluate();
-
-    if (!grad.empty()) {
-        /**
-         * Evaluate L-curve curvature gradient
-         */
-        grad[0] = sp->getLcurveCurvetureDerivative();
-    }
-    /**
-     * Return L-curve curvature
-     */
-
-    return sp->getLcurveCurveture();
 }
 
 template<typename T, typename Matrix, typename Vector, typename LocalizabilityParametersForErrorMinimization>
@@ -596,26 +435,15 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
         readLocalizabilityFlags<T>(degenerateDirectionIndices, localizabilityParametersForErrorMinimization);
 
         if (localizabilityParametersForErrorMinimization.enableStandardWeightRegularization_){
+
+            // L-REG, generate the regularized optimization problem.
+
             // Populate constrained optimization variables.
             generateRegularizedOptimizationProblem<T>(
                 augmentedA, Augmentedb, degenerateDirectionIndices, localizabilityParametersForErrorMinimization, numberOfConstraints);
 
-            //MELO_INFO_STREAM("A: ");
-            //MELO_INFO_STREAM(augmentedA);
-            //MELO_INFO_STREAM("b: ");
-            //MELO_INFO_STREAM(Augmentedb);
-
-            //MELO_INFO_STREAM("A: ");
-            //MELO_INFO_STREAM(A);
-            //MELO_INFO_STREAM("b: ");
-            //MELO_INFO_STREAM(b);
-
-            //std::cout << std::setprecision(12) << "A: " << std::endl << A << std::endl;
-            //std::cout << std::setprecision(12) << "b: " << std::endl << b << std::endl;
-
-            // find non-zero columns:
+            // Find non-zero columns:
             Eigen::Matrix<bool, 1, Eigen::Dynamic> non_zeros = augmentedA.template cast<bool>().colwise().any();
-
             postAugmentedA.conservativeResize(augmentedA.rows(), non_zeros.count());
 
             // fill result matrix:
@@ -626,102 +454,15 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
                     postAugmentedA.col(j++) = augmentedA.col(i);
                 }
             }
-            //std::cout << "augmentedA:\n" << augmentedA << "\n\n";
-            //std::cout << "postAugmentedA:\n" << postAugmentedA << "\n\n";
-            
-            //Eigen::Matrix<float, -1, 6> myL =  augmentedA.block(A.rows(), 0, A.rows() + numberOfConstraints, A.cols()).template cast<float>();
-            //myL.block(0, 3, 1, 6) << 0.0f, 0.0f, 0.0f;
 
-            // Pass the constant
-            //std::cout << " numberOfConstraints: " << numberOfConstraints << std::endl;
-            
-            // ||Ax-b||
-            /*
-            std::vector<double> z(1, 1000.0);
-            nlopt::opt opt(nlopt::LD_MMA, 1);
-            std::vector<double> lowerBounds(1, 0);
-            std::vector<double> upperBounds(1, 10000);
-            opt.set_maxeval(10);
-            opt.set_lower_bounds(lowerBounds);
-            opt.set_upper_bounds(upperBounds);
-            opt.set_min_objective(lambdaObjective, lcurveOptimizer);
-            opt.set_xtol_rel(1.e-3);
-            double minf{-1.0};
-            nlopt::result result = opt.optimize(z, minf);
-
-            if (!(nlopt::SUCCESS <= result && result <= nlopt::XTOL_REACHED)){
-                std::cout << "nlopt failed!" << std::endl;
-            }
-
-            std::cout << "lambda = " << z[0] << std::endl;
-            std::cout << "curvature = " << minf << std::endl;
-            */
-
-            ////////////////////////////////////////////////////
-
-            if (localizabilityParametersForErrorMinimization.useLcurve_)
-            {
-
-                auto lcurveOptimizer = new LcurveOptimizer(augmentedA.template cast<float>(), Augmentedb.template cast<float>(), numberOfConstraints);
-
-                ////////////////////////////////////////////////////
-                //lcurveOptimizer->setLambda(2500);
-
-                t.restart();
-                lcurveOptimizer->evaluate();
-                t.elapsed();
-
-                std::cout << " Elapsed TIME: " << t.elapsed() << std::endl;
-                
-                int n = lcurveOptimizer->getNumberOfSamples();
-
-                localizabilityParametersForErrorMinimization.lambdas_.reserve(n);
-                localizabilityParametersForErrorMinimization.residuals_.reserve(n);
-                localizabilityParametersForErrorMinimization.regNorms_.reserve(n);
-
-                localizabilityParametersForErrorMinimization.regNorms_d1.reserve(n);
-                localizabilityParametersForErrorMinimization.regNorms_d2.reserve(n);
-                localizabilityParametersForErrorMinimization.residuals_d1.reserve(n);
-                localizabilityParametersForErrorMinimization.residuals_d2.reserve(n);
-                localizabilityParametersForErrorMinimization.curveEval_y1.reserve(n);
-                localizabilityParametersForErrorMinimization.curveEval_y2.reserve(n);
-
-                localizabilityParametersForErrorMinimization.lambdas_ = lcurveOptimizer->getLambdas();
-                localizabilityParametersForErrorMinimization.residuals_ = lcurveOptimizer->getResiduals();
-                localizabilityParametersForErrorMinimization.regNorms_ = lcurveOptimizer->getRegNorms();
-
-                localizabilityParametersForErrorMinimization.regNorms_d1 = lcurveOptimizer->getSmothnessJacob();
-                localizabilityParametersForErrorMinimization.regNorms_d2 = lcurveOptimizer->getSmothnessHessian();
-                localizabilityParametersForErrorMinimization.residuals_d1 = lcurveOptimizer->getResidualJacob();
-                localizabilityParametersForErrorMinimization.residuals_d2 = lcurveOptimizer->getResidualHessian();
-                localizabilityParametersForErrorMinimization.curveEval_y1 = lcurveOptimizer->getEvalResidual();
-                localizabilityParametersForErrorMinimization.curveEval_y2 = lcurveOptimizer->getEvalSmothness();
-
-                // Print lcurveOptimizer->getOptimalRegularizationWeight()
-                std::cout << "Optimal Regularization Weight: " << lcurveOptimizer->getOptimalRegularizationWeight() << std::endl;
-
-                postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * lcurveOptimizer->getOptimalRegularizationWeight(); //; lcurveOptimizer->getOptimalRegularizationWeight();
-
-
-            }else
-            {
-                //std::cout << "Fixed Regularization Weight: " << localizabilityParametersForErrorMinimization.regularizationWeight_ << std::endl;
-                //T realWeight = std::pow(localizabilityParametersForErrorMinimization.regularizationWeight_, 2);
-                T realWeight = localizabilityParametersForErrorMinimization.regularizationWeight_;
-                std::cout << "realWeight: " << realWeight << std::endl;
-                std::cout << "Before postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
-                postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * realWeight; //; lcurveOptimizer->getOptimalRegularizationWeight();
-                std::cout << "postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
-            
-            }
-            
-
+            T realWeight = localizabilityParametersForErrorMinimization.regularizationWeight_;
+            std::cout << "L-REG Weight: " << realWeight << std::endl;
+            std::cout << "Before postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
+            postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) = postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) * realWeight; //; lcurveOptimizer->getOptimalRegularizationWeight();
+            std::cout << "postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()): " << std::endl << postAugmentedA.bottomLeftCorner(numberOfConstraints, A.cols()) << std::endl;
 
             // find non-zero columns:
             Eigen::Matrix<bool, 1, Eigen::Dynamic> non_zeros_row = postAugmentedA.template cast<bool>().rowwise().any();
-
-            //std::cout << "A:\n" << augmentedA << "\nnon_zeros:\n" << non_zeros << "\n\n";
-
             postAugmentedA.conservativeResize(non_zeros_row.count(), postAugmentedA.cols());
 
             // fill result matrix:
@@ -732,11 +473,7 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
                     postAugmentedA.row(j2++) = postAugmentedA.row(i);
                 }
             }
-
             Augmentedb.conservativeResize(non_zeros_row.count(), Augmentedb.cols());
-
-            // Arbitrary set the translation coefficients to 0, since there is an issue with templated version.
-            //augmentedA.block(A.rows(), 3, A.rows() + numberOfConstraints, A.cols()) << 0.0f, 0.0f, 0.0f;
 
         }else
         {
@@ -746,15 +483,6 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
         }
 
         if (localizabilityParametersForErrorMinimization.enableStandardWeightRegularization_){
-            // Solve the constrained optimization problem.
-            //MELO_INFO_STREAM("postAugmentedA A: ");
-            //MELO_INFO_STREAM(postAugmentedA);
-
-            //MELO_INFO_STREAM("postAugmentedb b: ");
-            //MELO_INFO_STREAM(postAugmentedb);
-
-            //std::cout << std::setprecision(12) << "postAugmentedA: " << std::endl << postAugmentedA << std::endl;
-            //std::cout << std::setprecision(12) << "Augmentedb: " << std::endl << Augmentedb << std::endl;
 
             solvePossiblyUnderdeterminedLinearSystem<T>(postAugmentedA, Augmentedb, x, true);
 
@@ -772,6 +500,7 @@ void solvePossiblyUnderdeterminedLinearSystemWithEqualityConstraints(
 
 
         }else{
+            // L-Reg enabled but there are no constraints.
             solvePossiblyUnderdeterminedLinearSystem<T>(augmentedA, Augmentedb, x, false);
             
             std::cout << "augmentedA:" << std::endl;

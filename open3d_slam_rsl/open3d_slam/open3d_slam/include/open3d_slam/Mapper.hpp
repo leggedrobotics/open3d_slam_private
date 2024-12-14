@@ -102,7 +102,6 @@ class Mapper {
   bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-  std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
 };
 
 } /* namespace o3d_slam */

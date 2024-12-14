@@ -537,7 +537,7 @@ bool SlamWrapper::saveSubmaps(const std::string& directory, const bool& isDenseM
   const std::string cloudName = isDenseMap ? "denseSubmap" : "submap";
   const bool savingResult = mapper_->getSubmaps().dumpToFile(directory, cloudName, isDenseMap);
 
-  // Save a live point cloud for later analysis.  
+  // Save a live point cloud for later analysis.
   // RegisteredPointCloud last_cloud = registeredCloudBuffer_.peek_back();
   // RegisteredPointCloud last_cloud_5 = registeredCloudBuffer_.getImplementation()[5];
   // PointCloud registeredCloud = last_cloud.raw_.cloud_;

@@ -1,17 +1,10 @@
-/*!
- * @file
- * @author Turcan Tuna (ANYbotics)
- * @date   29/06/2021
- * @brief  The implementation of the utilization functions of the slam_investigation class.
- */
-
 //! Header
 #include "utils.hpp"
 
 // C++ standard library
 #include <filesystem>
 
-
+// Vector conversion
 Eigen::Matrix<double, 6, 1> VectorFromIsometry3d(const Eigen::Isometry3d& isometry_3d) {
   return VectorFromIsometry3<double>(isometry_3d);
 }
