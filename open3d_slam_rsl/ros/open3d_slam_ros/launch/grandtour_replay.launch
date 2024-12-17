@@ -5,7 +5,7 @@
   <arg name="rosbag_filepath" default="/home/ttuna/dlio_replayed.bag"/>
   <arg name="cloud_topic" default="/dlio/deskewed_point_cloud"/>
 
-  <!-- /gt_box/inertial_explorer/odometry -->
+  <!-- /gt_box/inertial_explorer/tc/odometry -->
   <!-- /gt_box/zed2i/zed_node/odom -->
   <!-- /state_estimator/pose_in_odom -->
   <!-- /state_estimator/odometry -->
