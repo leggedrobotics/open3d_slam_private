@@ -347,6 +347,8 @@ void RosbagRangeDataProcessorRos::startProcessing() {
     open3d::io::WritePointCloudToPCD(nameWithCorrectSuffix, tube_cloud, open3d::io::WritePointCloudOption());
   }
 
+  ROS_INFO_STREAM("Successfully saved the path as PCD. Saving the voxelized map.");
+  slam_->saveMap(slam_->mapSavingFolderPath_);
   ROS_INFO_STREAM("Successfully saved the files. Self terminating the node.");
 
   return;

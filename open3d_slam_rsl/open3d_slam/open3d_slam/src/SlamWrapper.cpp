@@ -510,7 +510,7 @@ void SlamWrapper::stopWorkers() {
 bool SlamWrapper::saveMap(const std::string& directory) {
   PointCloud map = mapper_->getAssembledMapPointCloud();
   createDirectoryOrNoActionIfExists(directory);
-  const std::string filename = directory + "map.pcd";
+  const std::string filename = directory + "open3d_slam_map.pcd";
   return saveToFile(filename, map);
 }
 

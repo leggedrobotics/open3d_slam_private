@@ -2,7 +2,7 @@
 
 <launch>
   <!-- Must be set by the user -->
-  <arg name="rosbag_filepath" default="/home/ttuna/dlio_replayed.bag"/>
+  <arg name="rosbag_filepath" default=""/>
   <arg name="cloud_topic" default="/dlio/deskewed_point_cloud"/>
 
   <!-- /gt_box/inertial_explorer/tc/odometry -->

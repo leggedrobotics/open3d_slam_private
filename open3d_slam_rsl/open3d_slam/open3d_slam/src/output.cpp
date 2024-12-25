@@ -11,6 +11,7 @@
 #include <open3d/io/PointCloudIO.h>
 #include <Eigen/Dense>
 #include <boost/filesystem.hpp>
+#include <iostream>
 #include <memory>
 
 namespace o3d_slam {
@@ -48,6 +49,21 @@ bool saveToFile(const std::string& filename, const PointCloud& cloud) {
 
 bool createDirectoryOrNoActionIfExists(const std::string& directory) {
   boost::filesystem::path dir(directory);
+
+  // First check if the folder already exists.
+  if (boost::filesystem::exists(dir)) {
+    if (boost::filesystem::is_directory(dir)) {
+      // Print out a warning if it already exists as a directory
+      std::cout << "[Warning] Directory already exists: " << dir.string() << std::endl;
+      return false;  // Return early; no action needed
+    } else {
+      // If it exists but is not a directory, handle that case as needed
+      std::cout << "[Warning] Path exists but is not a directory: " << dir.string() << std::endl;
+      return false;
+    }
+  }
+
+  // If it doesn’t exist, attempt to create the directory
   return boost::filesystem::create_directory(dir);
 }
 
