@@ -54,17 +54,15 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
         return false;
       }
 
-      auto tfTransformation = tfBuffer_.lookupTransform(
+      auto T_L_sensorFrame = tfBuffer_.lookupTransform(
           slam_->frames_.rangeSensorFrame, slam_->frames_.assumed_external_odometry_tracked_frame, ros::Time(0.0), ros::Duration(0.0));
 
-      ROS_INFO_STREAM("\033[92m"
-                      << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
-                      << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-      ROS_INFO_STREAM("\033[92m"
-                      << "You dont believe me? Here it is:\n " << tfTransformation << "\033[0m");
+      ROS_INFO_STREAM("\033[92m" << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
+                                 << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+      ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << T_L_sensorFrame << "\033[0m");
 
       // Set the frame transformation between the external odometry frame and the range sensor frame.
-      slam_->setExternalOdometryFrameToCloudFrameCalibration(tf2::transformToEigen(tfTransformation));
+      slam_->setExternalOdometryFrameToCloudFrameCalibration(tf2::transformToEigen(T_L_sensorFrame));
 
       if (slam_->isIMUattitudeInitializationEnabled()) {
         // Waits for the transform to be available. After this we dont need to have timeout for the lookup itself
@@ -78,11 +76,9 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
         auto RangeSensorFrameToimuFrame =
             tfBuffer_.lookupTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.imuFrame, ros::Time(0.0), ros::Duration(0.0));
 
-        ROS_INFO_STREAM("\033[92m"
-                        << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and " << slam_->frames_.imuFrame
-                        << "\033[0m");
-        ROS_INFO_STREAM("\033[92m"
-                        << "You dont believe me? Here it is:\n " << RangeSensorFrameToimuFrame << "\033[0m");
+        ROS_INFO_STREAM("\033[92m" << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
+                                   << slam_->frames_.imuFrame << "\033[0m");
+        ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << RangeSensorFrameToimuFrame << "\033[0m");
 
         // Set the frame transformation between the external odometry frame and the range sensor frame.
         lidarToImu_.matrix() = tf2::transformToEigen(RangeSensorFrameToimuFrame).matrix();  //.inverse();
@@ -153,17 +149,11 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
     // If IMU initialization is enabled we need to wait for the IMU callback to initialize the attitude.
     if (!slam_->isIMUattitudeInitializationEnabled()) {
       // This casts isometry3d to affine3d.
-      Eigen::Affine3d eigenTransform = slam_->getExternalOdometryFrameToCloudFrameCalibration();
-      geometry_msgs::TransformStamped calibrationAsTransform = tf2::eigenToTransform(eigenTransform);
-
-      geometry_msgs::PoseStamped odomPose;
-
-      const auto latestOdomMeasurement = slam_->getLatestOdometryPoseMeasurement();
-      odomPose.pose = o3d_slam::getPose(latestOdomMeasurement.transform_.matrix());
+      Eigen::Isometry3d T_L_sensorFrame = slam_->getExternalOdometryFrameToCloudFrameCalibration();
+      const auto latest_T_W_sensorFrame = slam_->getLatestOdometryPoseMeasurement();
 
       // Actual transformation applied to the odometry measurement. Reads as pose of Lidar frame in the external odometry frame.
-      geometry_msgs::PoseStamped odomPose_transformed;
-      tf2::doTransform(odomPose, odomPose_transformed, calibrationAsTransform);
+      Eigen::Isometry3d T_M_L = latest_T_W_sensorFrame.transform_ * T_L_sensorFrame.inverse();
 
       // odomPose_transformed.position=odomPose.position;
       // odomPose_transformed.pose.orientation.w = 1.0;
@@ -178,7 +168,7 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
       // "\033[0m";
 
       if (!slam_->isUseExistingMapEnabled()) {
-        slam_->setInitialTransform(o3d_slam::getTransform(odomPose_transformed.pose).matrix());
+        slam_->setInitialTransform(T_M_L.matrix());
       }
     }
 
@@ -423,8 +413,7 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
   std::cout << " Gravity error in IMU frame is: " << gravityVectorErrorInImuFrame.transpose() << std::endl;
 
   if (!slam_->isExternalOdometryFrameToCloudFrameCalibrationSet()) {
-    std::cout << " Calibration is not available yet. Returning from IMU attitude initialization. "
-              << " \n";
+    std::cout << " Calibration is not available yet. Returning from IMU attitude initialization. " << " \n";
     return;
   }
 
@@ -451,8 +440,7 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
   // Convert the attitude of the IMU to the attitude of the LiDAR.
   Transform initAttitudeOfLiDAR = initAttitude * lidarToImu_.inverse();
 
-  std::cout << " The initial pose of LiDAR is: "
-            << "\033[92m" << o3d_slam::asString(initAttitudeOfLiDAR) << " \n";
+  std::cout << " The initial pose of LiDAR is: " << "\033[92m" << o3d_slam::asString(initAttitudeOfLiDAR) << " \n";
 
   // This casts isometry3d to affine3d.
   Transform newTransform = o3d_slam::getTransform(odomPose_transformed.pose) * initAttitudeOfLiDAR;
