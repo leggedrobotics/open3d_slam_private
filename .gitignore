@@ -1,2 +1,3 @@
 open3d_slam_rsl/open3d_catkin/src/open3d-stamp/open3d-patch*
 open3d_slam_rsl/open3d_catkin*
+*.pcd

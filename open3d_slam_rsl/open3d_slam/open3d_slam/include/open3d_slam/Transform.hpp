@@ -15,8 +15,8 @@ namespace o3d_slam {
 using Transform = Eigen::Isometry3d;
 
 struct TimestampedTransform {
-  Time time_;
-  Transform transform_;
+  Time time_ = fromUniversal(0);
+  Transform transform_ = Transform::Identity();
 };
 
 TimestampedTransform interpolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& time);
