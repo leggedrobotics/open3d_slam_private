@@ -57,6 +57,13 @@ class Mapper {
 
   void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
+  pointmatcher_ros::PmTfParameters scan2mapRegistrationWrapper(
+      const std::shared_ptr<open3d_conversions::PmStampedPointCloud>& croppedCloud,
+      const pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess);
+
+  pointmatcher_ros::PmTfParameters scan2mapRegistrationLargeBasin(
+      const std::shared_ptr<open3d_conversions::PmStampedPointCloud>& croppedCloud,
+      pointmatcher_ros::PmTfParameters& transformReadingToReferenceInitialGuess);
 
   // This is re-initialized in the constructor as well as by a setter.
   Transform calibration_ = Transform::Identity();
@@ -66,6 +73,7 @@ class Mapper {
   nav_msgs::Path bestGuessPath_;
   bool isNewValueSetMapper_ = false;
   bool isInitialTransformSet_ = false;
+  bool attemptedLargeBasin_ = false;
 
   // The pointmatcher registration object.
   // The parameter loading dont have a slam_ API yet, thus object not private.
@@ -99,6 +107,7 @@ class Mapper {
 
   bool isIgnoreOdometryPrediction_ = false;
   bool firstRefinement_ = true;
+  float registrationFitness_ = 1.0f;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
 
