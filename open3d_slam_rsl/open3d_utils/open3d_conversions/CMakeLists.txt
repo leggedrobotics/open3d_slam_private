@@ -18,9 +18,12 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Eigen3 REQUIRED)
 
+file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../small_gicp/include" SMALL_GICP_INCLUDE_DIR)
+
+
 # Declare the catkin package. Notice we add the small_gicp include directory here.
 catkin_package(
-  INCLUDE_DIRS include /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include
+  INCLUDE_DIRS include ${SMALL_GICP_INCLUDE_DIR}
   LIBRARIES open3d_conversions
   CATKIN_DEPENDS ${CATKIN_PACKAGE_DEPENDENCIES}
   DEPENDS EIGEN3
@@ -33,7 +36,6 @@ add_library(open3d_conversions src/open3d_conversions.cpp)
 target_include_directories(open3d_conversions
   PUBLIC
     ${PROJECT_SOURCE_DIR}/include
-    /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
 )

@@ -51,11 +51,13 @@ endif()
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_PACKAGE_DEPENDENCIES}
 )
+file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../small_gicp/include" SMALL_GICP_INCLUDE_DIR)
+
 
 catkin_package(
   INCLUDE_DIRS 
     include 
-    /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include 
+    ${SMALL_GICP_INCLUDE_DIR}
     ${EIGEN3_INCLUDE_DIRS} 
     ${Boost_INCLUDE_DIR}
   LIBRARIES ${PROJECT_NAME}
@@ -65,7 +67,6 @@ catkin_package(
 
 include_directories(
   include
-  /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
@@ -80,7 +81,7 @@ add_library(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     ${PROJECT_SOURCE_DIR}/include
-    /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include
+    ${SMALL_GICP_INCLUDE_DIR}
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIR}
