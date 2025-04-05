@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_compile_options(-O3)
 
-
 set(SRC_FILES
   src/Mapper.cpp
   src/helpers.cpp
@@ -28,45 +27,45 @@ set(SRC_FILES
   src/VoxelHashMap.cpp
   src/ScanToMapRegistration.cpp
   src/CloudRegistration.cpp
-  )
+)
 
 set(CATKIN_PACKAGE_DEPENDENCIES
   open3d_catkin
-  libpointmatcher
-  pointmatcher_ros
+  # libpointmatcher
+  # pointmatcher_ros
   open3d_conversions
   eigen_conversions
   nav_msgs
   geometry_msgs
-  )
-
+)
 
 find_package(Eigen3 REQUIRED)
 find_package(Boost QUIET REQUIRED COMPONENTS serialization filesystem system program_options)
 
 find_package(OpenMP QUIET)
 if (OpenMP_FOUND)
-  add_compile_options("${OpenMP_CXX_FLAGS}")
+  add_compile_options(${OpenMP_CXX_FLAGS})
   add_definitions(-Dopen3d_slam_OPENMP_FOUND=${OpenMP_FOUND})
-endif ()
+endif()
+
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_PACKAGE_DEPENDENCIES}
-  )
+)
 
 catkin_package(
-  INCLUDE_DIRS
-  include
-  ${EIGEN3_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIR}
-  LIBRARIES
-  ${PROJECT_NAME}
-  CATKIN_DEPENDS
-  ${CATKIN_PACKAGE_DEPENDENCIES}
+  INCLUDE_DIRS 
+    include 
+    /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include 
+    ${EIGEN3_INCLUDE_DIRS} 
+    ${Boost_INCLUDE_DIR}
+  LIBRARIES ${PROJECT_NAME}
+  CATKIN_DEPENDS ${CATKIN_PACKAGE_DEPENDENCIES}
   DEPENDS
 )
 
 include_directories(
   include
+  /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
@@ -75,17 +74,26 @@ include_directories(
 
 add_library(${PROJECT_NAME}
   ${SRC_FILES}
-  )
+)
 
-add_dependencies(${PROJECT_NAME}
-  ${catkin_EXPORTED_TARGETS}
-  )
+# Use target_include_directories to ensure that small_gicp is available during compilation.
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/include
+    /home/tutuna/new_release_open3d_slam_ws/src/small_gicp/include
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIR}
+    ${OpenMP_CXX_INCLUDE_DIRS}
+)
+
+add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   yaml-cpp
   ${OpenMP_CXX_LIBRARIES}
-  )
+)
 
 find_package(cmake_clang_tools QUIET)
 if(cmake_clang_tools_FOUND)
@@ -96,4 +104,3 @@ if(cmake_clang_tools_FOUND)
     #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
   )
 endif(cmake_clang_tools_FOUND)
-

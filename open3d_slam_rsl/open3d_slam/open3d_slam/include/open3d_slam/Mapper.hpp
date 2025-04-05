@@ -16,12 +16,19 @@
 #include "open3d_slam/croppers.hpp"
 #include "open3d_slam/time.hpp"
 
-#include "open3d_conversions/usings.hpp"
-
 #include <nav_msgs/Path.h>
-#include <pointmatcher/PointMatcher.h>
-#include <pointmatcher_ros/PmTf.h>
-#include <pointmatcher_ros/usings.h>
+
+#include <algorithm>
+#include <execution>
+#include <small_gicp/ann/kdtree_omp.hpp>
+#include <small_gicp/factors/gicp_factor.hpp>
+#include <small_gicp/factors/plane_icp_factor.hpp>
+#include <small_gicp/points/point_cloud.hpp>
+#include <small_gicp/registration/reduction_omp.hpp>
+#include <small_gicp/registration/registration.hpp>
+#include <small_gicp/registration/registration_helper.hpp>
+#include <small_gicp/util/downsampling_omp.hpp>
+#include <small_gicp/util/normal_estimation_omp.hpp>
 
 namespace o3d_slam {
 
@@ -67,9 +74,15 @@ class Mapper {
   bool isNewValueSetMapper_ = false;
   bool isInitialTransformSet_ = false;
 
-  // The pointmatcher registration object.
   // The parameter loading dont have a slam_ API yet, thus object not private.
-  pointmatcher_ros::PmIcp icp_;
+  // pointmatcher_ros::PmIcp icp_;
+  small_gicp::Registration<small_gicp::GICPFactor, small_gicp::ParallelReductionOMP> small_registration_;
+
+  std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> target_tree_;
+  std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> source_tree_;
+
+  std::shared_ptr<small_gicp::PointCloud> target_;
+  std::shared_ptr<small_gicp::PointCloud> source_;
 
  private:
   void update(const MapperParameters& p);
@@ -101,8 +114,6 @@ class Mapper {
   bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-
-  std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
 };
 
 } /* namespace o3d_slam */

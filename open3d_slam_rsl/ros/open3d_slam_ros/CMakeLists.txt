@@ -48,11 +48,13 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
 #find_package(gflags REQUIRED)
 find_package(Glog REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(OpenMP QUIET)
-if (OpenMP_FOUND)
-  add_compile_options("${OpenMP_CXX_FLAGS}")
-  add_definitions(-Dopen3d_slam_ros_OPENMP_FOUND=${OpenMP_FOUND})
-endif ()
+find_package(OpenMP REQUIRED)
+message(STATUS "OpenMP found: ${OpenMP_CXX_FLAGS}")
+
+# Add OpenMP compile options and definitions
+add_compile_options(${OpenMP_CXX_FLAGS})
+add_definitions(-Dopen3d_slam_ros_OPENMP_FOUND=1)
+
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_PACKAGE_DEPENDENCIES}
   )
@@ -104,6 +106,7 @@ target_link_libraries(mapping_node
   ${gflags_LIBRARIES}
   ${GLOG_LIBRARIES}
   ${PROJECT_NAME}
+  ${OpenMP_CXX_LIBRARIES}
   )
 
 find_package(cmake_clang_tools QUIET)

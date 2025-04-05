@@ -15,14 +15,6 @@
 #ifndef OPEN3D_CONVERSIONS_HPP_
 #define OPEN3D_CONVERSIONS_HPP_
 
-//pointmatcher_ros
-
-#include "open3d_conversions/usings.hpp"
-
-#include <pointmatcher/PointMatcher.h>
-#include <pointmatcher_ros/PmTf.h>
-#include <pointmatcher_ros/usings.h>
-
 // Open3D
 #include <open3d/geometry/PointCloud.h>
 #include <open3d/geometry/TriangleMesh.h>
@@ -41,15 +33,10 @@
 // std msgs
 #include <std_msgs/Header.h>
 
+// Open3D polygon mesh msgs
 #include "open3d_slam_msgs/PolygonMesh.h"
 
 namespace open3d_conversions {
-
-std::shared_ptr<PmStampedPointCloud> createSimilarPointmatcherCloud(const std::size_t& size);
-
-
-void open3dToPointmatcher(const open3d::geometry::PointCloud& pointcloud, PmStampedPointCloud& pointCloud, bool copyNormals = true);
-void pointmatcherToOpen3d(const PmStampedPointCloud& pointCloud, open3d::geometry::PointCloud& o3dPointcloud);
 
 /**
  * @brief Copy data from a open3d::geometry::PointCloud to a sensor_msgs::PointCloud2

@@ -250,7 +250,7 @@ TimestampedTransform SlamWrapper::getLatestMapToRangeMeasurement() const {
 
 TimestampedTransform SlamWrapper::getLatestOdometryPoseMeasurement() const {
   if (odometry_->getBuffer().empty()) {
-    ROS_ERROR("Odometry buffer is empty! Returning empty transform.");
+    std::cout << "\033[31mOdometry buffer is empty! Returning empty transform.\033[0m" << std::endl;
     return TimestampedTransform();
   }
 

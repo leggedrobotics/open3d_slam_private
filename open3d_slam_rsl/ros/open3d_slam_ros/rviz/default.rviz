@@ -6,7 +6,8 @@ Panels:
       Expanded:
         - /RegisteredCloud1/Autocompute Value Bounds1
         - /Scan2Map1/Shape1
-      Splitter Ratio: 0.7029411792755127
+        - /Odometry1
+      Splitter Ratio: 0.5470588207244873
     Tree Height: 762
   - Class: rviz/Selection
     Name: Selection
@@ -15,7 +16,6 @@ Panels:
       - /2D Pose Estimate1
       - /2D Nav Goal1
       - /Publish Point1
-      - /Center Frame1
     Name: Tool Properties
     Splitter Ratio: 0.5886790156364441
   - Class: rviz/Views
@@ -67,350 +67,7 @@ Visualization Manager:
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
-        LF_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_HAA:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_HFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_HIP:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        LF_KFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_SHANK:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        LF_THIGH:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        LF_hip_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_shank_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_thigh_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_HAA:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_HFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_HIP:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        LH_KFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_SHANK:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        LH_THIGH:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        LH_hip_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_shank_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_thigh_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         Link Tree Style: Links in Alphabetic Order
-        RF_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_HAA:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_HFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_HIP:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        RF_KFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_SHANK:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        RF_THIGH:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        RF_hip_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_shank_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_thigh_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_HAA:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_HFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_HIP:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        RH_KFE:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_SHANK:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        RH_THIGH:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        RH_hip_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_shank_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_thigh_fixed:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base_inertia:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        base_inverted:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        battery:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        body_top:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        bottom_shell:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        depth_camera_front_camera:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        depth_camera_front_camera_parent:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        depth_camera_left_camera:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        depth_camera_left_camera_parent:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        depth_camera_rear_camera:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        depth_camera_rear_camera_parent:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        depth_camera_right_camera:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        depth_camera_right_camera_parent:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        docking_hatch_cover:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        face_front:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        face_rear:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_handle:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gps_anthenna_adapter:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gps_mock:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        handle:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        hatch:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        imu_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        interface_hatch:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        lidar:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        pack_imu:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        perception_head_cage:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        remote:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rotating_lidar:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        top_shell:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wide_angle_camera_front_camera:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wide_angle_camera_front_camera_parent:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        wide_angle_camera_rear_camera:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wide_angle_camera_rear_camera_parent:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
       Name: ANYmal
       Robot Description: anymal_description
       TF Prefix: ""
@@ -564,8 +221,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 15.923575401306152
-        Min Value: -0.33863118290901184
+        Max Value: 34.187686920166016
+        Min Value: -4.927713871002197
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -589,16 +246,6 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
-    - Alpha: 1
-      Class: rviz_plugin_tutorials/Imu
-      Color: 204; 51; 204
-      Enabled: false
-      History Length: 1
-      Name: Added IMU Meas.
-      Queue Size: 10
-      Topic: /open3d_slam/added_imu_measurements
-      Unreliable: false
-      Value: false
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
@@ -806,6 +453,41 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: false
+    - Angle Tolerance: 0
+      Class: rviz/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Keep: 100
+      Name: Odometry
+      Position Tolerance: 0
+      Queue Size: 10
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic: /open3d_slam/scan2scan_odometry
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -830,13 +512,11 @@ Visualization Manager:
     - Class: rviz/PublishPoint
       Single click: true
       Topic: /clicked_point
-    - Class: center_frame_tool/CenterFrameTool
-      Frame: base_link
   Value: true
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 18.258235931396484
+      Distance: 19.59555435180664
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -844,17 +524,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.16771793365478516
-        Y: -1.8854647874832153
-        Z: 0.5217415690422058
+        X: -7.288149356842041
+        Y: 6.683774471282959
+        Z: 0.5965396761894226
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.075398325920105
+      Pitch: 1.1903984546661377
       Target Frame: lidar
-      Yaw: 0.42039453983306885
+      Yaw: 5.718583583831787
     Saved: ~
 Window Geometry:
   Displays:
