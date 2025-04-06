@@ -102,7 +102,7 @@ else()
 
   ExternalProject_Add(open3d
     GIT_REPOSITORY "https://github.com/isl-org/Open3D"
-    GIT_TAG "v0.15.1"
+    GIT_TAG "v0.19.0"
     GIT_SUBMODULES_RECURSE "true"
     GIT_PROGRESS "true"
     CMAKE_CACHE_ARGS "-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true"
@@ -111,7 +111,7 @@ else()
     BINARY_DIR "${CMAKE_SOURCE_DIR}/tmp"
     CMAKE_ARGS 
          -DBUILD_SHARED_LIBS=ON
-         -DCMAKE_BUILD_TYPE=RelWithDebInfo
+         -DCMAKE_BUILD_TYPE=Release
          -DUSE_SYSTEM_EIGEN3=OFF
          -DGLIBCXX_USE_CXX11_ABI=ON
          -DBUILD_PYTHON_MODULE=OFF
