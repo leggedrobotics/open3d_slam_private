@@ -428,6 +428,63 @@ void RosbagRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   */
 }
 
+#include <ros/ros.h>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+
+void RosbagRangeDataProcessorRos::logTiming(const ros::WallDuration& duration, const std::string& filepath_base) {
+  namespace fs = std::filesystem;
+  static std::string currentFilePath;
+  static bool isInitialized = false;
+
+  // On first use, determine final file path
+  if (isFirstWrite) {
+    fs::path basePath(filepath_base);
+    fs::path dir = basePath.parent_path();
+    std::string stem = basePath.stem().string();      // filename without extension
+    std::string ext = basePath.extension().string();  // e.g. ".txt"
+
+    if (!fs::exists(dir)) {
+      try {
+        fs::create_directories(dir);
+      } catch (const fs::filesystem_error& e) {
+        std::cerr << "Failed to create directory: " << e.what() << std::endl;
+        return;
+      }
+    }
+
+    // If file exists, create a new one with incremented suffix
+    fs::path finalPath = basePath;
+    int index = 1;
+    while (fs::exists(finalPath)) {
+      finalPath = dir / fs::path(stem + "_" + std::to_string(index) + ext);
+      ++index;
+    }
+
+    currentFilePath = finalPath.string();
+    isFirstWrite = false;
+
+    // First write: truncate/overwrite
+    std::ofstream firstWrite(currentFilePath, std::ios::trunc);
+    if (!firstWrite.is_open()) {
+      std::cerr << "Failed to open log file: " << currentFilePath << std::endl;
+      return;
+    }
+    // firstWrite << "Log Start\n";
+    firstWrite.close();
+  }
+
+  // Append measurement
+  std::ofstream out(currentFilePath, std::ios::app);
+  if (!out.is_open()) {
+    std::cerr << "Failed to open log file for appending: " << currentFilePath << std::endl;
+    return;
+  }
+
+  out << std::fixed << std::setprecision(3) << duration.toSec() * 1000.0 << "\n";
+}
+
 bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
   // This is as fast as the thread can go
   if (buffer.empty()) {
@@ -502,6 +559,8 @@ bool RosbagRangeDataProcessorRos::processBuffers(SlamInputsBuffer& buffer) {
     // Timer mapperOnlyTimer_;
     // mapperOnlyTimer_.startStopwatch();
     auto timeTuple = usePairForRegistration();
+    ros::WallDuration mappingProcessingElapsed = std::get<1>(timeTuple);
+    logTiming(mappingProcessingElapsed, "/home/tutuna/open3d_tests/slam_timings.txt");
     // const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
   } else {
     std::cout << "RosbagReplayer:: Couldn't add range scan. Popping this measurement from the buffer." << std::endl;

@@ -3,7 +3,7 @@ project(open3d_slam)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_compile_options(-O3)
+add_compile_options(-std=c++17 -O3 -mtune=native -funroll-loops -fopenmp -fopt-info-vec-optimized)
 
 set(SRC_FILES
   src/Mapper.cpp
@@ -41,6 +41,8 @@ set(CATKIN_PACKAGE_DEPENDENCIES
 
 find_package(Eigen3 REQUIRED)
 find_package(Boost QUIET REQUIRED COMPONENTS serialization filesystem system program_options)
+find_package(TBB REQUIRED)
+
 
 find_package(OpenMP QUIET)
 if (OpenMP_FOUND)
@@ -94,6 +96,7 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   yaml-cpp
   ${OpenMP_CXX_LIBRARIES}
+  TBB::tbb
 )
 
 find_package(cmake_clang_tools QUIET)

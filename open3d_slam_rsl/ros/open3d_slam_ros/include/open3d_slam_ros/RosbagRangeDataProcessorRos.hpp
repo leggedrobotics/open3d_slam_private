@@ -65,6 +65,8 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
    */
   bool processBuffers(SlamInputsBuffer& buffer);
 
+  void logTiming(const ros::WallDuration& duration, const std::string& filepath);
+
   void drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp);
 
   std::optional<visualization_msgs::Marker> generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& o3d_pc,
@@ -163,6 +165,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   std::unique_ptr<tf2_ros::TransformListener> tfListener_;
 
   bool isBagReadyToPlay_ = false;
+  bool isFirstWrite = true;
 
   o3d_slam::RgbaColorMap colorMap_;
 };

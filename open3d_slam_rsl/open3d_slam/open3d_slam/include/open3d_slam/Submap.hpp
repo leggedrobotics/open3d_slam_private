@@ -10,7 +10,10 @@
 #include <open3d/geometry/PointCloud.h>
 #include <open3d/pipelines/registration/Feature.h>
 #include <Eigen/Dense>
+#include <atomic>
+#include <future>
 #include <mutex>
+#include <thread>
 #include "open3d_slam/Parameters.hpp"
 #include "open3d_slam/Transform.hpp"
 #include "open3d_slam/Voxel.hpp"
@@ -32,7 +35,7 @@ class Submap {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   Submap(size_t id, size_t parentId);
-  ~Submap() = default;
+  ~Submap();
 
   void setParameters(const MapperParameters& mapperParams);
   bool insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& transform, const Time& time,
@@ -90,6 +93,9 @@ class Submap {
   ColorRangeCropper colorCropper_;
   mutable std::mutex denseMapMutex_;
   mutable std::mutex mapPointCloudMutex_;
+  std::future<void> voxelizationFuture_;
+  std::atomic<bool> voxelizationRunning_ = false;
+  int voxelizeEveryNscans_ = 5;
 };
 
 }  // namespace o3d_slam

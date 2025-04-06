@@ -7,6 +7,7 @@ Panels:
         - /RegisteredCloud1/Autocompute Value Bounds1
         - /Scan2Map1/Shape1
         - /Odometry1
+        - /Axes1
       Splitter Ratio: 0.5470588207244873
     Tree Height: 762
   - Class: rviz/Selection
@@ -27,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: RegisteredCloud
+    SyncSource: Last Cloud
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -75,10 +76,22 @@ Visualization Manager:
       Value: true
       Visual Enabled: true
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        dlio_map:
+          Value: true
+        dlio_odom:
+          Value: true
+        hesai_lidar:
+          Value: true
+        map_o3d:
+          Value: true
+        raw_odom_o3d:
+          Value: true
+        raw_rs_o3d:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 0.5
       Name: TF
@@ -86,9 +99,18 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        hesai_lidar:
+          dlio_map:
+            {}
+          dlio_odom:
+            {}
+          map_o3d:
+            raw_odom_o3d:
+              {}
+            raw_rs_o3d:
+              {}
       Update Interval: 0
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -221,8 +243,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 34.187686920166016
-        Min Value: -4.927713871002197
+        Max Value: 17.846675872802734
+        Min Value: -2.493736982345581
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -230,7 +252,7 @@ Visualization Manager:
       Color: 252; 233; 79
       Color Transformer: AxisColor
       Decay Time: 2000
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -245,7 +267,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
@@ -488,6 +510,14 @@ Visualization Manager:
       Topic: /open3d_slam/scan2scan_odometry
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: hesai_lidar
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -516,7 +546,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 19.59555435180664
+      Distance: 33.365379333496094
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -524,9 +554,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -7.288149356842041
-        Y: 6.683774471282959
-        Z: 0.5965396761894226
+        X: -0.6369662880897522
+        Y: 2.6210761070251465
+        Z: -2.519592046737671
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false

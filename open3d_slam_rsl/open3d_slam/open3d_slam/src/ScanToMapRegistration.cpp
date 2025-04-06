@@ -38,7 +38,7 @@ PointCloudPtr ScanToMapIcp::preprocess(const PointCloud& in) const {
 
   // TODO(TT) Check if the order of this operations matter this is okay or have any benefits. (Currently switched from original)
   o3d_slam::voxelize(params_.scanProcessing_.voxelSize_, croppedCloud.get());
-  cloudRegistration->estimateNormalsOrCovariancesIfNeeded(croppedCloud.get());
+  // cloudRegistration->estimateNormalsOrCovariancesIfNeeded(croppedCloud.get());
 
   // For reproducability, random rownsampling must be disabled. i.e. set the ratio to 1.0
   return croppedCloud->RandomDownSample(params_.scanProcessing_.downSamplingRatio_);

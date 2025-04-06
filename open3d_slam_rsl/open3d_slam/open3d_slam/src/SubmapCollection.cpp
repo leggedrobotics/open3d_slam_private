@@ -23,12 +23,27 @@
 #include <thread>
 #include <utility>
 
+#include "open3d_slam/ProfilerScopeGuard.hpp"
+
 namespace o3d_slam {
 
 SubmapCollection::SubmapCollection() {
   submaps_.reserve(500);
   createNewSubmap(mapToRangeSensor_);
-  overlapScansBuffer_.set_size_limit(5);
+  overlapScansBuffer_.set_size_limit(20);
+}
+
+void SubmapCollection::recordSubmapVisit(size_t submapId) {
+  std::lock_guard<std::mutex> lock(submapHistoryMutex_);
+  recentSubmapHistory_.push_back(submapId);
+  if (recentSubmapHistory_.size() > maxSubmapHistorySize_) {
+    recentSubmapHistory_.pop_front();
+  }
+}
+
+bool SubmapCollection::isRecentlyVisited(size_t submapId) const {
+  std::lock_guard<std::mutex> lock(submapHistoryMutex_);
+  return std::find(recentSubmapHistory_.begin(), recentSubmapHistory_.end(), submapId) != recentSubmapHistory_.end();
 }
 
 void SubmapCollection::setMapToRangeSensor(const Transform& T) {
@@ -103,36 +118,39 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
   }
 
   if (params_.isUseInitialMap_) {
-    return;  // do not switch maps if we are doing in the localization mode
+    return;  // Localization mode – don’t switch submaps.
   }
 
   const size_t closestMapIdx = findClosestSubmap(mapToRangeSensor_);
   const Submap& closestSubmap = submaps_.at(closestMapIdx);
   const Submap& activeSubmap = submaps_.at(activeSubmapIdx_);
 
-  // Upper-bound of map size to limit computation. It would be crazy practical to have this adaptive based on the wallTime measurement.
-  if ((activeSubmap.getNbPoints() > params_.submaps_.maxNumPoints_)) {
+  const bool tooManyPoints = activeSubmap.getNbPoints() > params_.submaps_.maxNumPoints_;
+  if (tooManyPoints) {
     isForceNewSubmapCreation_ = true;
   }
 
-  // Get the submap center in Map frame?
   const Eigen::Vector3d closestSubmapPosition = closestSubmap.getMapToSubmapCenter();
-
-  // This is to identify if active map and closest map are adjacent.
   const bool isAnotherSubmapWithinRange = (mapToRangeSensor_.translation() - closestSubmapPosition).norm() < params_.submaps_.radius_;
 
-  // Check if the closest submap is the same as the active one.
   if (isAnotherSubmapWithinRange) {
-    // We are operating in the submap we are closest to. Expected and nice.
     if (closestMapIdx == activeSubmapIdx_) {
       return;
     }
 
-    // We are for sure expecting the submap we are changing to is actually adjacent to the active one.
-    if (adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId()) &&
-        isSwitchingSubmapsConsistant(scan, closestSubmap.getId(), mapToRangeSensor)) {
-      // todo here we could put a consistency check
-      activeSubmapIdx_ = closestMapIdx;
+    const bool areAdjacent = adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId());
+    const bool isConsistent = isSwitchingSubmapsConsistant(scan, closestMapIdx, mapToRangeSensor);
+
+    if (areAdjacent && isConsistent) {
+      // Prevent ping-pong switching
+      const bool isRecentlyInTarget = isRecentlyVisited(closestMapIdx);
+      const double distanceFromLastVisit = (mapToRangeSensor_.translation() - closestSubmap.getMapToSubmapCenter()).norm();
+      if (!isRecentlyInTarget || distanceFromLastVisit > minDistanceToReturnToRecentSubmap_) {
+        activeSubmapIdx_ = closestMapIdx;
+        recordSubmapVisit(closestMapIdx);
+      } else {
+        return;  // Too soon or too close to switch back
+      }
 
     } else {
       const bool isTraveledSufficientDistance =
@@ -142,7 +160,6 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
       }
     }
   } else {
-    // There is no other submap around, we are traversing to a new area so we ned to create a new submap.
     createNewSubmap(mapToRangeSensor_);
   }
 }
@@ -188,56 +205,69 @@ void SubmapCollection::forceNewSubmapCreation() {
 
 bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& mapToRangeSensor,
                                   const Time& timestamp) {
+  ProfilerScopeGuard totalProfiler("SubmapCollection::insertScan", "/tmp/slam_profiling.csv", "submap=" + std::to_string(activeSubmapIdx_));
+
   mapToRangeSensor_ = mapToRangeSensor;
   timestamp_ = timestamp;
-
-  // Assign the bookkeeping variables.
   const size_t prevActiveSubmapIdx = activeSubmapIdx_;
 
-  // Creation of the submap.
   if (submaps_.empty()) {
+    ProfilerScopeGuard prof("createNewSubmap (first)", "/tmp/slam_profiling.csv");
     createNewSubmap(mapToRangeSensor_);
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
     ++numScansMergedInActiveSubmap_;
     return true;
   }
 
-  // Add scan to the buffer, but why? What does the buffer do?
-  addScanToBuffer(preProcessedScan, mapToRangeSensor, timestamp);
+  {
+    ProfilerScopeGuard prof("addScanToBuffer", "/tmp/slam_profiling.csv");
+    addScanToBuffer(preProcessedScan, mapToRangeSensor, timestamp);
+  }
 
-  // Check the active submap. Bookeeping variable activeSubmapIdx_ is updated
-  updateActiveSubmap(mapToRangeSensor, preProcessedScan);
-  // either different one is active or new one is created
+  {
+    ProfilerScopeGuard prof("updateActiveSubmap", "/tmp/slam_profiling.csv");
+    updateActiveSubmap(mapToRangeSensor, preProcessedScan);
+  }
+
   const bool isActiveSubmapChanged = prevActiveSubmapIdx != activeSubmapIdx_;
-  if (isActiveSubmapChanged) {
-    std::lock_guard<std::mutex> lck(featureComputationMutex_);
-    submaps_.at(prevActiveSubmapIdx).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
 
-    // Why do we need to compute the submap center each time we change the submap? Can't we store it within the submap struct?
-    submaps_.at(prevActiveSubmapIdx).computeSubmapCenter();
+  if (isActiveSubmapChanged) {
+    ProfilerScopeGuard prof("handleSubmapSwitch", "/tmp/slam_profiling.csv",
+                            "from=" + std::to_string(prevActiveSubmapIdx) + ",to=" + std::to_string(activeSubmapIdx_));
+
+    {
+      std::lock_guard<std::mutex> lck(featureComputationMutex_);
+      ProfilerScopeGuard profScan("insertScan (old submap)", "/tmp/slam_profiling.csv");
+      submaps_.at(prevActiveSubmapIdx).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
+    }
+
+    {
+      ProfilerScopeGuard prof("computeSubmapCenter", "/tmp/slam_profiling.csv");
+      submaps_.at(prevActiveSubmapIdx).computeSubmapCenter();
+    }
+
     std::cout << "Active submap changed from " << prevActiveSubmapIdx << " to " << activeSubmapIdx_ << "\n";
     lastFinishedSubmapIdx_ = prevActiveSubmapIdx;
-    TimestampedSubmapId timestampedId{prevActiveSubmapIdx, timestamp};
-    finishedSubmapsIdxs_.push(timestampedId);
+    finishedSubmapsIdxs_.push({prevActiveSubmapIdx, timestamp});
     numScansMergedInActiveSubmap_ = 0;
 
-    // Meaning these submaps are adjencent, so we add an edge between them.
-    const auto id1 = submaps_.at(prevActiveSubmapIdx).getId();
-    const auto id2 = submaps_.at(activeSubmapIdx_).getId();
-    adjacencyMatrix_.addEdge(id1, id2);
-    //		std::cout << "Adding edge between " << id1 << " and " << id2 << std::endl;
+    {
+      ProfilerScopeGuard prof("updateAdjacency", "/tmp/slam_profiling.csv");
+      const auto id1 = submaps_.at(prevActiveSubmapIdx).getId();
+      const auto id2 = submaps_.at(activeSubmapIdx_).getId();
+      adjacencyMatrix_.addEdge(id1, id2);
+    }
 
-    // Huh?
-    insertBufferedScans(&submaps_.at(activeSubmapIdx_));
+    {
+      ProfilerScopeGuard prof("insertBufferedScans", "/tmp/slam_profiling.csv");
+      insertBufferedScans(&submaps_.at(activeSubmapIdx_));
+    }
+
     assert_true(!submaps_.at(activeSubmapIdx_).isEmpty(), "submap should not be empty after switching");
 
   } else {
-    Timer actualInsertion;
-    actualInsertion.startStopwatch();
-    // We are still in the previously active submap.
+    ProfilerScopeGuard prof("insertScan (same submap)", "/tmp/slam_profiling.csv", "submap=" + std::to_string(activeSubmapIdx_));
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
-    const double actualInsertiontimeElapsed = actualInsertion.elapsedMsecSinceStopwatchStart();
-    // std::cout << "Actual Scan Insertion: " << "\033[92m" << actualInsertiontimeElapsed << " msec \n " << "\033[0m";
   }
 
   ++numScansMergedInActiveSubmap_;

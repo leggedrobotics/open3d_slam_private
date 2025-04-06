@@ -73,6 +73,8 @@ class SubmapCollection {
   void createNewSubmap(const Transform& mapToSubmap);
   size_t findClosestSubmap(const Transform& mapToRangesensor) const;
   std::vector<size_t> getAllSubmapIdxs() const;
+  void recordSubmapVisit(size_t submapId);
+  bool isRecentlyVisited(size_t submapId) const;
 
   Transform mapToRangeSensor_ = Transform::Identity();
   Time timestamp_;
@@ -92,6 +94,11 @@ class SubmapCollection {
   CircularBuffer<ScanTimeTransform> overlapScansBuffer_;
   std::string savingDataFolderPath_;
   bool isForceNewSubmapCreation_ = false;
+
+  mutable std::mutex submapHistoryMutex_;
+  std::deque<size_t> recentSubmapHistory_;
+  const size_t maxSubmapHistorySize_ = 3;                 // Keep last 3 for safety
+  const double minDistanceToReturnToRecentSubmap_ = 5.0;  // in meters
 };
 
 }  // namespace o3d_slam
