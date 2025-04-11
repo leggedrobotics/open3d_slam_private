@@ -3,9 +3,9 @@
 #include <chrono>
 #include <fstream>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <thread>
-#include <sstream>
 
 class ProfilerScopeGuard {
  public:

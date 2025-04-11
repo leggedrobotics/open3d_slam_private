@@ -53,7 +53,7 @@ endif()
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_PACKAGE_DEPENDENCIES}
 )
-file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../small_gicp/include" SMALL_GICP_INCLUDE_DIR)
+file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/small_gicp/include" SMALL_GICP_INCLUDE_DIR)
 
 
 catkin_package(

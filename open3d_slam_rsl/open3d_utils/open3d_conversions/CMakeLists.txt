@@ -18,12 +18,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Eigen3 REQUIRED)
 
-file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../small_gicp/include" SMALL_GICP_INCLUDE_DIR)
-
-
-# Declare the catkin package. Notice we add the small_gicp include directory here.
+# Declare the catkin package.
 catkin_package(
-  INCLUDE_DIRS include ${SMALL_GICP_INCLUDE_DIR}
+  INCLUDE_DIRS include
   LIBRARIES open3d_conversions
   CATKIN_DEPENDS ${CATKIN_PACKAGE_DEPENDENCIES}
   DEPENDS EIGEN3
