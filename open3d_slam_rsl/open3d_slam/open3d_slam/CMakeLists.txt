@@ -3,7 +3,13 @@ project(open3d_slam)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_compile_options(-std=c++17 -O3 -mtune=native -funroll-loops -fopenmp -fopt-info-vec-optimized)
+add_compile_options(-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fopt-info-vec-optimized)
+
+option(ENABLE_PROFILING "Enable profiling with ProfilerScopeGuard" OFF)
+
+if(ENABLE_PROFILING)
+  add_definitions(-DENABLE_PROFILING)
+endif()
 
 set(SRC_FILES
   src/Mapper.cpp

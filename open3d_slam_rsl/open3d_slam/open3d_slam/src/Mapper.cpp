@@ -34,9 +34,9 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
   update(params_);
 
   small_registration_.reduction.num_threads = 8;
-  small_registration_.rejector.max_dist_sq = 1.0;
+  small_registration_.rejector.max_dist_sq = 0.5;
   small_registration_.criteria.rotation_eps = 0.001;
-  small_registration_.criteria.translation_eps = 0.001;
+  small_registration_.criteria.translation_eps = 0.0008;
   small_registration_.optimizer.max_iterations = 30;
   small_registration_.optimizer.verbose = false;
 }
@@ -259,7 +259,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
       {
         ProfilerScopeGuard scope_target_cov("targetCovariance", "/tmp/slam_profile.csv");
-        estimate_covariances_omp(*target_, *target_tree_, 5, 8);
+        // estimate_covariances_omp(*target_, *target_tree_, 20, 8);
+        estimate_normals_omp(*target_, *target_tree_, 20, 8);
       }
     }
 
@@ -275,14 +276,17 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
     {
       ProfilerScopeGuard scope_source_cov("sourceCovariance", "/tmp/slam_profile.csv");
-      estimate_covariances_omp(*source_, *source_tree_, 10, 8);
+      // estimate_covariances_omp(*source_, *source_tree_, 20, 8);
+      estimate_normals_omp(*source_, *source_tree_, 20, 8);
     }
 
     {
       ProfilerScopeGuard scope_icp_align("icpAlign", "/tmp/slam_profile.csv");
       std::lock_guard<std::mutex> lck(mapManipulationMutex_);
       Eigen::Isometry3d init_T_target_source(mapToRangeSensorEstimate.matrix());
+
       auto result = small_registration_.align(*target_, *source_, *target_tree_, init_T_target_source);
+
       correctedTransform_o3d.matrix() = result.T_target_source.matrix();
     }
   }

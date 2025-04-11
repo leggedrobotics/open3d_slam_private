@@ -320,20 +320,11 @@ void SlamWrapperRos::loadParametersAndInitialize() {
     ROS_INFO_STREAM("Replay Time Config: Start Time(s): " << bagReplayStartTime_ << " End Time(s): " << bagReplayEndTime_);
   }
 
-  // Set and load the libpointmatcher config here.
-  std::string libpointmatcherConfigPath = ros::package::getPath("open3d_slam_ros") + "/param/icp.yaml";
-  ROS_INFO_STREAM("libpointmatcherConfigPath: " << libpointmatcherConfigPath);
-
   const std::string paramFolderPath = nh_->param<std::string>("parameter_folder_path", "");
   const std::string paramFilename = nh_->param<std::string>("parameter_filename", "");
   SlamParameters params;
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
   BASE::loadParametersAndInitialize();
-
-  // if (!readLibpointmatcherConfig(libpointmatcherConfigPath)) {
-  //   std::cout << "Returning early couldnt load ICP params for libpointmatcher " << std::endl;
-  //   return;
-  // }
 }
 
 bool SlamWrapperRos::saveMapCallback(open3d_slam_msgs::SaveMap::Request& req, open3d_slam_msgs::SaveMap::Response& res) {

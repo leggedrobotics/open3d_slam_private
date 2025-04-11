@@ -80,17 +80,241 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        dlio_map:
+        LF_FOOT:
           Value: true
-        dlio_odom:
+        LF_HAA_drive:
           Value: true
-        hesai_lidar:
+        LF_HFE_drive:
+          Value: true
+        LF_HFE_output:
+          Value: true
+        LF_HIP:
+          Value: true
+        LF_KFE_drive:
+          Value: true
+        LF_SHANK:
+          Value: true
+        LF_THIGH:
+          Value: true
+        LF_hip_fixed:
+          Value: true
+        LF_shank_fixed:
+          Value: true
+        LF_thigh_fixed:
+          Value: true
+        LH_FOOT:
+          Value: true
+        LH_HAA_drive:
+          Value: true
+        LH_HFE_drive:
+          Value: true
+        LH_HFE_output:
+          Value: true
+        LH_HIP:
+          Value: true
+        LH_KFE_drive:
+          Value: true
+        LH_SHANK:
+          Value: true
+        LH_THIGH:
+          Value: true
+        LH_hip_fixed:
+          Value: true
+        LH_shank_fixed:
+          Value: true
+        LH_thigh_fixed:
+          Value: true
+        RF_FOOT:
+          Value: true
+        RF_HAA_drive:
+          Value: true
+        RF_HFE_drive:
+          Value: true
+        RF_HFE_output:
+          Value: true
+        RF_HIP:
+          Value: true
+        RF_KFE_drive:
+          Value: true
+        RF_SHANK:
+          Value: true
+        RF_THIGH:
+          Value: true
+        RF_hip_fixed:
+          Value: true
+        RF_shank_fixed:
+          Value: true
+        RF_thigh_fixed:
+          Value: true
+        RH_FOOT:
+          Value: true
+        RH_HAA_drive:
+          Value: true
+        RH_HFE_drive:
+          Value: true
+        RH_HFE_output:
+          Value: true
+        RH_HIP:
+          Value: true
+        RH_KFE_drive:
+          Value: true
+        RH_SHANK:
+          Value: true
+        RH_THIGH:
+          Value: true
+        RH_hip_fixed:
+          Value: true
+        RH_shank_fixed:
+          Value: true
+        RH_thigh_fixed:
+          Value: true
+        base:
+          Value: true
+        base_inertia:
+          Value: true
+        base_inverted:
+          Value: true
+        battery:
+          Value: true
+        body_top:
+          Value: true
+        bottom_shell:
+          Value: true
+        depth_camera_front_lower_camera:
+          Value: true
+        depth_camera_front_lower_camera_parent:
+          Value: true
+        depth_camera_front_lower_depth_frame:
+          Value: true
+        depth_camera_front_lower_depth_optical_frame:
+          Value: true
+        depth_camera_front_lower_infra1_frame:
+          Value: true
+        depth_camera_front_lower_infra1_optical_frame:
+          Value: true
+        depth_camera_front_lower_infra2_frame:
+          Value: true
+        depth_camera_front_lower_infra2_optical_frame:
+          Value: true
+        depth_camera_front_upper_camera:
+          Value: true
+        depth_camera_front_upper_camera_parent:
+          Value: true
+        depth_camera_front_upper_depth_frame:
+          Value: true
+        depth_camera_front_upper_depth_optical_frame:
+          Value: true
+        depth_camera_front_upper_infra1_frame:
+          Value: true
+        depth_camera_front_upper_infra1_optical_frame:
+          Value: true
+        depth_camera_front_upper_infra2_frame:
+          Value: true
+        depth_camera_front_upper_infra2_optical_frame:
+          Value: true
+        depth_camera_left_camera:
+          Value: true
+        depth_camera_left_camera_parent:
+          Value: true
+        depth_camera_left_depth_frame:
+          Value: true
+        depth_camera_left_depth_optical_frame:
+          Value: true
+        depth_camera_left_infra1_frame:
+          Value: true
+        depth_camera_left_infra1_optical_frame:
+          Value: true
+        depth_camera_left_infra2_frame:
+          Value: true
+        depth_camera_left_infra2_optical_frame:
+          Value: true
+        depth_camera_rear_lower_camera:
+          Value: true
+        depth_camera_rear_lower_camera_parent:
+          Value: true
+        depth_camera_rear_lower_depth_frame:
+          Value: true
+        depth_camera_rear_lower_depth_optical_frame:
+          Value: true
+        depth_camera_rear_lower_infra1_frame:
+          Value: true
+        depth_camera_rear_lower_infra1_optical_frame:
+          Value: true
+        depth_camera_rear_lower_infra2_frame:
+          Value: true
+        depth_camera_rear_lower_infra2_optical_frame:
+          Value: true
+        depth_camera_rear_upper_camera:
+          Value: true
+        depth_camera_rear_upper_camera_parent:
+          Value: true
+        depth_camera_rear_upper_depth_frame:
+          Value: true
+        depth_camera_rear_upper_depth_optical_frame:
+          Value: true
+        depth_camera_rear_upper_infra1_frame:
+          Value: true
+        depth_camera_rear_upper_infra1_optical_frame:
+          Value: true
+        depth_camera_rear_upper_infra2_frame:
+          Value: true
+        depth_camera_rear_upper_infra2_optical_frame:
+          Value: true
+        depth_camera_right_camera:
+          Value: true
+        depth_camera_right_camera_parent:
+          Value: true
+        depth_camera_right_depth_frame:
+          Value: true
+        depth_camera_right_depth_optical_frame:
+          Value: true
+        depth_camera_right_infra1_frame:
+          Value: true
+        depth_camera_right_infra1_optical_frame:
+          Value: true
+        depth_camera_right_infra2_frame:
+          Value: true
+        depth_camera_right_infra2_optical_frame:
+          Value: true
+        docking_socket:
+          Value: true
+        face_front:
+          Value: true
+        face_rear:
+          Value: true
+        face_shell_front:
+          Value: true
+        face_shell_rear:
+          Value: true
+        gps:
+          Value: true
+        hatch_shell:
+          Value: true
+        hbc_receiver:
+          Value: true
+        hdr_cam_front:
+          Value: true
+        imu_link:
+          Value: true
+        lidar:
+          Value: true
+        lidar_parent:
           Value: true
         map_o3d:
           Value: true
         raw_odom_o3d:
           Value: true
         raw_rs_o3d:
+          Value: true
+        top_shell:
+          Value: true
+        wide_angle_camera_front_camera:
+          Value: true
+        wide_angle_camera_front_camera_parent:
+          Value: true
+        wide_angle_camera_rear_camera:
+          Value: true
+        wide_angle_camera_rear_camera_parent:
           Value: true
       Marker Alpha: 1
       Marker Scale: 0.5
@@ -99,16 +323,123 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        hesai_lidar:
-          dlio_map:
+        base:
+          LF_HAA_drive:
             {}
-          dlio_odom:
+          LH_HAA_drive:
             {}
-          map_o3d:
-            raw_odom_o3d:
+          RF_HAA_drive:
+            {}
+          RH_HAA_drive:
+            {}
+          base_inertia:
+            {}
+          base_inverted:
+            {}
+          battery:
+            {}
+          body_top:
+            {}
+          bottom_shell:
+            {}
+          depth_camera_left_camera:
+            depth_camera_left_camera_parent:
+              depth_camera_left_depth_frame:
+                depth_camera_left_depth_optical_frame:
+                  {}
+              depth_camera_left_infra1_frame:
+                depth_camera_left_infra1_optical_frame:
+                  {}
+              depth_camera_left_infra2_frame:
+                depth_camera_left_infra2_optical_frame:
+                  {}
+          depth_camera_right_camera:
+            depth_camera_right_camera_parent:
+              depth_camera_right_depth_frame:
+                depth_camera_right_depth_optical_frame:
+                  {}
+              depth_camera_right_infra1_frame:
+                depth_camera_right_infra1_optical_frame:
+                  {}
+              depth_camera_right_infra2_frame:
+                depth_camera_right_infra2_optical_frame:
+                  {}
+          docking_socket:
+            {}
+          face_front:
+            depth_camera_front_lower_camera:
+              depth_camera_front_lower_camera_parent:
+                depth_camera_front_lower_depth_frame:
+                  depth_camera_front_lower_depth_optical_frame:
+                    {}
+                depth_camera_front_lower_infra1_frame:
+                  depth_camera_front_lower_infra1_optical_frame:
+                    {}
+                depth_camera_front_lower_infra2_frame:
+                  depth_camera_front_lower_infra2_optical_frame:
+                    {}
+            depth_camera_front_upper_camera:
+              depth_camera_front_upper_camera_parent:
+                depth_camera_front_upper_depth_frame:
+                  depth_camera_front_upper_depth_optical_frame:
+                    {}
+                depth_camera_front_upper_infra1_frame:
+                  depth_camera_front_upper_infra1_optical_frame:
+                    {}
+                depth_camera_front_upper_infra2_frame:
+                  depth_camera_front_upper_infra2_optical_frame:
+                    {}
+            face_shell_front:
               {}
-            raw_rs_o3d:
+            wide_angle_camera_front_camera:
+              wide_angle_camera_front_camera_parent:
+                {}
+          face_rear:
+            depth_camera_rear_lower_camera:
+              depth_camera_rear_lower_camera_parent:
+                depth_camera_rear_lower_depth_frame:
+                  depth_camera_rear_lower_depth_optical_frame:
+                    {}
+                depth_camera_rear_lower_infra1_frame:
+                  depth_camera_rear_lower_infra1_optical_frame:
+                    {}
+                depth_camera_rear_lower_infra2_frame:
+                  depth_camera_rear_lower_infra2_optical_frame:
+                    {}
+            depth_camera_rear_upper_camera:
+              depth_camera_rear_upper_camera_parent:
+                depth_camera_rear_upper_depth_frame:
+                  depth_camera_rear_upper_depth_optical_frame:
+                    {}
+                depth_camera_rear_upper_infra1_frame:
+                  depth_camera_rear_upper_infra1_optical_frame:
+                    {}
+                depth_camera_rear_upper_infra2_frame:
+                  depth_camera_rear_upper_infra2_optical_frame:
+                    {}
+            face_shell_rear:
               {}
+            wide_angle_camera_rear_camera:
+              wide_angle_camera_rear_camera_parent:
+                hdr_cam_front:
+                  {}
+          gps:
+            {}
+          hatch_shell:
+            {}
+          hbc_receiver:
+            {}
+          imu_link:
+            {}
+          lidar_parent:
+            lidar:
+              map_o3d:
+                raw_odom_o3d:
+                  {}
+                raw_rs_o3d:
+                  {}
+          top_shell:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -288,7 +619,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 30; 85; 157
-      Enabled: false
+      Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -307,12 +638,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/tracked_path
       Unreliable: false
-      Value: false
+      Value: true
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 25; 255; 0
-      Enabled: false
+      Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
@@ -331,7 +662,7 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /open3d_slam/best_guess_path
       Unreliable: false
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -409,13 +740,13 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /open3d_slam/differenceLines
       Name: Motion Update Markers
       Namespaces:
-        {}
+        paths: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Angle Tolerance: 0
       Class: rviz/Odometry
       Covariance:
@@ -468,13 +799,13 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /open3d_slam/surfaceNormals
       Name: SurfaceNormals
       Namespaces:
-        {}
+        surface_normals: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Angle Tolerance: 0
       Class: rviz/Odometry
       Covariance:
@@ -546,7 +877,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 33.365379333496094
+      Distance: 30.19165802001953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -554,17 +885,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.6369662880897522
-        Y: 2.6210761070251465
-        Z: -2.519592046737671
+        X: -5.041419982910156
+        Y: -2.9101176261901855
+        Z: -1.1656804084777832
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1903984546661377
+      Pitch: 0.9003994464874268
       Target Frame: lidar
-      Yaw: 5.718583583831787
+      Yaw: 1.4953992366790771
     Saved: ~
 Window Geometry:
   Displays:

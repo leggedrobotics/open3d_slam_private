@@ -76,7 +76,8 @@ class Mapper {
 
   // The parameter loading dont have a slam_ API yet, thus object not private.
   // pointmatcher_ros::PmIcp icp_;
-  small_gicp::Registration<small_gicp::GICPFactor, small_gicp::ParallelReductionOMP> small_registration_;
+  // small_gicp::Registration<small_gicp::GICPFactor, small_gicp::ParallelReductionOMP> small_registration_;
+  small_gicp::Registration<small_gicp::PointToPlaneICPFactor, small_gicp::ParallelReductionOMP> small_registration_;
 
   std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> target_tree_;
   std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> source_tree_;

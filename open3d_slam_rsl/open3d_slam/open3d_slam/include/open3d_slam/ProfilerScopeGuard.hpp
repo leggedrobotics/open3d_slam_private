@@ -1,10 +1,13 @@
 #pragma once
 
+#include <string>
+
+#ifdef ENABLE_PROFILING
+
 #include <chrono>
 #include <fstream>
 #include <mutex>
 #include <sstream>
-#include <string>
 #include <thread>
 
 class ProfilerScopeGuard {
@@ -41,5 +44,17 @@ class ProfilerScopeGuard {
   std::chrono::steady_clock::time_point start_time_;
 
   static inline std::mutex write_mutex_;
-  static inline bool is_first_write_ = true;
+  static inline bool is_first_write_;
 };
+
+inline bool ProfilerScopeGuard::is_first_write_ = true;
+
+#else  // ENABLE_PROFILING not defined
+
+// No-op version
+class ProfilerScopeGuard {
+ public:
+  ProfilerScopeGuard(const std::string&, const std::string&, const std::string& = "") {}
+};
+
+#endif  // ENABLE_PROFILING
