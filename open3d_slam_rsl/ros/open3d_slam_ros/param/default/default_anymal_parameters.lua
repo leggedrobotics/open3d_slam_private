@@ -127,7 +127,7 @@ params.place_recognition.consistency_check.max_drift_z = 40.0        -- meters
 ----------------------------------------------------------------------
 
 -- Allow up to 5 million points per submap
-params.submap.max_num_points = 5_000_000
+params.submap.max_num_points = 5000000
 
 -- Avoid recomputing features too frequently
 params.submap.min_seconds_between_feature_computation = 5.0
