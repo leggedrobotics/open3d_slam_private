@@ -61,7 +61,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 get_filename_component(_THIS_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-file(REAL_PATH "${_THIS_DIR}/../../../thirdparty/small_gicp/include" SMALL_GICP_INCLUDE_DIR)
+file(REAL_PATH "${_THIS_DIR}/../../thirdparty/small_gicp/include" SMALL_GICP_INCLUDE_DIR)
 
 
 catkin_package(
