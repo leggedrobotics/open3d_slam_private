@@ -45,10 +45,14 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   geometry_msgs
 )
 
+set(GLEW_INCLUDE_DIR "/home/integration/arammis_jr_ws/src/anymal_rsl/dependencies/open3d_slam_private/open3d_slam_rsl/open3d_catkin/open3d/3rdparty/glew/")
+
 find_package(Eigen3 REQUIRED)
 find_package(Boost QUIET REQUIRED COMPONENTS serialization filesystem system program_options)
 find_package(TBB REQUIRED)
+find_package(GLEW REQUIRED)
 
+include_directories(include ${GLEW_INCLUDE_DIR})
 
 find_package(OpenMP QUIET)
 if (OpenMP_FOUND)
