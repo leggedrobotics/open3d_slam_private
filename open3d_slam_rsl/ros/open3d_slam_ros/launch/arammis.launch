@@ -11,6 +11,7 @@
   <arg name="odometry_topic" default="no_odometry_topic"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_topic" default="no_pose_stamped_topic"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
 
   <arg name="parameter_filename" default="param_arammis.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
@@ -26,8 +27,6 @@
   <arg name="relative_sleep_duration" default="0.0"/>
   <arg name="replay_start_time_as_second" default="0.0"/>
   <arg name="replay_end_time_as_second" default="2000.0"/>
-
-  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
   <arg name="export_imu_data" default="false"/>
 
   <!-- ROS Param -->

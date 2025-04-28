@@ -254,13 +254,28 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
       {
         ProfilerScopeGuard scope_target_kdtree("targetKdTree", "/tmp/slam_profile.csv");
+        // We anyway need the tree for the correspondance search.
         target_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(target_, small_gicp::KdTreeBuilderOMP(8));
       }
 
       {
         ProfilerScopeGuard scope_target_cov("targetCovariance", "/tmp/slam_profile.csv");
-        // estimate_covariances_omp(*target_, *target_tree_, 20, 8);
-        estimate_normals_omp(*target_, *target_tree_, 20, 8);
+
+        small_gicp::PointCloud& dst = *target_;
+        const auto& src = *mapPatch;
+        const std::size_t N = dst.size();
+
+        if (src.HasNormals() && src.normals_.size() == N) {
+          dst.normals.resize(N);
+
+#pragma omp parallel for simd
+          for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
+            const Eigen::Vector3d& n = src.normals_[i];
+            dst.normal(i) << n.x(), n.y(), n.z(), 0.0;  // last component must be 0 for small_gicp
+          }
+        } else {
+          estimate_normals_omp(dst, *target_tree_, /*knn=*/20, /*threads=*/8);
+        }
       }
     }
 
