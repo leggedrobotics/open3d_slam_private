@@ -275,9 +275,30 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     }
 
     {
-      ProfilerScopeGuard scope_source_cov("sourceCovariance", "/tmp/slam_profile.csv");
-      // estimate_covariances_omp(*source_, *source_tree_, 20, 8);
-      estimate_normals_omp(*source_, *source_tree_, 20, 8);
+      ProfilerScopeGuard scope_source_normals("sourceNormals", "/tmp/slam_profile.csv");
+
+      small_gicp::PointCloud& dst = *source_;
+      const auto& src = *processed.match_;
+      const std::size_t N = dst.size();
+
+      if (src.HasNormals() && src.normals_.size() == N) {
+        // ensure destination buffer is the right size
+        dst.normals.resize(N);
+
+// copy & extend to 4D in parallel
+#pragma omp parallel for simd
+        for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
+          const Eigen::Vector3d& n = src.normals_[i];
+          dst.normal(i) << n.x(), n.y(), n.z(), 0.0;  // last component must be 0 for small_gicp
+        }
+        // print in yellow that we are copying the normals
+        std::cout << "\033[93m"
+                  << "Copying normals from source point cloud."
+                  << "\033[0m" << std::endl;
+      } else {
+        // keep existing (OMP-parallel) implementation
+        estimate_normals_omp(dst, *source_tree_, /*knn=*/20, /*threads=*/8);
+      }
     }
 
     {

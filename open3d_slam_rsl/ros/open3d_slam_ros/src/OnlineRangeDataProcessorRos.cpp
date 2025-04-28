@@ -6,6 +6,7 @@
  */
 
 #include "open3d_slam_ros/OnlineRangeDataProcessorRos.hpp"
+#include <ros/master.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2/convert.h>
@@ -101,42 +102,67 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
   }
 }
 
+void OnlineRangeDataProcessorRos::dynamicPoseDiscoveryCallback(const ros::TimerEvent&) {
+  if (poseSubscribed_) {
+    dynamicPoseDiscoveryTimer_.stop();
+    return;
+  }
+
+  std::vector<ros::master::TopicInfo> topics;
+  ros::master::getTopics(topics);
+
+  auto topicExists = [&topics](const std::string& name) -> bool {
+    for (const auto& t : topics) {
+      if (t.name == name) return true;
+    }
+    return false;
+  };
+
+  if (topicExists(poseStampedWithCovarianceTopic_)) {
+    poseStampedCovarianceSubscriber_ =
+        nh_->subscribe(poseStampedWithCovarianceTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this,
+                       ros::TransportHints().tcpNoDelay());
+    poseSubscribed_ = true;
+    ROS_INFO_STREAM("\033[92m"
+                    << "Dynamically subscribed to poseStampedWithCovariance topic: " << poseStampedWithCovarianceTopic_ << "\033[0m");
+  } else if (topicExists(poseStampedTopic_)) {
+    poseStampedSubscriber_ =
+        nh_->subscribe(poseStampedTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedCallback, this, ros::TransportHints().tcpNoDelay());
+    poseSubscribed_ = true;
+    ROS_INFO_STREAM("\033[92m"
+                    << "Dynamically subscribed to poseStamped topic: " << poseStampedTopic_ << "\033[0m");
+  } else if (topicExists(odometryTopic_)) {
+    odometrySubscriber_ =
+        nh_->subscribe(odometryTopic_, 40, &OnlineRangeDataProcessorRos::odometryCallback, this, ros::TransportHints().tcpNoDelay());
+    poseSubscribed_ = true;
+    ROS_INFO_STREAM("\033[92m"
+                    << "Dynamically subscribed to odometry topic: " << odometryTopic_ << "\033[0m");
+  }
+}
+
 void OnlineRangeDataProcessorRos::startProcessing() {
   slam_->startWorkers();
 
-  // The point cloud subscriber
   cloudSubscriber_ = nh_->subscribe(cloudTopic_, 2, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
-
-  // Redundant listening of pose topics. It is really tiresome to the developer to keep the support for all types.
-  poseStampedSubscriber_ =
-      nh_->subscribe(poseStampedTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedCallback, this, ros::TransportHints().tcpNoDelay());
-  odometrySubscriber_ =
-      nh_->subscribe(odometryTopic_, 40, &OnlineRangeDataProcessorRos::odometryCallback, this, ros::TransportHints().tcpNoDelay());
-  poseStampedCovarianceSubscriber_ =
-      nh_->subscribe(poseStampedWithCovarianceTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this,
-                     ros::TransportHints().tcpNoDelay());
 
   if (slam_->isIMUattitudeInitializationEnabled()) {
     imuSubscriber_ = nh_->subscribe<sensor_msgs::Imu>(imuTopic_, 40, &OnlineRangeDataProcessorRos::imuCallback, this,
                                                       ros::TransportHints().tcpNoDelay());
+    ROS_INFO_STREAM("Subscribed to IMU topic: " << imuTopic_);
   } else {
     isAttitudeInitialized_ = true;
   }
 
-  // A timer to read the static calibration we between the provided tracked frame by odometry and the point cloud frame.
   staticTfCallback_ = nh_->createTimer(ros::Duration(0.1), &OnlineRangeDataProcessorRos::staticTfCallback, this);
 
-  std::cout << " Open3d_slam Subscribers are set." << std::endl;
+  // Start dynamic pose topic discovery timer
+  dynamicPoseDiscoveryTimer_ = nh_->createTimer(ros::Duration(0.5), &OnlineRangeDataProcessorRos::dynamicPoseDiscoveryCallback, this);
 
-  // Number of spinners should be equal to the number of active subscribers
-  ros::MultiThreadedSpinner spinner(4);
+  ROS_INFO("Open3d_slam subscribers initialized. Waiting for pose topic...");
+
+  ros::MultiThreadedSpinner spinner(2);
   spinner.spin();
-  // ros::Rate r(10); // 10 hz
-  // while (ros::ok())
-  //{
-  //  ros::spinOnce();
-  //  r.sleep();
-  //}
+
   slam_->stopWorkers();
 }
 
