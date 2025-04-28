@@ -291,10 +291,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
           const Eigen::Vector3d& n = src.normals_[i];
           dst.normal(i) << n.x(), n.y(), n.z(), 0.0;  // last component must be 0 for small_gicp
         }
-        // print in yellow that we are copying the normals
-        std::cout << "\033[93m"
-                  << "Copying normals from source point cloud."
-                  << "\033[0m" << std::endl;
       } else {
         // keep existing (OMP-parallel) implementation
         estimate_normals_omp(dst, *source_tree_, /*knn=*/20, /*threads=*/8);
