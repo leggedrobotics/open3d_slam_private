@@ -106,9 +106,9 @@ else()
     GIT_SUBMODULES_RECURSE "true"
     GIT_PROGRESS "true"
     CMAKE_CACHE_ARGS "-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true"
-    PREFIX "${CMAKE_SOURCE_DIR}"
-    SOURCE_DIR "${CMAKE_SOURCE_DIR}/open3d"
-    BINARY_DIR "${CMAKE_SOURCE_DIR}/tmp"
+    PREFIX "${CMAKE_BINARY_DIR}/open3d_external"
+    SOURCE_DIR "${CMAKE_BINARY_DIR}/open3d_external/src/open3d"
+    BINARY_DIR "${CMAKE_BINARY_DIR}/open3d_external/build"
     CMAKE_ARGS 
          -DBUILD_SHARED_LIBS=ON
          -DCMAKE_BUILD_TYPE=RelWithDebInfo
