@@ -27,6 +27,12 @@ params.mapper_localizer.is_print_timing_information = false
 -- Delay before merging new data into map (helps control timing/latency)
 params.mapper_localizer.map_merge_delay_in_seconds = 10.0
 
+-- Remove points through ray-casting (e.g. dynamic objects in scene)
+params.mapper_localizer.is_carving_enabled = true
+
+-- Translation required between mapping steps
+params.mapper_localizer.min_movement_between_mapping_steps = 1.0 -- meters
+
 ----------------------------------------------------------------------
 --                        SCAN-TO-SCAN ODOMETRY
 ----------------------------------------------------------------------
@@ -87,6 +93,9 @@ params.mapper_localizer.scan_to_map_registration.scan_processing.downsampling_ra
 -- Scan cropping radius during registration (avoid unnecessary cropping)
 params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_max = 60.0
 
+-- Voxel size for ICP registration
+params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.1
+
 ----------------------------------------------------------------------
 --                        MAP SAVING OPTIONS
 ----------------------------------------------------------------------
@@ -135,12 +144,21 @@ params.submap.min_seconds_between_feature_computation = 5.0
 -- Allow revisiting a submap if fitness score is reasonable
 params.submap.adjacency_based_revisiting_min_fitness = 0.5
 
+-- Submap size
+params.submap.submap_size = 20.0 --meters
+
+-- Submap scan overlap
+params.submap.submaps_num_scan_overlap = 1
+
 ----------------------------------------------------------------------
 --                        MAP BUILDER CROPPING
 ----------------------------------------------------------------------
 
 params.map_builder.scan_cropping.cropping_radius_max = 60.0
 params.map_builder.scan_cropping.cropping_radius_min = 2.0
+
+-- Map voxel size
+params.map_builder.map_voxel_size = 0.1
 
 -- Periodic carving of free space
 params.map_builder.space_carving.carve_space_every_n_scans = 10
