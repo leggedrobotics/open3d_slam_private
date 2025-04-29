@@ -116,7 +116,7 @@ else()
          -DGLIBCXX_USE_CXX11_ABI=ON
          -DBUILD_PYTHON_MODULE=OFF
          -DCMAKE_INSTALL_PREFIX=${CATKIN_DEVEL_PREFIX}
-    INSTALL_COMMAND make install && bash "-c" "cp -r ${CMAKE_SOURCE_DIR}/tmp/fmt/include/ ${CATKIN_DEVEL_PREFIX} && cp ${CMAKE_SOURCE_DIR}/tmp/fmt/lib/*.a ${CATKIN_DEVEL_PREFIX}/lib/"
+    INSTALL_COMMAND make install && bash "-c" "cp -r ${CMAKE_BINARY_DIR}/open3d_external/build/fmt/include/ ${CATKIN_DEVEL_PREFIX} && cp ${CMAKE_BINARY_DIR}/open3d_external/build/fmt/lib/*.a ${CATKIN_DEVEL_PREFIX}/lib/"
   )
 
   catkin_package(
