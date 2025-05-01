@@ -5,7 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 ## Source: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
 #add_compile_options(-Wall -Wextra -Wpedantic -O3)
-add_compile_options(-O3)
+
+add_compile_options(-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fopt-info-vec-optimized -fno-math-errno)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

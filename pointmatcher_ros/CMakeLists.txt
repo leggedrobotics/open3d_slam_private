@@ -28,11 +28,15 @@ find_package(catkin
     ${CATKIN_PACKAGE_DEPENDENCIES}
 )
 
-find_package(PCL 1.10 REQUIRED
-  COMPONENTS
-    common
-    io
-)
+# find_package(PCL 1.10 EXACT REQUIRED
+#   COMPONENTS
+#     common
+#     io
+# )
+find_package(PCL 1.10 EXACT REQUIRED PATHS /usr/include/pcl-1.10/)
+include_directories(${PCL_INCLUDE_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+link_directories(${PCL_LIBRARY_DIRS})
 
 # Catkin package macro
 catkin_package(

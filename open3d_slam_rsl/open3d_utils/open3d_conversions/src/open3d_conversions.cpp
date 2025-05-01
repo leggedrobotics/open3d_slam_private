@@ -18,260 +18,234 @@
 namespace open3d_conversions {
 
 
-std::shared_ptr<PmStampedPointCloud> createSimilarPointmatcherCloud(const std::size_t& size){
+  std::shared_ptr<PmStampedPointCloud>
+  createSimilarPointmatcherCloud(const std::size_t& size)
+  {
+      constexpr Eigen::Index kFeat  = 4;
+      constexpr Eigen::Index kDescr = 3;
+  
+      // raw, uninitialised allocation (fast)
+      PM::Matrix features(kFeat , static_cast<Eigen::Index>(size));
+      PM::Matrix normals  (kDescr, static_cast<Eigen::Index>(size));
+  
+      // feature labels
+      PmDataPoints::Labels featLabels;
+      featLabels.reserve(4);
+      featLabels.push_back({"x",1});
+      featLabels.push_back({"y",1});
+      featLabels.push_back({"z",1});
+      featLabels.push_back({"pad",1});
+  
+      PmDataPoints pm(std::move(features), featLabels);
+      pm.addDescriptor("normals", std::move(normals));
+      pm.getFeatureViewByName("pad").setOnes();   // vectorised
+  
+      auto cloud   = std::make_shared<PmStampedPointCloud>();
+      cloud->dataPoints_ = std::move(pm);
+      cloud->header_ = std_msgs::Header();
+      return cloud;
+  }
+  
 
-  // Maybe just get the size?
-  //if ((!pointcloud.HasNormals())){
-  //  std::cout << "Regular cloud has no normals: " << pointcloud.HasNormals() << std::endl;
-  //  return std::make_shared<PmStampedPointCloud>(PmStampedPointCloud());
-  //}
+  void open3dToPointmatcher(const open3d::geometry::PointCloud& src,
+    PmStampedPointCloud& dst,
+    bool copyNormals)
+{
+const std::size_t N = src.points_.size();
+if (dst.isEmpty() || N != static_cast<std::size_t>(dst.dataPoints_.features.cols()))
+return;
 
-  PmStampedPointCloud pointMatcherCloud;
-  pointMatcherCloud.header_ = std_msgs::Header();
+// --- copy XYZ (Eigen does SIMD) -----------------------------------------
+auto xyzDst = dst.dataPoints_.features.topRows(3);
+Eigen::Map<const Eigen::Matrix<double,3,Eigen::Dynamic,Eigen::ColMajor>>
+xyzSrc(reinterpret_cast<const double*>(src.points_.data()),3,
+static_cast<Eigen::Index>(N));
+xyzDst = xyzSrc.cast<float>();
 
-  // Create the regular features
-  PmDataPoints::Labels featLabels;
-  const Eigen::Index featDim = 4;
-  const PM::Matrix features = PM::Matrix::Zero(featDim, size);
-  featLabels.push_back(PmDataPoints::Label("x", 1));
-  featLabels.push_back(PmDataPoints::Label("y", 1));
-  featLabels.push_back(PmDataPoints::Label("z", 1));
-  featLabels.push_back(PmDataPoints::Label("pad", 1));
-
-  // Construct the point cloud from the generated matrices
-  PmDataPoints pointMatcherdata(features, featLabels);
-
-  // Set padding/scale value to 1. Allows 4x4 transformation matrices to be used.
-  pointMatcherdata.getFeatureViewByName("pad").setOnes();
-
-  // Normals. At this stage we don't care if the original cloud has normals or not.
-  const PM::Matrix descriptor = PM::Matrix::Zero(3, size);
-  pointMatcherdata.addDescriptor("normals", descriptor);
-
-  // Assign the empty data struct to the point cloud
-  pointMatcherCloud.dataPoints_ = pointMatcherdata;
- 
-  return std::make_shared<PmStampedPointCloud>(pointMatcherCloud);
+// --- copy normals if requested ------------------------------------------
+if (copyNormals && src.HasNormals()) {
+PmDataPoints::View nDst = dst.dataPoints_.getDescriptorViewByName("normals");
+Eigen::Map<const Eigen::Matrix<double,3,Eigen::Dynamic,Eigen::ColMajor>>
+nSrc(reinterpret_cast<const double*>(src.normals_.data()),3,
+static_cast<Eigen::Index>(N));
+nDst = nSrc.cast<float>();
+}
 }
 
-void open3dToPointmatcher(const open3d::geometry::PointCloud& pointcloud, PmStampedPointCloud& pointMatcherCloud, bool copyNormals){
 
-  //if (copyNormals)
-  //{
-    // Expecting the clouds have surface normals
-  //  if ((!pointcloud.HasNormals()) || (!pointMatcherCloud.descriptorExists(std::string(pointCloudDescriptorNameNormals)))){
-  //    std::cout << "Regular cloud has no normals: " << pointcloud.HasNormals() << std::endl;
-  //    std::cout << "Pointmatcher cloud has no normals: " << pointMatcherCloud.descriptorExists(std::string(pointCloudDescriptorNameNormals)) << std::endl;
-  //    return;
-  //  }
-  //}
-  
-  // TODO Check if both have same number of points.
-  if (pointMatcherCloud.isEmpty()){
-    std::cout << "Pointmatcher cloud is empty" << std::endl;
-    return;
+void pointmatcherToOpen3d(const PmStampedPointCloud& pointMatcherCloud,
+  open3d::geometry::PointCloud& pointcloud)
+{
+if (!pointMatcherCloud.descriptorExists("normals") || pointMatcherCloud.isEmpty())
+return;
+
+const auto& F = pointMatcherCloud.dataPoints_.features;
+const auto  Nview = pointMatcherCloud.dataPoints_.getDescriptorViewByName("normals");
+
+const std::size_t N = static_cast<std::size_t>(F.cols());
+pointcloud.points_.resize(N);
+pointcloud.normals_.resize(N);
+
+#pragma omp parallel for schedule(static)
+for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(N); ++i) {
+Eigen::Vector3d p;
+p << F(0,i), F(1,i), F(2,i);
+pointcloud.points_[i] = p;
+
+Eigen::Vector3d n;
+n << static_cast<double>(Nview(0,i)),
+static_cast<double>(Nview(1,i)),
+static_cast<double>(Nview(2,i));
+pointcloud.normals_[i] = n;
+}
+}
+
+
+
+void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id) {
+  sensor_msgs::PointCloud2Modifier modifier(ros_pc2);
+  bool has_colors = pointcloud.HasColors();
+
+  if (has_colors) {
+      modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
+  } else {
+      modifier.setPointCloud2FieldsByString(1, "xyz");
   }
 
-  if (pointcloud.points_.size() != pointMatcherCloud.dataPoints_.features.cols()){
-    std::cout << "Size does not match cloud is empty" << std::endl;
-    return;
+  const size_t num_points = pointcloud.points_.size();
+  modifier.resize(num_points);
+
+  ros_pc2.header.frame_id = frame_id;
+  ros_pc2.height = 1;
+  ros_pc2.width = num_points;
+  ros_pc2.is_dense = true;
+
+  const uint8_t* data_ptr = ros_pc2.data.data();
+  const size_t point_step = ros_pc2.point_step;
+
+  int x_offset = -1, y_offset = -1, z_offset = -1;
+  int r_offset = -1, g_offset = -1, b_offset = -1;
+
+  for (const auto& field : ros_pc2.fields) {
+      if (field.name == "x") x_offset = field.offset;
+      else if (field.name == "y") y_offset = field.offset;
+      else if (field.name == "z") z_offset = field.offset;
+      else if (field.name == "r") r_offset = field.offset;
+      else if (field.name == "g") g_offset = field.offset;
+      else if (field.name == "b") b_offset = field.offset;
   }
 
-  //std::cout << "regular cloud size:" << pointcloud.points_.size() << std::endl;
+  #pragma omp parallel for simd
+  for (int i = 0; i < static_cast<int>(num_points); ++i) {
+      uint8_t* ptr = ros_pc2.data.data() + i * point_step;
 
-  //test
-  //const auto& points = pointcloud.points_;
-  //const auto& normals = pointcloud.normals_;
-  //const auto& colors = pointcloud.colors_;
-  //auto& surfaceNormalsView{pointMatcherCloud.dataPoints_.getDescriptorViewByName(std::string(pointCloudDescriptorNameNormals)) };
+      const Eigen::Vector3d& p = pointcloud.points_[i];
+      *reinterpret_cast<float*>(ptr + x_offset) = static_cast<float>(p.x());
+      *reinterpret_cast<float*>(ptr + y_offset) = static_cast<float>(p.y());
+      *reinterpret_cast<float*>(ptr + z_offset) = static_cast<float>(p.z());
 
-  if (copyNormals){
-  BOOST_AUTO(surfaceNormalsView, pointMatcherCloud.dataPoints_.getDescriptorViewByName("normals"));
-
-  //pointMatcherCloud.dataPoints_.features.conservativeResize(3);
-  //pointMatcherCloud.dataPoints_.descriptors.conservativeResize(1);
-
-  // Allocate memory for the point cloud
-  // pointMatcherCloud.dataPoints_.features.resize(3, points.size());
-  //pointMatcherCloud.dataPoints_.descriptors.resize(1, points.size());
-    //#pragma omp parallel for num_threads(4)
-      //#pragma omp critical
-        // Transfer point positions
-        for (size_t i = 0; i < pointcloud.points_.size(); ++i)
-        {
-            pointMatcherCloud.dataPoints_.features(0, i) = pointcloud.points_[i][0];
-            pointMatcherCloud.dataPoints_.features(1, i) = pointcloud.points_[i][1];
-            pointMatcherCloud.dataPoints_.features(2, i) = pointcloud.points_[i][2];
-
-            surfaceNormalsView.col(i) = pointcloud.normals_[i].col(0).cast <float> ();
-        }
-  }else{
-    //#pragma omp parallel for num_threads(4)
-      // Transfer point positions
-      for (size_t i = 0; i < pointcloud.points_.size(); ++i)
-      {
-          pointMatcherCloud.dataPoints_.features(0, i) = pointcloud.points_[i][0];
-          pointMatcherCloud.dataPoints_.features(1, i) = pointcloud.points_[i][1];
-          pointMatcherCloud.dataPoints_.features(2, i) = pointcloud.points_[i][2];
+      if (has_colors) {
+          const Eigen::Vector3d& c = pointcloud.colors_[i];
+          *(ptr + r_offset) = static_cast<uint8_t>(std::min(255.0, std::max(0.0, 255.0 * c.x())));
+          *(ptr + g_offset) = static_cast<uint8_t>(std::min(255.0, std::max(0.0, 255.0 * c.y())));
+          *(ptr + b_offset) = static_cast<uint8_t>(std::min(255.0, std::max(0.0, 255.0 * c.z())));
       }
   }
 }
 
-void pointmatcherToOpen3d(const PmStampedPointCloud& pointMatcherCloud, open3d::geometry::PointCloud& pointcloud){
-
-  // Expecting the clouds have surface normals
-  if ((!pointMatcherCloud.descriptorExists(std::string(pointCloudDescriptorNameNormals)))){
-    std::cout << "Regular cloud has no normals: " << pointcloud.HasNormals() << std::endl;
-    std::cout << "Pointmatcher cloud has no normals: " << pointMatcherCloud.descriptorExists(std::string(pointCloudDescriptorNameNormals)) << std::endl;
-    return;
-  }
-  
-  // TODO Check if both have same number of points.
-  if (pointMatcherCloud.isEmpty()){
-    std::cout << "Pointmatcher cloud is empty" << std::endl;
-    return;
-  }
-
-  if (pointcloud.points_.size() != pointMatcherCloud.dataPoints_.features.cols()){
-    std::cout << "Size does not match cloud is empty" << std::endl;
-    pointcloud.points_.reserve(pointMatcherCloud.dataPoints_.features.cols());
-    return;
-  }
-
-  BOOST_AUTO(surfaceNormalsView, pointMatcherCloud.dataPoints_.getDescriptorViewByName("normals"));
-
-  if (pointcloud.normals_.size() != surfaceNormalsView.cols()){
-    std::cout << "Number of normals doesnt match, reserving memory" << std::endl;
-    pointcloud.normals_.reserve(pointMatcherCloud.dataPoints_.features.cols());
-  }
-
-  //#pragma omp parallel for num_threads(4)
-  //#pragma omp critical
-  // Transfer point positions
-  for (size_t i = 0; i < pointMatcherCloud.dataPoints_.features.cols(); ++i)
-  {
-      pointcloud.points_[i][0] = pointMatcherCloud.dataPoints_.features(0, i);
-      pointcloud.points_[i][1] = pointMatcherCloud.dataPoints_.features(1, i);
-      pointcloud.points_[i][2] = pointMatcherCloud.dataPoints_.features(2, i);
-
-      pointcloud.normals_.push_back(surfaceNormalsView.col(i).cast <double> ());// = surfaceNormalsView.col(i).cast <double> ();
-  }
-
-  return;
-}
-
-void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id) {
-  sensor_msgs::PointCloud2Modifier modifier(ros_pc2);
-  if (pointcloud.HasColors()) {
-    modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
-  } else {
-    modifier.setPointCloud2FieldsByString(1, "xyz");
-  }
-  modifier.resize(pointcloud.points_.size());
-  ros_pc2.header.frame_id = frame_id;
-  sensor_msgs::PointCloud2Iterator<float> ros_pc2_x(ros_pc2, "x");
-  sensor_msgs::PointCloud2Iterator<float> ros_pc2_y(ros_pc2, "y");
-  sensor_msgs::PointCloud2Iterator<float> ros_pc2_z(ros_pc2, "z");
-  if (pointcloud.HasColors()) {
-    sensor_msgs::PointCloud2Iterator<uint8_t> ros_pc2_r(ros_pc2, "r");
-    sensor_msgs::PointCloud2Iterator<uint8_t> ros_pc2_g(ros_pc2, "g");
-    sensor_msgs::PointCloud2Iterator<uint8_t> ros_pc2_b(ros_pc2, "b");
-    for (size_t i = 0; i < pointcloud.points_.size(); i++, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_r, ++ros_pc2_g, ++ros_pc2_b) {
-      const Eigen::Vector3d& point = pointcloud.points_[i];
-      const Eigen::Vector3d& color = pointcloud.colors_[i];
-      *ros_pc2_x = point(0);
-      *ros_pc2_y = point(1);
-      *ros_pc2_z = point(2);
-      *ros_pc2_r = (int)(255 * color(0));
-      *ros_pc2_g = (int)(255 * color(1));
-      *ros_pc2_b = (int)(255 * color(2));
-    }
-  } else {
-    for (size_t i = 0; i < pointcloud.points_.size(); i++, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z) {
-      const Eigen::Vector3d& point = pointcloud.points_[i];
-      *ros_pc2_x = point(0);
-      *ros_pc2_y = point(1);
-      *ros_pc2_z = point(2);
-    }
-  }
-}
 
 bool rosToOpen3d(const sensor_msgs::PointCloud2ConstPtr& ros_pc2, open3d::geometry::PointCloud& o3d_pc, bool skip_colors,  bool copy_normals) {
   return rosToOpen3d(*ros_pc2, o3d_pc, skip_colors, copy_normals);
 }
 
 bool rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointCloud& o3d_pc, bool skip_colors, bool copy_normals) {
-  const auto ros_pc2 = &cloud;
-  const uint32_t num_points = ros_pc2->height * ros_pc2->width;
-
-  if (ros_pc2->fields.size() < 3) {
-    // Early exit
-    // Crushes if there are no points
-    std::cout << "ros_pc2->fields.size(): " << ros_pc2->fields.size() << " Exitting." << std::endl;
-    return false;
+  const uint32_t num_points = cloud.height * cloud.width;
+  if (cloud.fields.size() < 3 || num_points == 0) {
+      std::cout << "ros_pc2->fields.size(): " << cloud.fields.size() << " Exiting." << std::endl;
+      return false;
   }
 
-  sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_x(*ros_pc2, "x");
-  sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_y(*ros_pc2, "y");
-  sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_z(*ros_pc2, "z");
-  o3d_pc.points_.reserve(num_points);
-  for (size_t i = 0; i < num_points; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z) {
-    o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
+  int x_offset = -1, y_offset = -1, z_offset = -1;
+  int normal_x_offset = -1, normal_y_offset = -1, normal_z_offset = -1;
+  int r_offset = -1, g_offset = -1, b_offset = -1;
+  bool has_rgb = false;
+  bool has_normals = false;
+
+  for (const auto& field : cloud.fields) {
+      if (field.name == "x") x_offset = field.offset;
+      else if (field.name == "y") y_offset = field.offset;
+      else if (field.name == "z") z_offset = field.offset;
+      else if (field.name == "normal_x") normal_x_offset = field.offset;
+      else if (field.name == "normal_y") normal_y_offset = field.offset;
+      else if (field.name == "normal_z") normal_z_offset = field.offset;
+      else if (field.name == "r") r_offset = field.offset;
+      else if (field.name == "g") g_offset = field.offset;
+      else if (field.name == "b") b_offset = field.offset;
   }
 
-  if (copy_normals){
-    // TODO(TT) what else name could it be?
-    const std::vector<std::string> fieldNames{"normal_x"}; //, "normal_y", "normal_z" 
-    for (const auto& field : ros_pc2->fields)
-    {
-      if (std::find(fieldNames.begin(), fieldNames.end(), field.name) != fieldNames.end()){
-        // Actually there is a normal field
-        // Assuming that if one of the fields is present, all of them are present
+  has_normals = (normal_x_offset >= 0 && normal_y_offset >= 0 && normal_z_offset >= 0);
+  has_rgb = (r_offset >= 0 && g_offset >= 0 && b_offset >= 0);
 
-        o3d_pc.normals_.reserve(num_points);
-        sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_normal_x(*ros_pc2, "normal_x");
-        sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_normal_y(*ros_pc2, "normal_y");
-        sensor_msgs::PointCloud2ConstIterator<float> ros_pc2_normal_z(*ros_pc2, "normal_z");
+  const uint8_t* base_ptr = cloud.data.data();
+  const size_t point_step = cloud.point_step;
 
-        for (size_t j = 0; j < num_points; ++j, ++ros_pc2_normal_x, ++ros_pc2_normal_y, ++ros_pc2_normal_z) {
-          Eigen::Vector3d normal(*ros_pc2_normal_x, *ros_pc2_normal_y, *ros_pc2_normal_z);
-          o3d_pc.normals_.push_back(Eigen::Vector3d(*ros_pc2_normal_x, *ros_pc2_normal_y, *ros_pc2_normal_z));
-        }
+  o3d_pc.points_.resize(num_points);
+
+  bool can_batch_load_xyz = (x_offset == 0) && (y_offset == 4) && (z_offset == 8) && (point_step >= 12);
+
+  if (can_batch_load_xyz) {
+      // Fast path: batch load x,y,z in one shot
+      #pragma omp parallel for simd
+      for (int i = 0; i < static_cast<int>(num_points); ++i) {
+          Eigen::Vector3f temp;
+          std::memcpy(&temp, base_ptr + i * point_step, 12);
+          o3d_pc.points_[i] = temp.cast<double>();
       }
-      // We don't want to repeat this operation 3 times. We just check if any of the normal fields exist.
-      // break;
-    }
+  } else {
+      // Fallback: standard safe load
+      #pragma omp parallel for simd
+      for (int i = 0; i < static_cast<int>(num_points); ++i) {
+          const uint8_t* ptr = base_ptr + i * point_step;
+          float x = *reinterpret_cast<const float*>(ptr + x_offset);
+          float y = *reinterpret_cast<const float*>(ptr + y_offset);
+          float z = *reinterpret_cast<const float*>(ptr + z_offset);
+          o3d_pc.points_[i] = Eigen::Vector3d(x, y, z);
+      }
   }
 
-  if (skip_colors)
-  {
-    // Early exit
-    return false;
+  if (copy_normals && has_normals) {
+      o3d_pc.normals_.resize(num_points);
+      #pragma omp parallel for simd
+      for (int i = 0; i < static_cast<int>(num_points); ++i) {
+          const uint8_t* ptr = base_ptr + i * point_step;
+          float nx = *reinterpret_cast<const float*>(ptr + normal_x_offset);
+          float ny = *reinterpret_cast<const float*>(ptr + normal_y_offset);
+          float nz = *reinterpret_cast<const float*>(ptr + normal_z_offset);
+          o3d_pc.normals_[i] = Eigen::Vector3d(nx, ny, nz);
+      }
   }
 
-  if (ros_pc2->fields[3].name == "rgb") {
-    o3d_pc.colors_.reserve(num_points);
-    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_r(*ros_pc2, "r");
-    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_g(*ros_pc2, "g");
-    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_b(*ros_pc2, "b");
+  if (skip_colors) {
+      return true;
+  }
 
-    for (size_t i = 0; i < num_points;
-          ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_r, ++ros_pc2_g, ++ros_pc2_b) {
-      //o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
-      o3d_pc.colors_.push_back(Eigen::Vector3d(((int)(*ros_pc2_r)) / 255.0, ((int)(*ros_pc2_g)) / 255.0, ((int)(*ros_pc2_b)) / 255.0));
-    }
-  }/* else if (ros_pc2->fields[3].name == "intensity") {
-    sensor_msgs::PointCloud2ConstIterator<uint8_t> ros_pc2_i(*ros_pc2, "intensity");
-    for (size_t i = 0; i < ros_pc2->height * ros_pc2->width; ++i, ++ros_pc2_x, ++ros_pc2_y, ++ros_pc2_z, ++ros_pc2_i) {
-      o3d_pc.points_.push_back(Eigen::Vector3d(*ros_pc2_x, *ros_pc2_y, *ros_pc2_z));
-      // This is not okay.
-      // We need to create a custom struct to keep the intesity information. Currently this is not integrated.
-      //o3d_pc.colors_.push_back(Eigen::Vector3d(*ros_pc2_i, *ros_pc2_i, *ros_pc2_i));
-    }
-  }*/
-  
+  if (has_rgb) {
+      o3d_pc.colors_.resize(num_points);
+      #pragma omp parallel for simd
+      for (int i = 0; i < static_cast<int>(num_points); ++i) {
+          const uint8_t* ptr = base_ptr + i * point_step;
+          uint8_t r = *(ptr + r_offset);
+          uint8_t g = *(ptr + g_offset);
+          uint8_t b = *(ptr + b_offset);
+          o3d_pc.colors_[i] = Eigen::Vector3d(
+              static_cast<double>(r) / 255.0,
+              static_cast<double>(g) / 255.0,
+              static_cast<double>(b) / 255.0
+          );
+      }
+  }
+
   return true;
-
 }
 
 void open3dToRos(const open3d::t::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id,

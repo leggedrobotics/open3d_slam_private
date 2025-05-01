@@ -4,8 +4,9 @@
 cmake_minimum_required (VERSION 2.8)
 project(convert)
 
-set (CMAKE_CXX_STANDARD 11)
-add_compile_options(-std=c++11)
+set (CMAKE_CXX_STANDARD 17)
+
+add_compile_options(-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fopt-info-vec-optimized -fno-math-errno)
 
 find_package(libpointmatcher REQUIRED)
 
