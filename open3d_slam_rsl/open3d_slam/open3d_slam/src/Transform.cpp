@@ -13,57 +13,67 @@
 
 namespace o3d_slam {
 
-TimestampedTransform interpolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& time) {
-  TimestampedTransform new_start;
-  TimestampedTransform new_end;
+TimestampedTransform interpolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& query) {
+  /* --- basic validation -------------------------------------------------- */
+  if (start.time_ > end.time_) throw std::runtime_error("interpolate(): start.time_ > end.time_");
+  if (query < start.time_ || query > end.time_) throw std::runtime_error("interpolate(): query time is outside [start,end]");
 
-  if (start.time_ > end.time_) {
-    std::cout << "Interpolator: \n";
-    std::cout << "Start time: " << toSecondsSinceFirstMeasurement(start.time_) << std::endl;
-    std::cout << "End time: " << toSecondsSinceFirstMeasurement(end.time_) << std::endl;
-    // throw std::runtime_error("transform interpolate:: start time is greater than end time");
+  /* --- trivial cases ----------------------------------------------------- */
+  if (query == start.time_) return start;
+  if (query == end.time_) return end;
 
-    /*const Eigen::Vector3d origin = start.transform_.translation();
-    const Eigen::Quaterniond rotation = Eigen::Quaterniond(start.transform_.rotation());
-    Transform transform(rotation);
-    transform.translation() = origin;
+  /* --- compute blend factor --------------------------------------------- */
+  constexpr double kEps = 1e-12;
+  const double duration = toSeconds(end.time_ - start.time_);
+  if (duration < kEps)  // practically the same stamp
+    return {query, start.transform_};
 
-    return TimestampedTransform{time, transform};*/
+  const double factor = toSeconds(query - start.time_) / duration;  // ∈ (0,1)
 
-    std::cout << "###############################################################################: \n";
-    std::cout << "####################################### REPORT TO TURCAN ######################: \n";
-    std::cout << "###############################################################################: \n";
+  /* --- blend translation ------------------------------------------------- */
+  const Eigen::Vector3d p = start.transform_.translation() + factor * (end.transform_.translation() - start.transform_.translation());
 
-    new_start.time_ = end.time_;
-    new_end.time_ = start.time_;
-    new_start.transform_ = end.transform_;
-    new_end.transform_ = start.transform_;
+  /* --- blend rotation (SLERP) ------------------------------------------- */
+  const Eigen::Quaterniond q_start(start.transform_.rotation());
+  const Eigen::Quaterniond q_end(end.transform_.rotation());
+  const Eigen::Quaterniond q = q_start.slerp(factor, q_end);
 
-  } else {
-    new_start.time_ = start.time_;
-    new_start.transform_ = start.transform_;
-    new_end.time_ = end.time_;
-    new_end.transform_ = end.transform_;
-  }
+  Transform tf(q);
+  tf.translation() = p;
+  return {query, tf};
+}
 
-  if (time > new_end.time_ || time < new_start.time_) {
-    std::cout << "Interpolator: \n";
-    std::cout << "Start time: " << toSecondsSinceFirstMeasurement(new_start.time_) << std::endl;
-    std::cout << "End time: " << toSecondsSinceFirstMeasurement(new_end.time_) << std::endl;
-    std::cout << "Query time: " << toSecondsSinceFirstMeasurement(time) << std::endl;
-    throw std::runtime_error("transform interpolate:: query time is not between start and end time");
-  }
+/* ------------------------------------------------------------------------- */
+/*  Extrapolate *outside* the interval.                                      */
+/*  If query < start.time_  : it linearly projects backwards.                 */
+/*  If query > end.time_    : it linearly projects forwards.                  */
+/*  Inside the interval it simply delegates to interpolate().               */
+/* ------------------------------------------------------------------------- */
+TimestampedTransform extrapolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& query) {
+  /* swap to ensure start.time_ ≤ end.time_ for the math */
+  const TimestampedTransform& s = (start.time_ <= end.time_) ? start : end;
+  const TimestampedTransform& e = (start.time_ <= end.time_) ? end : start;
 
-  const double duration = toSeconds(new_end.time_ - new_start.time_);
-  const double factor = toSeconds(time - new_start.time_) / (duration + 1e-6);  // avoid zero division
-  const Eigen::Vector3d origin =
-      new_start.transform_.translation() + (new_end.transform_.translation() - new_start.transform_.translation()) * factor;
-  const Eigen::Quaterniond rotation =
-      Eigen::Quaterniond(new_start.transform_.rotation()).slerp(factor, Eigen::Quaterniond(new_end.transform_.rotation()));
-  Transform transform(rotation);
-  transform.translation() = origin;
+  /* inside the segment → ordinary interpolation */
+  if (query >= s.time_ && query <= e.time_) return interpolate(s, e, query);
 
-  return TimestampedTransform{time, transform};
+  /* identical stamps → cannot extrapolate velocity */
+  constexpr double kEps = 1e-12;
+  const double duration = toSeconds(e.time_ - s.time_);
+  if (duration < kEps) return {query, s.transform_};  // best we can do: constant pose
+
+  /* compute factor that may be <0 or >1 */
+  const double factor = toSeconds(query - s.time_) / duration;
+
+  const Eigen::Vector3d p = s.transform_.translation() + factor * (e.transform_.translation() - s.transform_.translation());
+
+  const Eigen::Quaterniond q_s(s.transform_.rotation());
+  const Eigen::Quaterniond q_e(e.transform_.rotation());
+  const Eigen::Quaterniond q = q_s.slerp(factor, q_e);
+
+  Transform tf(q);
+  tf.translation() = p;
+  return {query, tf};
 }
 
 Transform makeTransform(const Eigen::Vector3d& p, const Eigen::Quaterniond& q) {

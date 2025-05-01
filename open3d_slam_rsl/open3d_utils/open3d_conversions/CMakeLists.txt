@@ -3,7 +3,7 @@ project(open3d_conversions)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_compile_options(-O3)
+add_compile_options(-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopt-info-vec-optimized -fno-math-errno)
 
 
 set(CATKIN_PACKAGE_DEPENDENCIES

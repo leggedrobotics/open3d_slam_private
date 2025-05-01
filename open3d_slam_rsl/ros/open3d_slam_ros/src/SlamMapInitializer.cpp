@@ -53,8 +53,7 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
   std::string pcdFile;
   if (!mapInitializerParams_.pcdFilePath_.empty() && mapInitializerParams_.pcdFilePath_[0] == '/') {
     pcdFile = mapInitializerParams_.pcdFilePath_;
-  }
-  else {
+  } else {
     pcdFile = ros::package::getPath(mapInitializerParams_.pcdFilePackage_) + '/' + mapInitializerParams_.pcdFilePath_;
   }
 
