@@ -13,14 +13,14 @@
   <arg name="pose_stamped_topic" default="no_pose_stamped_topic"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
 
-  <arg name="parameter_filename" default="param_arammis.lua"/>
+  <arg name="parameter_filename" default="param_velodyne_puck16_replay.lua"/>
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
   <arg name="map_saving_folder" default="/tmp/"/>
   <arg name="num_accumulated_range_data" default="1"/>
   
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="true"/>
-  <arg name="rosbag_filepath" default="/home/tutuna/Videos/arammis_test/seelapsee_seam_clear.bag"/>
+  <arg name="rosbag_filepath" default="/home/tutuna/Videos/arammis_test/arammis_h_floor_balcony_test/merged_filt.bag"/>
   <arg name="use_syncronized_poses_to_replay" default="false"/>
   <arg name="republish_tf_topic" default="true"/>
   <arg name="async_pose_topic" default="/state_estimator/pose_in_odom"/>

@@ -89,16 +89,16 @@ void SlamWrapperRos::odomPublisherWorker() {
       return odomMsg;
     };
 
-    const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
-    const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScanOdom_;
-    if (!isAlreadyPublished && odometry_->hasProcessedMeasurements()) {
-      const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
-      geometry_msgs::TransformStamped transformMsg = getTransformMsg(T, latestScanToScan);
-      nav_msgs::Odometry odomMsg = getOdomMsg(transformMsg);
-      publishIfSubscriberExists(transformMsg, scan2scanTransformPublisher_);
-      publishIfSubscriberExists(odomMsg, scan2scanOdomPublisher_);
-      prevPublishedTimeScanToScanOdom_ = latestScanToScan;
-    }
+    // const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
+    // const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScanOdom_;
+    // if (!isAlreadyPublished && odometry_->hasProcessedMeasurements()) {
+    //   const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
+    //   geometry_msgs::TransformStamped transformMsg = getTransformMsg(T, latestScanToScan);
+    //   nav_msgs::Odometry odomMsg = getOdomMsg(transformMsg);
+    //   publishIfSubscriberExists(transformMsg, scan2scanTransformPublisher_);
+    //   publishIfSubscriberExists(odomMsg, scan2scanOdomPublisher_);
+    //   prevPublishedTimeScanToScanOdom_ = latestScanToScan;
+    // }
 
     const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
     const bool isScanToMapAlreadyPublished = latestScanToMap == prevPublishedTimeScanToMapOdom_;

@@ -143,7 +143,7 @@ void OnlineRangeDataProcessorRos::dynamicPoseDiscoveryCallback(const ros::TimerE
 void OnlineRangeDataProcessorRos::startProcessing() {
   slam_->startWorkers();
 
-  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 2, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
+  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 1, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
 
   if (slam_->isIMUattitudeInitializationEnabled()) {
     imuSubscriber_ = nh_->subscribe<sensor_msgs::Imu>(imuTopic_, 40, &OnlineRangeDataProcessorRos::imuCallback, this,

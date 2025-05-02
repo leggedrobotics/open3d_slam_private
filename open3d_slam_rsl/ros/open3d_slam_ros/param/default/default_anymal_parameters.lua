@@ -140,7 +140,7 @@ params.submap.adjacency_based_revisiting_min_fitness = 0.5
 ----------------------------------------------------------------------
 
 params.map_builder.scan_cropping.cropping_radius_max = 60.0
-params.map_builder.scan_cropping.cropping_radius_min = 2.0
+params.map_builder.scan_cropping.cropping_radius_min = 0.5
 
 -- Periodic carving of free space
 params.map_builder.space_carving.carve_space_every_n_scans = 10
