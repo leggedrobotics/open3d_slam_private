@@ -21,9 +21,6 @@
 #include <open3d/utility/Eigen.h>
 #include <open3d/utility/Helper.h>
 #include "open3d_slam/ProfilerScopeGuard.hpp"
-
-#pragma omp declare reduction(vec3d_plus : Eigen::Vector3d : omp_out += omp_in) initializer(omp_priv = Eigen::Vector3d::Zero())
-
 namespace o3d_slam {
 
 namespace {
@@ -35,11 +32,11 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
   // `updates` with default parameters
   update(params_);
-  double max_correspondence_distance = 2.0;
+  double max_correspondence_distance = 1.0;
   small_registration_.reduction.num_threads = 8;
   small_registration_.rejector.max_dist_sq = max_correspondence_distance * max_correspondence_distance;
-  small_registration_.criteria.rotation_eps = 0.05 * M_PI / 180.0;  // 0.001;
-  small_registration_.criteria.translation_eps = 1e-2;              // 0.0008;
+  small_registration_.criteria.rotation_eps = 0.001;
+  small_registration_.criteria.translation_eps = 0.0008;
   small_registration_.optimizer.max_iterations = 30;
   small_registration_.optimizer.verbose = false;
 }
@@ -224,153 +221,121 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   }
 
   isIgnoreOdometryPrediction_ = false;
-  ProcessedScans processed;
-  {
-    ProfilerScopeGuard scope("scanPreprocessing", "/tmp/slam_profile.csv");
-    // auxilaryTimer_.startStopwatch();
-    processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
-  }
-  // double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
-  // auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
+  const ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
+  auto croppedCloud = open3d_conversions::createSimilarPointmatcherCloud(processed.match_->points_.size());
+  open3d_conversions::open3dToPointmatcher(*processed.match_, *croppedCloud);
 
-  Transform correctedTransform_o3d;
-  {
+  const double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
+  auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
+
+  if (params_.isPrintTimingStatistics_) {
+    std::cout << " Auxilary time: "
+              << "\033[92m" << auxilarytimeElapsed << " msec \n"
+              << "\033[0m";
+  }
+
+  // Convert the initial guess to pointmatcher
+  pointmatcher_ros::PmTfParameters transformReadingToReferenceInitialGuess;
+  transformReadingToReferenceInitialGuess.matrix() = mapToRangeSensorEstimate.matrix().cast<float>();
+
+  // Initialize the registered pose.
+  pointmatcher_ros::PmTfParameters correctedTransform = transformReadingToReferenceInitialGuess;
+
+  try {
+    // Crop the submap around the robot.
+    const PointCloudPtr mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_);
+
+    if (mapPatch->IsEmpty()) {
+      std::cout << "\033[92m"
+                << " Map patch is empty impossible. Returning"
+                << " \n"
+                << "\033[0m";
+      return false;
+    }
+
     double passedTime =
         std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
 
     if (isNewValueSetMapper_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)) {
-      PointCloudPtr mapPatch;
       {
-        ProfilerScopeGuard scope_crop("cropSubmap", "/tmp/slam_profile.csv");
-        mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_);
-      }
+        std::lock_guard<std::mutex> lck(mapManipulationMutex_);
+        // Create pointmatcher cloud
+        open3d_conversions::PmStampedPointCloud activeSubmapPm_ =
+            *open3d_conversions::createSimilarPointmatcherCloud(mapPatch->points_.size());
 
-      if (mapPatch->IsEmpty()) return false;
+        // Convert to pointmatcher. This is time consuming.
+        open3d_conversions::open3dToPointmatcher(*mapPatch, activeSubmapPm_);
 
-      std::lock_guard<std::mutex> lck(mapManipulationMutex_);
-      lastReferenceInitializationTimestamp_ = timestamp;
+        referenceInitTimer_.startStopwatch();
 
-      {
-        ProfilerScopeGuard scope_target_init("targetInit", "/tmp/slam_profile.csv", "size=" + std::to_string(mapPatch->points_.size()));
-        target_ = std::make_shared<small_gicp::PointCloud>(mapPatch->points_);
-        // c_t = computeCentroid(*target_);
-        // translatePointCloud(*target_, -c_t);
-      }
+        lastReferenceInitializationTimestamp_ = timestamp;
 
-      {
-        ProfilerScopeGuard scope_target_kdtree("targetKdTree", "/tmp/slam_profile.csv");
-        // We anyway need the tree for the correspondance search.
-        target_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(
-            target_, small_gicp::KdTreeBuilderOMP(static_cast<int>(std::thread::hardware_concurrency())));
-      }
-
-      {
-        ProfilerScopeGuard scope_target_cov("targetNormals", "/tmp/slam_profile.csv");
-
-        small_gicp::PointCloud& dst = *target_;  // always small‑gicp
-        const auto& tgt_ptr = mapPatch;          // OPEN3D ptr
-        const std::size_t N = dst.size();
-
-        /* Are normals available on the *Open3D* cloud? ------------------- */
-        if (tgt_ptr->HasNormals() && tgt_ptr->normals_.size() == N) {
-          if (dst.normals.size() != N) dst.normals.resize(N);
-
-          assert((reinterpret_cast<uintptr_t>(dst.normals.data()) & 0xF) == 0 && "dst.normals is not 16‑byte aligned");
-
-          constexpr std::size_t OMP_THRESHOLD = 8192;
-
-          if (N >= OMP_THRESHOLD) {
-#pragma omp parallel for schedule(static)
-            for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
-              /* Open3D keeps normals in Eigen::Vector3d, so copy three doubles */
-              std::memcpy(dst.normals[i].data(), tgt_ptr->normals_[i].data(), 3 * sizeof(double));
-              dst.normals[i][3] = 0.0;
-            }
-          } else {
-            for (std::size_t i = 0; i < N; ++i) {
-              std::memcpy(dst.normals[i].data(), tgt_ptr->normals_[i].data(), 3 * sizeof(double));
-              dst.normals[i][3] = 0.0;
-            }
-          }
-        }
-        /* --------------------------------------------------------------- */
-        else {
-          const int num_threads = (small_registration_.reduction.num_threads > 0) ? small_registration_.reduction.num_threads
-                                                                                  : static_cast<int>(std::thread::hardware_concurrency());
-
-          estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
+        if (!icp_.initReference(activeSubmapPm_.dataPoints_)) {
+          std::cout << "Failed to initialize reference cloud. Exitting. " << std::endl;
+          return false;
         }
       }
-    }
 
-    {
-      ProfilerScopeGuard scope_source_init("sourceInit", "/tmp/slam_profile.csv",
-                                           "size=" + std::to_string(processed.match_->points_.size()));
+      const double referenceInittimeElapsed = referenceInitTimer_.elapsedMsecSinceStopwatchStart();
+      referenceInitTimer_.addMeasurementMsec(referenceInittimeElapsed);
 
-      source_ = std::make_shared<small_gicp::PointCloud>(processed.match_->points_);
-      // c_s = computeCentroid(*source_);
-      // translatePointCloud(*source_, -c_s);
-    }
-
-    {
-      ProfilerScopeGuard scope_source_kdtree("sourceKdTree", "/tmp/slam_profile.csv");
-      source_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(source_, small_gicp::KdTreeBuilderOMP(4));
-    }
-
-    {
-      ProfilerScopeGuard scope_source_normals("sourceNormals", "/tmp/slam_profile.csv");
-
-      small_gicp::PointCloud& dst = *source_;  // always small‑gicp
-      const auto& src_ptr = processed.match_;  // OPEN3D ptr
-      const std::size_t N = dst.size();
-
-      /* Are normals available on the *Open3D* cloud? ------------------- */
-      if (src_ptr->HasNormals() && src_ptr->normals_.size() == N) {
-        if (dst.normals.size() != N) dst.normals.resize(N);
-
-        assert((reinterpret_cast<uintptr_t>(dst.normals.data()) & 0xF) == 0 && "dst.normals is not 16‑byte aligned");
-
-        constexpr std::size_t OMP_THRESHOLD = 8192;
-
-        if (N >= OMP_THRESHOLD) {
-#pragma omp parallel for schedule(static)
-          for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
-            /* Open3D keeps normals in Eigen::Vector3d, so copy three doubles */
-            std::memcpy(dst.normals[i].data(), src_ptr->normals_[i].data(), 3 * sizeof(double));
-            dst.normals[i][3] = 0.0;
-          }
-        } else {
-          for (std::size_t i = 0; i < N; ++i) {
-            std::memcpy(dst.normals[i].data(), src_ptr->normals_[i].data(), 3 * sizeof(double));
-            dst.normals[i][3] = 0.0;
-          }
-        }
+      if (params_.isPrintTimingStatistics_) {
+        std::cout << " Reference Cloud Re-init time: "
+                  << "\033[92m" << referenceInittimeElapsed << " msec \n"
+                  << "\033[0m";
       }
-      /* --------------------------------------------------------------- */
-      else {
-        const int num_threads = (small_registration_.reduction.num_threads > 0) ? small_registration_.reduction.num_threads
-                                                                                : static_cast<int>(std::thread::hardware_concurrency());
 
-        estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
-      }
+    } else {
+      referenceInitTimer_.reset();
     }
 
+    testmapperOnlyTimer_.startStopwatch();
+
+    // The +1000 is to prevent early triggering of the condition. Since points might decrease due to carving.
+    // if(activeSubmapPm_->dataPoints_.features.cols() > croppedCloud->dataPoints_.features.cols() + 1000){
+
     {
-      ProfilerScopeGuard scope_icp_align("icpAlign", "/tmp/slam_profile.csv");
       std::lock_guard<std::mutex> lck(mapManipulationMutex_);
 
-      Eigen::Isometry3d init_T_target_source =
-          Eigen::Translation3d(-c_t) * Eigen::Isometry3d(mapToRangeSensorEstimate.matrix()) * Eigen::Translation3d(c_s);
-
-      // Eigen::Isometry3d init_T_target_source(mapToRangeSensorEstimate.matrix());
-
-      auto result = small_registration_.align(*target_, *source_, *target_tree_, init_T_target_source);
-
-      result.T_target_source = Eigen::Translation3d(c_t) * result.T_target_source * Eigen::Translation3d(-c_s);
-
-      correctedTransform_o3d.matrix() = result.T_target_source.matrix();
+      // We are explicitly setting the reference cloud above. Hence the empty placeholder.
+      open3d_conversions::PmStampedPointCloud emptyPlaceholder;
+      correctedTransform =
+          icp_.compute(croppedCloud->dataPoints_, emptyPlaceholder.dataPoints_, transformReadingToReferenceInitialGuess, false);
     }
+
+    if (firstRefinement_) {
+      std::cout << "\033[92m"
+                << " Open3d SLAM is running properly."
+                << " \n "
+                << "\033[0m";
+      firstRefinement_ = false;
+    }
+
+    const double timeElapsed = testmapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
+    testmapperOnlyTimer_.addMeasurementMsec(timeElapsed);
+
+    if (params_.isPrintTimingStatistics_) {
+      std::cout << " Scan2Map Registration: "
+                << "\033[92m" << timeElapsed << " msec \n "
+                << "\033[0m";
+    }
+
+  } catch (const std::runtime_error& error) {
+    std::cout << "Experienced a runtime error while running libpointmatcher ICP: " << error.what() << std::endl;
   }
+
+  // TODO(TT) Add a failsafe checker for health?
+  /*if (!params_.isIgnoreMinRefinementFitness_ && result.fitness_ < params_.scanMatcher_.minRefinementFitness_) {
+    std::cout << "Skipping the refinement step, fitness: " << result.fitness_ << std::endl;
+    std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
+    std::cout << "postIcp: " << asString(Transform(result.transformation_)) << "\n\n";
+    return false;
+  }
+  */
+
+  // Pass the calculated transform to o3d transform.
+  Transform correctedTransform_o3d;
+  correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
 
   if (isNewValueSetMapper_) {
     if (isTimeValid(timestamp)) initTime_ = timestamp;
@@ -401,7 +366,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   }
 
   {
-    ProfilerScopeGuard scope("scanInsertion(mapper)", "/tmp/slam_profile.csv");
+    ProfilerScopeGuard scope("scanInsertion", "/tmp/slam_profile.csv");
     // scanInsertionTimer_.startStopwatch();
 
     Transform sensorMotion = mapToRangeSensorLastScanInsertion_.inverse() * mapToRangeSensor_;
@@ -418,27 +383,6 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   }
 
   return true;
-}
-
-Eigen::Vector3d Mapper::computeCentroid(const small_gicp::PointCloud& pc) {
-  const size_t N = pc.size();
-  Eigen::Vector3d sum = Eigen::Vector3d::Zero();
-
-#pragma omp parallel for reduction(vec3d_plus : sum) schedule(static)
-  for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
-    sum += pc.point(i).head<3>();
-  }
-
-  return sum / static_cast<double>(N);
-}
-
-void Mapper::translatePointCloud(small_gicp::PointCloud& pc, const Eigen::Vector3d& t) {
-  const size_t N = pc.size();
-
-#pragma omp parallel for simd schedule(static)
-  for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
-    pc.point(i).head<3>() += t;
-  }
 }
 
 Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {

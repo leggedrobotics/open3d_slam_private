@@ -155,7 +155,7 @@ params.submap.submaps_num_scan_overlap = 1
 ----------------------------------------------------------------------
 
 params.map_builder.scan_cropping.cropping_radius_max = 60.0
-params.map_builder.scan_cropping.cropping_radius_min = 2.0
+params.map_builder.scan_cropping.cropping_radius_min = 0.5
 
 -- Map voxel size
 params.map_builder.map_voxel_size = 0.1

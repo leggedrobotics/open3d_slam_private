@@ -11,8 +11,22 @@ if(ENABLE_PROFILING)
   add_definitions(-DENABLE_PROFILING)
 endif()
 
-set(SRC_FILES
-  src/Mapper.cpp
+option(ENABLE_LIBPOINTMATCHER "Enable reghistration with LIBPOINTMATCHER" OFF)
+
+if(ENABLE_LIBPOINTMATCHER)
+  add_definitions(-DENABLE_LIBPOINTMATCHER)
+  message(STATUS "Building with libpointmatcher registration support")
+  set(SRC_FILES
+    src/Mapper_libpointmatcher.cpp
+  )
+else()
+  message(STATUS "Building WITHOUT libpointmatcher registration support")
+  set(SRC_FILES
+    src/Mapper.cpp
+  )
+endif()
+
+set(SRC_FILES ${SRC_FILES}
   src/helpers.cpp
   src/time.cpp
   src/math.cpp
@@ -37,8 +51,6 @@ set(SRC_FILES
 
 set(CATKIN_PACKAGE_DEPENDENCIES
   open3d_catkin
-  # libpointmatcher
-  # pointmatcher_ros
   open3d_conversions
   eigen_conversions
   nav_msgs

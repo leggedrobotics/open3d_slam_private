@@ -1,4 +1,9 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
+cmake_policy(SET CMP0135 NEW)
+if(POLICY CMP0148)
+  cmake_policy(SET CMP0148 OLD)
+endif()
+
 project(open3d_catkin)
 
 find_package(catkin REQUIRED)
@@ -32,21 +37,20 @@ if(DEFINED ENV{Open3D_DIR})
   message("Open3D include path: ${Open3D_INCLUDE_DIRS} , ${Open3D_INCLUDE_DIR_MAN}")
   message("Open3D libs: ${Open3D_LIBRARIES}")
   catkin_package(
-  INCLUDE_DIRS 
-    ${Open3D_INCLUDE_DIRS}
-    ${Open3D_INCLUDE_DIR_MAN}
-  LIBRARIES 
-    ${Open3D_LIBRARIES} 
-  CATKIN_DEPENDS
-    ${CATKIN_PACKAGE_DEPENDENCIES}
-  DEPENDS
-    Open3D 
+    INCLUDE_DIRS 
+      ${Open3D_INCLUDE_DIRS}
+      ${Open3D_INCLUDE_DIR_MAN}
+    LIBRARIES 
+      ${Open3D_LIBRARIES} 
+    CATKIN_DEPENDS
+      ${CATKIN_PACKAGE_DEPENDENCIES}
+    DEPENDS
+      Open3D 
   )
 # 2 - Check whether open3d is installed -------------------------------------------------------
 elseif(Open3D_FOUND)
   message("${BoldMagenta}INFO: Found Open3D.${ColourReset}")
   
-  # Path differs whether installed from PPA or (locally) from source
   if(EXISTS "${Open3D_DIR}/../../../../include/")
     set(Open3D_INCLUDE_DIR_MAN "${Open3D_DIR}/../../../../include/")
   else()
@@ -56,11 +60,10 @@ elseif(Open3D_FOUND)
   message("Open3D libraries: ${Open3D_LIBRARIES}")
   message("Open3D include path: ${Open3D_INCLUDE_DIRS} , ${Open3D_INCLUDE_DIR_MAN}")
   
-  
   find_package(fmt QUIET)
   if(fmt_FOUND)
-  	message("Linking fmt into open3d_catkin")
-  	catkin_package(
+    message("Linking fmt into open3d_catkin")
+    catkin_package(
       INCLUDE_DIRS 
         ${Open3D_INCLUDE_DIRS}
         ${Open3D_INCLUDE_DIR_MAN}
@@ -73,8 +76,8 @@ elseif(Open3D_FOUND)
         Open3D 
     )
   else()
-  	message("fmt not found. If you get linking errors try installing libfmt with sudo apt install libfmt-dev")
-  	catkin_package(
+    message("fmt not found. If you get linking errors try installing libfmt with sudo apt install libfmt-dev")
+    catkin_package(
       INCLUDE_DIRS 
         ${Open3D_INCLUDE_DIRS}
         ${Open3D_INCLUDE_DIR_MAN}
@@ -87,37 +90,39 @@ elseif(Open3D_FOUND)
     )  	 
   endif()
 
-
 # 3 - Compile in catkin workspace -------------------------------------------------------------
 else()
   message("${BoldMagenta}INFO: Neither variable Open3d_DIR is set, nor could Open3D be found, hence compiling in workspace.${ColourReset}")
   message("${BoldMagenta}INFO: This automatic compilation from source requires CMAKE>3.18.${ColourReset}")
 
-  # Newer version of CMake is required
-  cmake_minimum_required(VERSION 3.18)
-
-  # Catkinization of open3D
   include(ExternalProject)
   file(MAKE_DIRECTORY ${CATKIN_DEVEL_PREFIX}/include)
 
   ExternalProject_Add(open3d
-    GIT_REPOSITORY "https://github.com/isl-org/Open3D"
-    GIT_TAG "v0.15.1"
-    GIT_SUBMODULES_RECURSE "true"
-    GIT_PROGRESS "true"
-    CMAKE_CACHE_ARGS "-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true"
-    PREFIX "${CMAKE_BINARY_DIR}/open3d_external"
-    SOURCE_DIR "${CMAKE_BINARY_DIR}/open3d_external/src/open3d"
-    BINARY_DIR "${CMAKE_BINARY_DIR}/open3d_external/build"
-    CMAKE_ARGS 
-         -DBUILD_SHARED_LIBS=ON
-         -DCMAKE_BUILD_TYPE=RelWithDebInfo
-         -DUSE_SYSTEM_EIGEN3=OFF
-         -DGLIBCXX_USE_CXX11_ABI=ON
-         -DBUILD_PYTHON_MODULE=OFF
-         -DCMAKE_INSTALL_PREFIX=${CATKIN_DEVEL_PREFIX}
-    INSTALL_COMMAND make install && bash "-c" "cp -r ${CMAKE_BINARY_DIR}/open3d_external/build/fmt/include/ ${CATKIN_DEVEL_PREFIX} && cp ${CMAKE_BINARY_DIR}/open3d_external/build/fmt/lib/*.a ${CATKIN_DEVEL_PREFIX}/lib/"
-  )
+  GIT_REPOSITORY "https://github.com/isl-org/Open3D"
+  GIT_TAG "v0.19.0"
+  GIT_SUBMODULES_RECURSE "true"
+  GIT_PROGRESS "true"
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  CMAKE_CACHE_ARGS "-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=true"
+  PREFIX "${CMAKE_SOURCE_DIR}"
+  SOURCE_DIR "${CMAKE_SOURCE_DIR}/open3d"
+  BINARY_DIR "${CMAKE_SOURCE_DIR}/tmp"
+  CMAKE_ARGS
+    -DBUILD_SHARED_LIBS=ON
+    -DGLIBCXX_USE_CXX11_ABI=ON
+    -DCMAKE_BUILD_TYPE=Release
+    -DUSE_SYSTEM_EIGEN3=OFF
+    -DBUILD_PYTHON_MODULE=OFF
+    -DBUILD_EXAMPLES=OFF
+    -DBUILD_WITH_CUDA_STATIC=OFF
+    -DBUILD_GUI=OFF
+    -DBUILD_WEBRTC=OFF
+    -DCMAKE_INSTALL_PREFIX=${CATKIN_DEVEL_PREFIX}
+    "-DCMAKE_CXX_FLAGS_RELEASE=-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fno-math-errno"
+    "-DCMAKE_C_FLAGS_RELEASE=-O3 -mtune=native -flto -funroll-loops -fopenmp -fno-math-errno"
+  INSTALL_COMMAND make install && bash "-c" "cp -r ${CMAKE_SOURCE_DIR}/tmp/fmt/include/ ${CATKIN_DEVEL_PREFIX} && cp ${CMAKE_SOURCE_DIR}/tmp/fmt/lib/*.a ${CATKIN_DEVEL_PREFIX}/lib/"
+)
 
   catkin_package(
     INCLUDE_DIRS 
@@ -127,10 +132,6 @@ else()
       ${CATKIN_DEVEL_PREFIX}/lib/libfmt.a
     CATKIN_DEPENDS
   )
-
-  #############
-  ## INSTALL ##
-  #############
 
   install(DIRECTORY ${CATKIN_DEVEL_PREFIX}/include/
     DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
@@ -142,12 +143,12 @@ else()
   
   if(${MAKE_LOCAL_INSTALL})
     message("${BoldMagenta}INFO: Making a local install.${ColourReset}")
-  	add_custom_command (OUTPUT run_install_script___OK 
+    add_custom_command (OUTPUT run_install_script___OK 
                         COMMAND ${CMAKE_SOURCE_DIR}/local_install.sh "${CMAKE_SOURCE_DIR}"
                         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/)         
-  	add_custom_target(
-  	  RunInstallScript ALL
-  	  DEPENDS run_install_script___OK)
+    add_custom_target(
+      RunInstallScript ALL
+      DEPENDS run_install_script___OK)
   endif()
 
 endif()

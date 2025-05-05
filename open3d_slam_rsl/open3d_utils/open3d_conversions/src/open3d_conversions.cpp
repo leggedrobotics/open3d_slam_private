@@ -18,6 +18,87 @@
 
 namespace open3d_conversions {
 
+//   std::shared_ptr<PmStampedPointCloud>
+//   createSimilarPointmatcherCloud(const std::size_t& size)
+//   {
+//       constexpr Eigen::Index kFeat  = 4;
+//       constexpr Eigen::Index kDescr = 3;
+  
+//       // raw, uninitialised allocation (fast)
+//       PM::Matrix features(kFeat , static_cast<Eigen::Index>(size));
+//       PM::Matrix normals  (kDescr, static_cast<Eigen::Index>(size));
+  
+//       // feature labels
+//       PmDataPoints::Labels featLabels;
+//       featLabels.reserve(4);
+//       featLabels.push_back({"x",1});
+//       featLabels.push_back({"y",1});
+//       featLabels.push_back({"z",1});
+//       featLabels.push_back({"pad",1});
+  
+//       PmDataPoints pm(std::move(features), featLabels);
+//       pm.addDescriptor("normals", std::move(normals));
+//       pm.getFeatureViewByName("pad").setOnes();   // vectorised
+  
+//       auto cloud   = std::make_shared<PmStampedPointCloud>();
+//       cloud->dataPoints_ = std::move(pm);
+//       cloud->header_ = std_msgs::Header();
+//       return cloud;
+//   }
+  
+
+// void open3dToPointmatcher(const open3d::geometry::PointCloud& src,
+//   PmStampedPointCloud& dst,
+//   bool copyNormals)
+// {
+// const std::size_t N = src.points_.size();
+// if (dst.isEmpty() || N != static_cast<std::size_t>(dst.dataPoints_.features.cols()))
+// return;
+
+// // --- copy XYZ (Eigen does SIMD) -----------------------------------------
+// auto xyzDst = dst.dataPoints_.features.topRows(3);
+// Eigen::Map<const Eigen::Matrix<double,3,Eigen::Dynamic,Eigen::ColMajor>>
+// xyzSrc(reinterpret_cast<const double*>(src.points_.data()),3,
+// static_cast<Eigen::Index>(N));
+// xyzDst = xyzSrc.cast<float>();
+
+// // --- copy normals if requested ------------------------------------------
+// if (copyNormals && src.HasNormals()) {
+// PmDataPoints::View nDst = dst.dataPoints_.getDescriptorViewByName("normals");
+// Eigen::Map<const Eigen::Matrix<double,3,Eigen::Dynamic,Eigen::ColMajor>>
+// nSrc(reinterpret_cast<const double*>(src.normals_.data()),3,
+// static_cast<Eigen::Index>(N));
+// nDst = nSrc.cast<float>();
+// }
+// }
+
+// void pointmatcherToOpen3d(const PmStampedPointCloud& pointMatcherCloud,
+//   open3d::geometry::PointCloud& pointcloud)
+// {
+// if (!pointMatcherCloud.descriptorExists("normals") || pointMatcherCloud.isEmpty())
+// return;
+
+// const auto& F = pointMatcherCloud.dataPoints_.features;
+// const auto  Nview = pointMatcherCloud.dataPoints_.getDescriptorViewByName("normals");
+
+// const std::size_t N = static_cast<std::size_t>(F.cols());
+// pointcloud.points_.resize(N);
+// pointcloud.normals_.resize(N);
+
+// #pragma omp parallel for schedule(static)
+// for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(N); ++i) {
+// Eigen::Vector3d p;
+// p << F(0,i), F(1,i), F(2,i);
+// pointcloud.points_[i] = p;
+
+// Eigen::Vector3d n;
+// n << static_cast<double>(Nview(0,i)),
+// static_cast<double>(Nview(1,i)),
+// static_cast<double>(Nview(2,i));
+// pointcloud.normals_[i] = n;
+// }
+// }
+
 void open3dToRos(const open3d::geometry::PointCloud& pointcloud, sensor_msgs::PointCloud2& ros_pc2, std::string frame_id) {
   sensor_msgs::PointCloud2Modifier modifier(ros_pc2);
   bool has_colors = pointcloud.HasColors();

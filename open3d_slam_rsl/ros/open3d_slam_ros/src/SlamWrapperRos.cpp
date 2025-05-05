@@ -89,16 +89,16 @@ void SlamWrapperRos::odomPublisherWorker() {
       return odomMsg;
     };
 
-    const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
-    const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScanOdom_;
-    if (!isAlreadyPublished && odometry_->hasProcessedMeasurements()) {
-      const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
-      geometry_msgs::TransformStamped transformMsg = getTransformMsg(T, latestScanToScan);
-      nav_msgs::Odometry odomMsg = getOdomMsg(transformMsg);
-      publishIfSubscriberExists(transformMsg, scan2scanTransformPublisher_);
-      publishIfSubscriberExists(odomMsg, scan2scanOdomPublisher_);
-      prevPublishedTimeScanToScanOdom_ = latestScanToScan;
-    }
+    // const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
+    // const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScanOdom_;
+    // if (!isAlreadyPublished && odometry_->hasProcessedMeasurements()) {
+    //   const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
+    //   geometry_msgs::TransformStamped transformMsg = getTransformMsg(T, latestScanToScan);
+    //   nav_msgs::Odometry odomMsg = getOdomMsg(transformMsg);
+    //   publishIfSubscriberExists(transformMsg, scan2scanTransformPublisher_);
+    //   publishIfSubscriberExists(odomMsg, scan2scanOdomPublisher_);
+    //   prevPublishedTimeScanToScanOdom_ = latestScanToScan;
+    // }
 
     const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
     const bool isScanToMapAlreadyPublished = latestScanToMap == prevPublishedTimeScanToMapOdom_;
@@ -260,16 +260,17 @@ void SlamWrapperRos::visualizationWorker() {
   }
 }
 
-// bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
-//   std::ifstream fileStream(path.c_str());
-//   if (!fileStream.good()) {
-//     ROS_ERROR_STREAM("Cannot load ICP configuration from " << path.c_str() << " .");
-//     return false;
-//   }
-//   mapper_->icp_.loadFromYaml(fileStream);
+bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
+  // std::ifstream fileStream(
+  //     "/home/tutuna/new_release_open3d_slam_ws/src/open3d_slam_private/open3d_slam_rsl/ros/open3d_slam_ros/param/icp.yaml");
+  // if (!fileStream.good()) {
+  //   // ROS_ERROR_STREAM("Cannot load ICP configuration from " << path.c_str() << " .");
+  //   return false;
+  // }
+  // mapper_->icp_.loadFromYaml(fileStream);
 
-//   return true;
-// }
+  return true;
+}
 
 void SlamWrapperRos::loadParametersAndInitialize() {
   odometryInputPub_ = nh_->advertise<sensor_msgs::PointCloud2>("odom_input", 1, true);
@@ -325,6 +326,12 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   SlamParameters params;
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
   BASE::loadParametersAndInitialize();
+
+  if (!readLibpointmatcherConfig(
+          "/home/tutuna/new_release_open3d_slam_ws/src/open3d_slam_private/open3d_slam_rsl/ros/open3d_slam_ros/param/icp.yaml")) {
+    std::cout << "Returning early couldnt load ICP params for libpointmatcher " << std::endl;
+    return;
+  }
 }
 
 bool SlamWrapperRos::saveMapCallback(open3d_slam_msgs::SaveMap::Request& req, open3d_slam_msgs::SaveMap::Response& res) {
