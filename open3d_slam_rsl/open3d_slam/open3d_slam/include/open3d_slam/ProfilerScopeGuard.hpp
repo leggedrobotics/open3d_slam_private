@@ -26,13 +26,18 @@ class ProfilerScopeGuard {
     oss << label_ << "," << duration_ms << "," << thread_id_ << "," << extra_info_ << "\n";
 
     std::lock_guard<std::mutex> lock(write_mutex_);
-    std::ofstream out(file_path_, std::ios::app);
-    if (out.is_open()) {
-      if (is_first_write_) {
+    if (is_first_write_) {
+      std::ofstream out(file_path_, std::ios::trunc);  // Truncate file on first write
+      if (out.is_open()) {
         out << "Label,Duration(ms),ThreadID,Info\n";
+        out << oss.str();
         is_first_write_ = false;
       }
-      out << oss.str();
+    } else {
+      std::ofstream out(file_path_, std::ios::app);
+      if (out.is_open()) {
+        out << oss.str();
+      }
     }
   }
 
@@ -44,10 +49,8 @@ class ProfilerScopeGuard {
   std::chrono::steady_clock::time_point start_time_;
 
   static inline std::mutex write_mutex_;
-  static inline bool is_first_write_;
+  static inline bool is_first_write_ = true;  // Initialize to true
 };
-
-inline bool ProfilerScopeGuard::is_first_write_ = true;
 
 #else  // ENABLE_PROFILING not defined
 

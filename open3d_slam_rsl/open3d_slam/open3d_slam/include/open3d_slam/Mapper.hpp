@@ -22,13 +22,17 @@
 #include <execution>
 #include <small_gicp/ann/kdtree_omp.hpp>
 #include <small_gicp/factors/gicp_factor.hpp>
+#include <small_gicp/factors/icp_factor.hpp>
 #include <small_gicp/factors/plane_icp_factor.hpp>
+#include <small_gicp/factors/robust_kernel.hpp>
+#include <small_gicp/factors/symmetric_plane_icp_factor.hpp>
 #include <small_gicp/points/point_cloud.hpp>
 #include <small_gicp/registration/reduction_omp.hpp>
 #include <small_gicp/registration/registration.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 #include <small_gicp/util/downsampling_omp.hpp>
 #include <small_gicp/util/normal_estimation_omp.hpp>
+#include "open3d_conversions/usings.hpp"
 
 namespace o3d_slam {
 
@@ -74,16 +78,37 @@ class Mapper {
   bool isNewValueSetMapper_ = false;
   bool isInitialTransformSet_ = false;
 
-  // The parameter loading dont have a slam_ API yet, thus object not private.
-  // pointmatcher_ros::PmIcp icp_;
-  // small_gicp::Registration<small_gicp::GICPFactor, small_gicp::ParallelReductionOMP> small_registration_;
-  small_gicp::Registration<small_gicp::GICPFactor, small_gicp::ParallelReductionOMP> small_registration_;
+  using RegistrationType = small_gicp::Registration<
+      small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::SymmetricPointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,
+      small_gicp::NullFactor,
+      small_gicp::CompoundRejector,                    // CompoundRejector //
+      small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //RobustLevenbergMarquardtOptimizer //
+                                                       // LevenbergMarquardtOptimizer // ICPFactor //NullRejector //Cauchy
+
+  // using RegistrationType = small_gicp::Registration<
+  //     small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::SymmetricPointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,
+  //     small_gicp::NullFactor,
+  //     small_gicp::NullRejector,                        // DistanceRejector //
+  //     small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //RobustLevenbergMarquardtOptimizer //
+  //                                                      // LevenbergMarquardtOptimizer // ICPFactor //NullRejector //Cauchy
+
+  // // small_gicp::Registration<small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::GICPFactor>, small_gicp::ParallelReductionOMP>
+  // //     small_registration_;
+
+  RegistrationType small_registration_;
 
   std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> target_tree_;
   std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>> source_tree_;
 
   std::shared_ptr<small_gicp::PointCloud> target_;
   std::shared_ptr<small_gicp::PointCloud> source_;
+  // pointmatcher_ros::PmIcp icp_;
+
+  Eigen::Vector3d c_t = Eigen::Vector3d::Zero();
+  Eigen::Vector3d c_s = Eigen::Vector3d::Zero();
+
+  Eigen::Vector3d computeCentroid(const small_gicp::PointCloud& pc);
+  void translatePointCloud(small_gicp::PointCloud& pc, const Eigen::Vector3d& t);
 
  private:
   void update(const MapperParameters& p);
@@ -115,6 +140,7 @@ class Mapper {
   bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
+  // std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
 };
 
 } /* namespace o3d_slam */

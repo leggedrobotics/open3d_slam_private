@@ -205,14 +205,14 @@ void SubmapCollection::forceNewSubmapCreation() {
 
 bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& mapToRangeSensor,
                                   const Time& timestamp) {
-  ProfilerScopeGuard totalProfiler("SubmapCollection::insertScan", "/tmp/slam_profiling.csv", "submap=" + std::to_string(activeSubmapIdx_));
+  ProfilerScopeGuard totalProfiler("SubmapCollection::insertScan", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
 
   mapToRangeSensor_ = mapToRangeSensor;
   timestamp_ = timestamp;
   const size_t prevActiveSubmapIdx = activeSubmapIdx_;
 
   if (submaps_.empty()) {
-    ProfilerScopeGuard prof("createNewSubmap (first)", "/tmp/slam_profiling.csv");
+    ProfilerScopeGuard prof("createNewSubmap (first)", "/tmp/slam_profile.csv");
     createNewSubmap(mapToRangeSensor_);
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
     ++numScansMergedInActiveSubmap_;
@@ -220,29 +220,29 @@ bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& p
   }
 
   {
-    ProfilerScopeGuard prof("addScanToBuffer", "/tmp/slam_profiling.csv");
+    ProfilerScopeGuard prof("addScanToBuffer", "/tmp/slam_profile.csv");
     addScanToBuffer(preProcessedScan, mapToRangeSensor, timestamp);
   }
 
   {
-    ProfilerScopeGuard prof("updateActiveSubmap", "/tmp/slam_profiling.csv");
+    ProfilerScopeGuard prof("updateActiveSubmap", "/tmp/slam_profile.csv");
     updateActiveSubmap(mapToRangeSensor, preProcessedScan);
   }
 
   const bool isActiveSubmapChanged = prevActiveSubmapIdx != activeSubmapIdx_;
 
   if (isActiveSubmapChanged) {
-    ProfilerScopeGuard prof("handleSubmapSwitch", "/tmp/slam_profiling.csv",
+    ProfilerScopeGuard prof("handleSubmapSwitch", "/tmp/slam_profile.csv",
                             "from=" + std::to_string(prevActiveSubmapIdx) + ",to=" + std::to_string(activeSubmapIdx_));
 
     {
       std::lock_guard<std::mutex> lck(featureComputationMutex_);
-      ProfilerScopeGuard profScan("insertScan (old submap)", "/tmp/slam_profiling.csv");
+      ProfilerScopeGuard profScan("insertScan (old submap)", "/tmp/slam_profile.csv");
       submaps_.at(prevActiveSubmapIdx).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
     }
 
     {
-      ProfilerScopeGuard prof("computeSubmapCenter", "/tmp/slam_profiling.csv");
+      ProfilerScopeGuard prof("computeSubmapCenter", "/tmp/slam_profile.csv");
       submaps_.at(prevActiveSubmapIdx).computeSubmapCenter();
     }
 
@@ -252,21 +252,21 @@ bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& p
     numScansMergedInActiveSubmap_ = 0;
 
     {
-      ProfilerScopeGuard prof("updateAdjacency", "/tmp/slam_profiling.csv");
+      ProfilerScopeGuard prof("updateAdjacency", "/tmp/slam_profile.csv");
       const auto id1 = submaps_.at(prevActiveSubmapIdx).getId();
       const auto id2 = submaps_.at(activeSubmapIdx_).getId();
       adjacencyMatrix_.addEdge(id1, id2);
     }
 
     {
-      ProfilerScopeGuard prof("insertBufferedScans", "/tmp/slam_profiling.csv");
+      ProfilerScopeGuard prof("insertBufferedScans", "/tmp/slam_profile.csv");
       insertBufferedScans(&submaps_.at(activeSubmapIdx_));
     }
 
     assert_true(!submaps_.at(activeSubmapIdx_).isEmpty(), "submap should not be empty after switching");
 
   } else {
-    ProfilerScopeGuard prof("insertScan (same submap)", "/tmp/slam_profiling.csv", "submap=" + std::to_string(activeSubmapIdx_));
+    ProfilerScopeGuard prof("insertScan (same submap)", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
     submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
   }
 

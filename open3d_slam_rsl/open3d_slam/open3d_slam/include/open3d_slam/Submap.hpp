@@ -54,6 +54,8 @@ class Submap {
   const Feature& getFeatures() const;
   const PointCloud& getSparseMapPointCloud() const;
   void computeSubmapCenter();
+  Eigen::Vector3d ComputeCenterCustom(const std::vector<Eigen::Vector3d>& points);
+  Eigen::Vector3d ComputeCenterSIMD(const std::vector<Eigen::Vector3d>& points);
   void computeFeatures();
   size_t getId() const;
   size_t getParentId() const;

@@ -22,6 +22,7 @@ add_compile_options(
 set(CATKIN_PACKAGE_DEPENDENCIES
     roscpp
     sensor_msgs
+    # pointmatcher_ros
     open3d_catkin
     open3d_slam_msgs
 )

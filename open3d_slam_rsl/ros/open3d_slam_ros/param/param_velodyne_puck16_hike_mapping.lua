@@ -44,6 +44,7 @@ params.submap.submap_size = 18.0 --meters
 params.submap.adjacency_based_revisiting_min_fitness = 0.5
 params.submap.min_seconds_between_feature_computation = 5.0
 params.submap.max_num_points = 450000
+params.submap.submaps_num_scan_overlap = 1
 
 --MAP_BUILDER
 params.map_builder.map_voxel_size = 0.15

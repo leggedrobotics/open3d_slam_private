@@ -6,11 +6,13 @@
  */
 
 #include "open3d_slam/Submap.hpp"
+#include <Eigen/Core>
 #include "open3d_slam/assert.hpp"
 #include "open3d_slam/helpers.hpp"
 #include "open3d_slam/magic.hpp"
 #include "open3d_slam/typedefs.hpp"
 
+#include <omp.h>
 #include <algorithm>
 #include <iostream>
 #include <numeric>
@@ -293,7 +295,54 @@ const Submap::Feature& Submap::getFeatures() const {
 void Submap::computeSubmapCenter() {
   auto mapCopy = getMapPointCloudCopy();
   submapCenter_ = mapCopy.GetCenter();
+  // submapCenter_ = ComputeCenterCustom(mapCopy.points_);
+
   isCenterComputed_ = true;
+}
+
+Eigen::Vector3d Submap::ComputeCenterCustom(const std::vector<Eigen::Vector3d>& points) {
+  if (points.empty()) return Eigen::Vector3d::Zero();
+
+  const size_t N = points.size();
+  Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+
+  int n_threads = 1;
+#pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+#pragma omp single
+    n_threads = omp_get_num_threads();
+  }
+
+  std::vector<Eigen::Vector3d> local_sums(n_threads, Eigen::Vector3d::Zero());
+
+#pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+    Eigen::Vector3d& local_sum = local_sums[tid];
+
+#pragma omp for schedule(static)
+    for (int i = 0; i < static_cast<int>(N); ++i) {
+      local_sum += points[i];
+    }
+  }
+
+  for (int i = 0; i < n_threads; ++i) {
+    sum += local_sums[i];
+  }
+
+  return sum / static_cast<double>(N);
+}
+
+Eigen::Vector3d Submap::ComputeCenterSIMD(const std::vector<Eigen::Vector3d>& points) {
+  if (points.empty()) return Eigen::Vector3d::Zero();
+
+  // Map the raw data into a Matrix3Xd
+  const double* raw_ptr = reinterpret_cast<const double*>(points.data());
+  Eigen::Map<const Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::ColMajor>> mat(raw_ptr, 3, points.size());
+
+  // Sum columns and divide
+  return mat.rowwise().mean();
 }
 
 }  // namespace o3d_slam

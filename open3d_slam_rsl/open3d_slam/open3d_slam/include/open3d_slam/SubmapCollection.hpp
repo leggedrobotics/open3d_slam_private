@@ -97,7 +97,8 @@ class SubmapCollection {
 
   mutable std::mutex submapHistoryMutex_;
   std::deque<size_t> recentSubmapHistory_;
-  const size_t maxSubmapHistorySize_ = 3;                 // Keep last 3 for safety
+  const size_t maxSubmapHistorySize_ = 3;  // Keep last 3 for safety
+  // TODO MAGIC
   const double minDistanceToReturnToRecentSubmap_ = 5.0;  // in meters
 };
 
