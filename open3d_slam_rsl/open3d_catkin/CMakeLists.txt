@@ -111,7 +111,7 @@ else()
     GIT_PROGRESS   TRUE
     PREFIX         "${CMAKE_SOURCE_DIR}"
     SOURCE_DIR     "${CMAKE_SOURCE_DIR}/open3d"
-    BINARY_DIR     "${CMAKE_SOURCE_DIR}/tmp"
+    BINARY_DIR     "${CMAKE_BINARY_DIR}/open3d"
     CMAKE_ARGS
       -DBUILD_SHARED_LIBS=ON
       -DCMAKE_BUILD_TYPE=Release
@@ -128,8 +128,6 @@ else()
       "-DCMAKE_C_FLAGS_RELEASE=-O3 -mtune=native -flto -funroll-loops -fopenmp -fno-math-errno"
     INSTALL_COMMAND make install
   )
-
-  add_dependencies(${PROJECT_NAME} open3d)
 
   catkin_package(
     INCLUDE_DIRS ${CATKIN_DEVEL_PREFIX}/include
