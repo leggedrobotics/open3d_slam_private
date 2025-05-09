@@ -110,8 +110,9 @@ else()
     GIT_SUBMODULES_RECURSE TRUE
     GIT_PROGRESS   TRUE
     PREFIX         "${CMAKE_SOURCE_DIR}"
-    SOURCE_DIR     "${CMAKE_SOURCE_DIR}/open3d"
-    BINARY_DIR     "${CMAKE_BINARY_DIR}/open3d"
+    TMP_DIR        "${CMAKE_BINARY_DIR}/open3d/tmp"
+    BINARY_DIR     "${CMAKE_BINARY_DIR}/open3d/build"
+    INSTALL_DIR    "${CATKIN_DEVEL_PREFIX}"
     CMAKE_ARGS
       -DBUILD_SHARED_LIBS=ON
       -DCMAKE_BUILD_TYPE=Release
@@ -126,7 +127,6 @@ else()
       -DCMAKE_INSTALL_PREFIX=${CATKIN_DEVEL_PREFIX}
       "-DCMAKE_CXX_FLAGS_RELEASE=-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fno-math-errno"
       "-DCMAKE_C_FLAGS_RELEASE=-O3 -mtune=native -flto -funroll-loops -fopenmp -fno-math-errno"
-    INSTALL_COMMAND make install
   )
 
   catkin_package(
