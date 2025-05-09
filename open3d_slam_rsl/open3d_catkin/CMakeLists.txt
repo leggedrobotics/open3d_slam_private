@@ -56,8 +56,8 @@ if(DEFINED ENV{Open3D_DIR})
 elseif(NOT OPEN3D_FROM_SOURCE)
   include(FetchContent)
 
-  set(OPEN3D_DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt)
-  set(OPEN3D_SOURCE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt/open3d-${OPEN3D_VERSION})
+  set(OPEN3D_DOWNLOAD_DIR ${CMAKE_SOURCE_DIR}/prebuilt)
+  set(OPEN3D_SOURCE_DIR   ${CMAKE_SOURCE_DIR}/prebuilt/open3d-${OPEN3D_VERSION})
   set(Open3D_DIR          ${OPEN3D_SOURCE_DIR}/lib/cmake/Open3D)
 
   if(NOT EXISTS "${Open3D_DIR}/Open3DConfig.cmake")
