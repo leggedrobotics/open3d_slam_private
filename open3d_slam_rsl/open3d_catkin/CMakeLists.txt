@@ -22,6 +22,9 @@ set(OPEN3D_TAG v${OPEN3D_VERSION})
 set(OPEN3D_URL https://github.com/isl-org/Open3D/releases/download/v${OPEN3D_VERSION}/open3d-devel-linux-x86_64-cxx11-abi-${OPEN3D_VERSION}.tar.xz)
 set(OPEN3D_HASH 2e525fd2afe7e80907d2b6e3c66b69e2ef1481dbceed5727b749a6e65cba5720)
 
+# Check if Open3D can be found
+find_package(Open3D ${OPEN3D_VERSION} QUIET)
+
 if(NOT WIN32)
   string(ASCII 27 Esc)
   set(ColourReset "${Esc}[m")
@@ -49,9 +52,25 @@ if(DEFINED ENV{Open3D_DIR})
     CATKIN_DEPENDS ${CATKIN_PACKAGE_DEPENDENCIES}
     DEPENDS Open3D
   )
-
 # ────────────────────────────────────────────────────────────────────────────────
-# 2. Use prebuilt binary (default)
+# 2. Check if Open3D is installed
+# ────────────────────────────────────────────────────────────────────────────────
+elseif(Open3D_FOUND)
+  message("${BoldMagenta}INFO: Found Open3D installation.${ColourReset}")
+  find_package(fmt REQUIRED)
+
+  catkin_package(
+    INCLUDE_DIRS
+        ${Open3D_INCLUDE_DIRS}
+        ${fmt_INCLUDE_DIRS}
+    LIBRARIES
+        ${Open3D_LIBRARIES}
+        fmt::fmt
+    CATKIN_DEPENDS ${CATKIN_PACKAGE_DEPENDENCIES}
+    DEPENDS Open3D
+  )
+# ────────────────────────────────────────────────────────────────────────────────
+# 3. Use prebuilt binary (default)
 # ────────────────────────────────────────────────────────────────────────────────
 elseif(NOT OPEN3D_FROM_SOURCE)
   include(FetchContent)
@@ -96,7 +115,7 @@ elseif(NOT OPEN3D_FROM_SOURCE)
   )
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 3. Build from source if requested
+# 4. Build from source if requested
 # ────────────────────────────────────────────────────────────────────────────────
 else()
   message("${BoldMagenta}INFO: Building Open3D ${OPEN3D_VERSION} from source.${ColourReset}")
