@@ -37,7 +37,7 @@ endif()
 if(DEFINED ENV{Open3D_DIR})
   set(Open3D_DIR $ENV{Open3D_DIR})
   find_package(Open3D CONFIG REQUIRED)
-  message("${BoldMagenta}INFO: Found Open3D manually at $ENV{Open3D_DIR}.${ColourReset}")
+  message("${BoldMagenta}INFO: Found Open3D via environment variable at $ENV{Open3D_DIR}.${ColourReset}")
   set(Open3D_INCLUDE_DIR_MAN "${Open3D_DIR}/../../../include/")
   find_package(fmt REQUIRED)
 
@@ -56,7 +56,7 @@ if(DEFINED ENV{Open3D_DIR})
 # 2. Check if Open3D is installed
 # ────────────────────────────────────────────────────────────────────────────────
 elseif(Open3D_FOUND)
-  message("${BoldMagenta}INFO: Found Open3D installation.${ColourReset}")
+  message("${BoldMagenta}INFO: Found Open3D installation at ${Open3D_DIR}.${ColourReset}")
   find_package(fmt REQUIRED)
 
   catkin_package(
