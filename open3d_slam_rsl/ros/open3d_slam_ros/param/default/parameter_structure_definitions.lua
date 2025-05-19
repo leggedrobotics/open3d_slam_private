@@ -91,7 +91,7 @@ SUBMAP_PARAMETERS = {
   min_num_range_data = 10,
   adjacency_based_revisiting_min_fitness = 0.5,
   min_seconds_between_feature_computation = 5.0,
-  submaps_num_scan_overlap = 10,
+  submaps_num_scan_overlap = 50,
 }
 
 SPACE_CARVING_PARAMETERS = {

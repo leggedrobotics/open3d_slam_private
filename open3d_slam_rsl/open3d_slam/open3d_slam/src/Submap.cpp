@@ -45,7 +45,7 @@ o3d_slam::Submap::~Submap() {
 }
 
 bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& mapToRangeSensor, const Time& time,
-                        bool isPerformCarving) {
+                        bool /*isPerformCarving*/) {
   if (preProcessedScan.IsEmpty()) return true;
 
   mapToRangeSensor_ = mapToRangeSensor;
@@ -59,8 +59,25 @@ bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcesse
 
   const auto transformedCloud = o3d_slam::transform(mapToRangeSensor.matrix(), preProcessedScan);
 
-  const bool carvingEnabled =
-      params_.isCarvingEnabled_ && isPerformCarving && (nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0);
+  {
+    std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
+    mapCloud_ += *transformedCloud;
+    mapBuilderCropper_->setPose(mapToRangeSensor);
+  }
+
+  // // Print the state of carvingEnabled and its components in a bright orange block
+  // std::cout << "\033[38;5;208m[Carving Status]\n"
+  //           << "  params_.isCarvingEnabled_: " << (params_.isCarvingEnabled_ ? "true" : "false") << "\n"
+  //           << "  nScansInsertedMap_: " << nScansInsertedMap_ << "\n"
+  //           << "  carveSpaceEveryNscans_: " << params_.mapBuilder_.carving_.carveSpaceEveryNscans_ << "\n"
+  //           << "  (nScansInsertedMap_ % carveSpaceEveryNscans_ == 0): "
+  //           << ((nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0) ? "true" : "false") << "\n"
+  //           << "  carvingEnabled: "
+  //           << ((params_.isCarvingEnabled_ && (nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0)) ? "true"
+  //                                                                                                                              : "false")
+  //           << "\033[0m" << std::endl;
+
+  const bool carvingEnabled = params_.isCarvingEnabled_ && (nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0);
 
   if (carvingEnabled) {
     carvingStatisticsTimer_.startStopwatch();
@@ -73,12 +90,6 @@ bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcesse
     if (params_.isPrintTimingStatistics_) {
       std::cout << "Space carving took: \033[92m" << elapsedMs << " ms\033[0m\n";
     }
-  }
-
-  {
-    std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
-    mapCloud_ += *transformedCloud;
-    mapBuilderCropper_->setPose(mapToRangeSensor);
   }
 
   const int voxelizeEvery = std::max(1, voxelizeEveryNscans_);
@@ -143,7 +154,7 @@ void Submap::transform(const Transform& T) {
 
 void Submap::carve(const PointCloud& rawScan, const Transform& mapToRangeSensor, const CroppingVolume& cropper,
                    const SpaceCarvingParameters& params, PointCloud* map) {
-  if (map->points_.empty() || !(nScansInsertedMap_ % params.carveSpaceEveryNscans_ == 1)) {
+  if (map->points_.empty() || !(nScansInsertedMap_ % params.carveSpaceEveryNscans_ == 0)) {
     return;
   }
   //	Timer timer("carving");
@@ -153,7 +164,7 @@ void Submap::carve(const PointCloud& rawScan, const Transform& mapToRangeSensor,
   auto idxsToRemove = std::move(getIdxsOfCarvedPoints(*scan, *map, mapToRangeSensor.translation(), wideCroppedIdxs, params));
   toRemove_ = std::move(*(map->SelectByIndex(idxsToRemove)));
   scanRef_ = std::move(*scan);
-  //	std::cout << "Would remove: " << idxsToRemove.size() << std::endl;
+  std::cout << "\033[91mWould remove: " << idxsToRemove.size() << "\033[0m" << std::endl;
   removeByIds(idxsToRemove, map);
 }
 

@@ -92,6 +92,11 @@ bool TransformInterpolationBuffer::has(const Time& time) const {
   return !transforms_.empty() && transforms_.front().time_ <= time && time <= transforms_.back().time_;
 }
 
+bool TransformInterpolationBuffer::has_query(const Time& time) const {
+  std::shared_lock lk(m_);
+  return !transforms_.empty() && transforms_.front().time_ <= time && time <= transforms_.back().time_ + std::chrono::duration<double>(0.5);
+}
+
 /* ---------------------------------------------------- lookup + EXTRAPOLATION */
 
 Transform TransformInterpolationBuffer::lookup(const Time& time) const {

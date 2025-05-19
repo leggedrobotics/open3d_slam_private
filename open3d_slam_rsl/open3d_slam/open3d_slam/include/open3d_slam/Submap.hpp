@@ -44,6 +44,7 @@ class Submap {
 
   const Transform& getMapToSubmapOrigin() const;
   Eigen::Vector3d getMapToSubmapCenter() const;
+  inline void setSubmapCenter(const Eigen::Vector3d& c) { submapCenter_ = c; }
   void setMapToSubmapOrigin(const Transform& T);
   const PointCloud& getMapPointCloud() const;
   PointCloud getMapPointCloudCopy() const;
@@ -97,7 +98,7 @@ class Submap {
   mutable std::mutex mapPointCloudMutex_;
   std::future<void> voxelizationFuture_;
   std::atomic<bool> voxelizationRunning_ = false;
-  int voxelizeEveryNscans_ = 5;
+  int voxelizeEveryNscans_ = 10;
 };
 
 }  // namespace o3d_slam

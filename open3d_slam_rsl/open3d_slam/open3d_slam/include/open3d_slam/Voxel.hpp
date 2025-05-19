@@ -18,6 +18,16 @@ namespace o3d_slam {
 
 struct VoxelWithIdxs {
   std::map<std::string, std::vector<size_t>> idxs_;
+  Eigen::Vector3d aggregated_normal_ = Eigen::Vector3d::Zero();
+  int num_aggregated_normals_ = 0;
+
+  void accumulateNormal(const Eigen::Vector3d& n) {
+    aggregated_normal_ += n;
+    ++num_aggregated_normals_;
+  }
+  Eigen::Vector3d getAggregatedNormal() const {
+    return num_aggregated_normals_ > 0 ? aggregated_normal_ / static_cast<double>(num_aggregated_normals_) : Eigen::Vector3d::Zero().eval();
+  }
 };
 
 class VoxelMap : public VoxelHashMap<VoxelWithIdxs> {

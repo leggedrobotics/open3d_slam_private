@@ -30,6 +30,7 @@ class TransformInterpolationBuffer {
 
   /* --- queries --------------------------------------------------------- */
   bool has(const Time& time) const;
+  bool has_query(const Time& time) const;
   bool empty() const;
   Time earliest_time() const;
   Time latest_time() const;

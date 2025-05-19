@@ -14,7 +14,9 @@
 #include "open3d_slam/output.hpp"
 #include "open3d_slam/typedefs.hpp"
 
+#include <open3d/geometry/TriangleMesh.h>
 #include <open3d/io/PointCloudIO.h>
+#include <open3d/io/TriangleMeshIO.h>
 #include <open3d/pipelines/registration/Registration.h>
 
 #include <algorithm>
@@ -29,21 +31,9 @@ namespace o3d_slam {
 
 SubmapCollection::SubmapCollection() {
   submaps_.reserve(500);
-  createNewSubmap(mapToRangeSensor_);
-  overlapScansBuffer_.set_size_limit(20);
-}
+  lastVisitPosition_.resize(submaps_.size(), Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()));
 
-void SubmapCollection::recordSubmapVisit(size_t submapId) {
-  std::lock_guard<std::mutex> lock(submapHistoryMutex_);
-  recentSubmapHistory_.push_back(submapId);
-  if (recentSubmapHistory_.size() > maxSubmapHistorySize_) {
-    recentSubmapHistory_.pop_front();
-  }
-}
-
-bool SubmapCollection::isRecentlyVisited(size_t submapId) const {
-  std::lock_guard<std::mutex> lock(submapHistoryMutex_);
-  return std::find(recentSubmapHistory_.begin(), recentSubmapHistory_.end(), submapId) != recentSubmapHistory_.end();
+  overlapScansBuffer_.set_size_limit(100);
 }
 
 void SubmapCollection::setMapToRangeSensor(const Transform& T) {
@@ -107,87 +97,354 @@ void SubmapCollection::insertBufferedScans(Submap* submap) {
 }
 
 void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, const PointCloud& scan) {
+  /* ---- forced creation --------------------------------------------------- */
   if (isForceNewSubmapCreation_) {
+    std::cout << "\033[1;48;5;208m\033[1;30m"
+              << "==================== SUBMAP CREATION FORCED ====================\n"
+              << "   A new submap is being created due to force trigger!\n"
+              << "===============================================================\033[0m\n";
+
     createNewSubmap(mapToRangeSensor_);
     isForceNewSubmapCreation_ = false;
     return;
   }
+  if (params_.isUseInitialMap_) return;  // localisation‑only mode
 
-  if (numScansMergedInActiveSubmap_ < params_.submaps_.minNumRangeData_) {
+  /* ---- constants --------------------------------------------------------- */
+  const Eigen::Vector3d robot = mapToRangeSensor_.translation();
+  const size_t N = submaps_.size();
+  const size_t cur_idx = activeSubmapIdx_;
+  const Eigen::Vector3d cur_ctr = submaps_[cur_idx].getMapToSubmapCenter();
+  const double d_cur = (robot - cur_ctr).norm();
+
+  /* ---- single‑submap case ------------------------------------------------ */
+  if (N == 1) {
+    if (d_cur > params_.submaps_.radius_) {
+      std::cout << "\033[1;48;5;208m\033[1;30m"
+                << "==================== NEW SUBMAP CREATED ====================\n"
+                << "   Robot is outside the submap radius (1 submap case.).\n"
+                << "   Current idx: " << cur_idx << ", d_cur=" << d_cur << "\n"
+                << "============================================================\033[0m\n";
+      createNewSubmap(mapToRangeSensor_);
+    }
     return;
   }
 
-  if (params_.isUseInitialMap_) {
-    return;  // Localization mode – don’t switch submaps.
+  /* ---- nearest distance (current included) ------------------------------- */
+  size_t nearest_idx = findClosestSubmap(mapToRangeSensor_, SIZE_MAX);
+  const double d_near = (robot - submaps_[nearest_idx].getMapToSubmapCenter()).norm();
+
+  /* ---- outside *all* radii? --------------------------------------------- */
+  if (d_near > params_.submaps_.radius_) {
+    std::cout << "\033[1;48;5;208m\033[1;30m"
+              << "==================== NEW SUBMAP CREATED ====================\n"
+              << "   Robot is outside every submap radius.\n"
+              << "   Current idx: " << cur_idx << ", nearest idx: " << nearest_idx << "\n   d_near=" << d_near << ", d_cur=" << d_cur
+              << "\n"
+              << "============================================================\033[0m\n";
+    createNewSubmap(mapToRangeSensor_);
+    return;
   }
 
-  const size_t closestMapIdx = findClosestSubmap(mapToRangeSensor_);
-  const Submap& closestSubmap = submaps_.at(closestMapIdx);
-  const Submap& activeSubmap = submaps_.at(activeSubmapIdx_);
+  /* ---- nearest is current – stay put ------------------------------------ */
+  if (nearest_idx == cur_idx) return;
 
-  const bool tooManyPoints = activeSubmap.getNbPoints() > params_.submaps_.maxNumPoints_;
-  if (tooManyPoints) {
-    isForceNewSubmapCreation_ = true;
+  /* ---- check adj. + consistency ----------------------------------------- */
+  bool adj = adjacencyMatrix_.isAdjacent(submaps_[nearest_idx].getId(), submaps_[cur_idx].getId());
+  bool ok = isSwitchingSubmapsConsistant(scan, nearest_idx, mapToRangeSensor);
+  if (!adj || !ok) {
+    if (d_cur > params_.submaps_.radius_) {
+      createNewSubmap(mapToRangeSensor_);
+      std::cout << "\033[1;48;5;208m\033[1;30m"
+                << "==================== NEW SUBMAP CREATED ====================\n"
+                << "   !adj || !ok.\n"
+                << "   Current idx: " << cur_idx << ", nearest idx: " << nearest_idx << "\n   d_near=" << d_near << ", d_cur=" << d_cur
+                << "\n"
+                << "============================================================\033[0m\n";
+    }
+    return;
   }
 
-  const Eigen::Vector3d closestSubmapPosition = closestSubmap.getMapToSubmapCenter();
-  const bool isAnotherSubmapWithinRange = (mapToRangeSensor_.translation() - closestSubmapPosition).norm() < params_.submaps_.radius_;
+  /* ---- switch only if moved >½ radius and closer to candidate ----------- */
+  if (d_cur > 0.5 * params_.submaps_.radius_ && d_near < d_cur) {
+    activeSubmapIdx_ = nearest_idx;
+  }
+}
 
-  if (isAnotherSubmapWithinRange) {
-    if (closestMapIdx == activeSubmapIdx_) {
-      return;
+std::vector<size_t> SubmapCollection::findKClosestSubmaps(const Transform& T, size_t k, size_t exclude) const {
+  struct Pair {
+    double d;
+    size_t i;
+  };
+  std::vector<Pair> tmp;
+  tmp.reserve(submaps_.size());
+  Eigen::Vector3d p0 = T.translation();
+
+  for (size_t i = 0; i < submaps_.size(); ++i)
+    if (i != exclude) tmp.push_back({(p0 - submaps_[i].getMapToSubmapCenter()).norm(), i});
+
+  std::partial_sort(tmp.begin(), tmp.begin() + std::min(k, tmp.size()), tmp.end(), [](const Pair& a, const Pair& b) { return a.d < b.d; });
+
+  std::vector<size_t> out;
+  for (size_t j = 0; j < k && j < tmp.size(); ++j) out.push_back(tmp[j].i);
+  return out;
+}
+
+PointCloudPtr SubmapCollection::getCachedCompositeSubmapFromVoxel(const std::vector<size_t>& neighbor_idxs) const {
+  std::lock_guard<std::mutex> lock(composite_cache_mutex_);
+  // Detect if cache needs update
+  if (!cached_neighbor_cloud_ || cached_active_submap_idx_ != activeSubmapIdx_ || cached_neighbor_idxs_ != neighbor_idxs) {
+    // (Re)build and cache
+    cached_neighbor_cloud_ = std::make_shared<PointCloud>(buildCompositeSubmapFromVoxel(neighbor_idxs));
+    cached_active_submap_idx_ = activeSubmapIdx_;
+    cached_neighbor_idxs_ = neighbor_idxs;
+  }
+  return cached_neighbor_cloud_;
+}
+
+PointCloud SubmapCollection::buildCompositeSubmapFromVoxel(const std::vector<size_t>& idxs) const {
+  const size_t n = idxs.size();
+  std::vector<std::vector<Eigen::Vector3d>> thread_points(n);
+  std::vector<std::vector<Eigen::Vector3d>> thread_normals(n);
+
+#pragma omp parallel for
+  for (int i = 0; i < static_cast<int>(n); ++i) {
+    const auto& submap = submaps_[idxs[i]];
+
+    // If this is the active submap, always use the raw point cloud
+    if (idxs[i] == activeSubmapIdx_) {
+      const auto& pc = submap.getMapPointCloud();
+      thread_points[i].assign(pc.points_.begin(), pc.points_.end());
+      if (pc.HasNormals()) thread_normals[i].assign(pc.normals_.begin(), pc.normals_.end());
+      continue;
     }
 
-    const bool areAdjacent = adjacencyMatrix_.isAdjacent(closestSubmap.getId(), activeSubmap.getId());
-    const bool isConsistent = isSwitchingSubmapsConsistant(scan, closestMapIdx, mapToRangeSensor);
+    // Otherwise, use the voxel map if it has points
+    const auto& voxel_map = submap.getVoxelMap();
+    size_t voxel_count = 0;
+    for (const auto& kv : voxel_map.voxels_) {
+      if (!kv.second.idxs_.empty()) ++voxel_count;
+    }
 
-    if (areAdjacent && isConsistent) {
-      // Prevent ping-pong switching
-      const bool isRecentlyInTarget = isRecentlyVisited(closestMapIdx);
-      const double distanceFromLastVisit = (mapToRangeSensor_.translation() - closestSubmap.getMapToSubmapCenter()).norm();
-      if (!isRecentlyInTarget || distanceFromLastVisit > minDistanceToReturnToRecentSubmap_) {
-        activeSubmapIdx_ = closestMapIdx;
-        recordSubmapVisit(closestMapIdx);
-      } else {
-        return;  // Too soon or too close to switch back
+    if (voxel_count > 0) {
+      thread_points[i].reserve(voxel_count);
+      thread_normals[i].reserve(voxel_count);
+
+      for (const auto& kv : voxel_map.voxels_) {
+        if (!kv.second.idxs_.empty()) {
+          thread_points[i].push_back(getVoxelCenter(kv.first, voxel_map.getVoxelSize()));
+          if (kv.second.num_aggregated_normals_ > 0) thread_normals[i].push_back(kv.second.getAggregatedNormal());
+        }
       }
-
     } else {
-      const bool isTraveledSufficientDistance =
-          (mapToRangeSensor_.translation() - activeSubmap.getMapToSubmapCenter()).norm() > params_.submaps_.radius_;
-      if (isTraveledSufficientDistance) {
-        createNewSubmap(mapToRangeSensor_);
+      // Fallback: use raw point cloud
+      const auto& pc = submap.getMapPointCloud();
+      thread_points[i].assign(pc.points_.begin(), pc.points_.end());
+      if (pc.HasNormals()) thread_normals[i].assign(pc.normals_.begin(), pc.normals_.end());
+    }
+  }
+
+  // Compute output sizes
+  size_t total_points = 0, total_normals = 0;
+  for (size_t i = 0; i < n; ++i) {
+    total_points += thread_points[i].size();
+    total_normals += thread_normals[i].size();
+  }
+
+  PointCloud cloud;
+  cloud.points_.resize(total_points);
+  if (total_normals > 0) cloud.normals_.resize(total_normals);
+
+  constexpr size_t PARALLEL_THRESHOLD = 20000;
+  if (total_points > PARALLEL_THRESHOLD) {
+    std::vector<size_t> point_offsets(n + 1, 0), normal_offsets(n + 1, 0);
+    for (size_t i = 0; i < n; ++i) {
+      point_offsets[i + 1] = point_offsets[i] + thread_points[i].size();
+      normal_offsets[i + 1] = normal_offsets[i] + thread_normals[i].size();
+    }
+
+#pragma omp parallel for
+    for (int i = 0; i < static_cast<int>(n); ++i) {
+      std::copy(thread_points[i].begin(), thread_points[i].end(), cloud.points_.begin() + point_offsets[i]);
+      if (!thread_normals[i].empty())
+        std::copy(thread_normals[i].begin(), thread_normals[i].end(), cloud.normals_.begin() + normal_offsets[i]);
+    }
+  } else {
+    size_t point_pos = 0, normal_pos = 0;
+    for (size_t i = 0; i < n; ++i) {
+      for (auto& p : thread_points[i]) cloud.points_[point_pos++] = std::move(p);
+      for (auto& nrm : thread_normals[i]) cloud.normals_[normal_pos++] = std::move(nrm);
+    }
+  }
+
+  return cloud;
+}
+
+PointCloudPtr SubmapCollection::getCachedCompositeSubmapFromMulti(const std::vector<size_t>& all_idxs) const {
+  std::lock_guard<std::mutex> lk(composite_cache_mutex_);
+
+  const size_t active = activeSubmapIdx_;
+  std::vector<size_t> static_idxs;
+  static_idxs.reserve(all_idxs.size());
+  for (size_t id : all_idxs)
+    if (id != active) static_idxs.push_back(id);
+
+  /* ---------- 1. (Re)build static neighbour patch if needed ----------- */
+  if (!cached_static_cloud_ || cached_static_idxs_ != static_idxs) {
+    cached_static_cloud_ = std::make_shared<PointCloud>(buildCompositeSubmapFromMulti(static_idxs));
+    cached_static_point_count_ = cached_static_cloud_->points_.size();
+    cached_static_idxs_ = static_idxs;
+    // invalidate combined cache – forces rebuild below
+    cached_combined_cloud_.reset();
+  }
+
+  /* ---------- 2. Always create the current active cloud --------------- */
+  PointCloudPtr active_cloud = std::make_shared<PointCloud>(submaps_[active].getMapPointCloud());
+  const size_t active_pts = active_cloud->points_.size();
+
+  /* ---------- 3. Re-use / build combined patch ------------------------ */
+  if (!cached_combined_cloud_ || cached_active_point_count_ != active_pts) {
+    cached_combined_cloud_ = std::make_shared<PointCloud>();
+    cached_combined_cloud_->points_.reserve(cached_static_point_count_ + active_pts);
+
+    // copy neighbours (static) – one time until they change
+    cached_combined_cloud_->points_ = cached_static_cloud_->points_;
+    if (cached_static_cloud_->HasNormals()) cached_combined_cloud_->normals_ = cached_static_cloud_->normals_;
+
+    // append active
+    cached_combined_cloud_->points_.insert(cached_combined_cloud_->points_.end(), active_cloud->points_.begin(),
+                                           active_cloud->points_.end());
+
+    if (active_cloud->HasNormals()) {
+      if (!cached_combined_cloud_->HasNormals())
+        cached_combined_cloud_->normals_.resize(cached_static_cloud_->normals_.size(), Eigen::Vector3d::Zero());
+      cached_combined_cloud_->normals_.insert(cached_combined_cloud_->normals_.end(), active_cloud->normals_.begin(),
+                                              active_cloud->normals_.end());
+    }
+    cached_active_point_count_ = active_pts;
+  }
+
+  return cached_combined_cloud_;
+}
+
+PointCloud SubmapCollection::buildCompositeSubmapFromMulti(const std::vector<size_t>& idxs) const {
+  // Extract per-submap in parallel
+  const size_t n = idxs.size();
+  std::vector<std::vector<Eigen::Vector3d>> thread_points(n);
+  std::vector<std::vector<Eigen::Vector3d>> thread_normals(n);
+
+#pragma omp parallel for
+  for (int i = 0; i < static_cast<int>(n); ++i) {
+    const auto& submap = submaps_[idxs[i]];
+    const auto& pc = submap.getMapPointCloud();
+    thread_points[i].assign(pc.points_.begin(), pc.points_.end());
+    if (pc.HasNormals()) thread_normals[i].assign(pc.normals_.begin(), pc.normals_.end());
+  }
+
+  // Compute sizes
+  size_t total_points = 0;
+  size_t total_normals = 0;
+  for (size_t i = 0; i < n; ++i) {
+    total_points += thread_points[i].size();
+    total_normals += thread_normals[i].size();
+  }
+
+  PointCloud cloud;
+  cloud.points_.resize(total_points);
+  if (total_normals > 0) cloud.normals_.resize(total_normals);
+
+  // Parallel merge if big enough, else serial
+  constexpr size_t PARALLEL_THRESHOLD = 20000;
+  if (total_points > PARALLEL_THRESHOLD) {
+    std::vector<size_t> point_offsets(n + 1, 0);
+    std::vector<size_t> normal_offsets(n + 1, 0);
+    for (size_t i = 0; i < n; ++i) {
+      point_offsets[i + 1] = point_offsets[i] + thread_points[i].size();
+      normal_offsets[i + 1] = normal_offsets[i] + thread_normals[i].size();
+    }
+
+#pragma omp parallel for
+    for (int i = 0; i < static_cast<int>(n); ++i) {
+      // Copy points
+      std::copy(thread_points[i].begin(), thread_points[i].end(), cloud.points_.begin() + point_offsets[i]);
+      // Copy normals if present
+      if (!thread_normals[i].empty()) {
+        std::copy(thread_normals[i].begin(), thread_normals[i].end(), cloud.normals_.begin() + normal_offsets[i]);
       }
     }
   } else {
-    createNewSubmap(mapToRangeSensor_);
+    // Serial merge for small clouds
+    size_t point_pos = 0, normal_pos = 0;
+    for (size_t i = 0; i < n; ++i) {
+      for (auto& p : thread_points[i]) cloud.points_[point_pos++] = std::move(p);
+      for (auto& nrm : thread_normals[i]) cloud.normals_[normal_pos++] = std::move(nrm);
+    }
   }
+
+  return cloud;
+}
+
+PointCloud SubmapCollection::buildCompositeSubmapSingle(const std::vector<size_t>& idxs, double voxel) const {
+  PointCloud cloud;
+
+  // Prepare per-thread vectors
+  std::vector<std::vector<Eigen::Vector3d>> thread_points(idxs.size());
+  std::vector<std::vector<Eigen::Vector3d>> thread_normals(idxs.size());
+
+#pragma omp parallel for
+  for (int i = 0; i < static_cast<int>(idxs.size()); ++i) {
+    const auto& pc = submaps_[idxs[i]].getMapPointCloud();
+    thread_points[i].assign(pc.points_.begin(), pc.points_.end());
+    if (pc.HasNormals()) thread_normals[i].assign(pc.normals_.begin(), pc.normals_.end());
+  }
+
+  // Merge all into the output cloud (single thread)
+  size_t total = 0;
+  for (const auto& v : thread_points) total += v.size();
+  cloud.points_.reserve(total);
+
+  for (auto& v : thread_points) cloud.points_.insert(cloud.points_.end(), v.begin(), v.end());
+  if (!thread_normals.empty() && !thread_normals[0].empty()) {
+    for (auto& v : thread_normals) cloud.normals_.insert(cloud.normals_.end(), v.begin(), v.end());
+  }
+
+  // Downsample
+  if (voxel > 0.0) cloud = *cloud.VoxelDownSample(voxel);
+  return cloud;
 }
 
 void SubmapCollection::createNewSubmap(const Transform& mapToSubmap) {
-  const size_t submapId = submapId_++;
-  const size_t submapParentId = activeSubmapIdx_;
-  Submap newSubmap(submapId, submapParentId);
-  newSubmap.setMapToSubmapOrigin(mapToSubmap);
-  newSubmap.setParameters(params_);
-  submaps_.emplace_back(std::move(newSubmap));
+  std::lock_guard<std::mutex> lk(consistency_cache_mtx_);
+
+  const size_t id = submapId_++;
+  const size_t pid = activeSubmapIdx_;
+
+  Submap m(id, pid);
+  m.setMapToSubmapOrigin(mapToSubmap);
+  m.setSubmapCenter(mapToSubmap.translation());  // centre fixed at creation
+  m.setParameters(params_);
+
+  submaps_.emplace_back(std::move(m));
+  consistency_cache_.emplace_back();
+  lastVisitPosition_.push_back(mapToRangeSensor_.translation());
+
   activeSubmapIdx_ = submaps_.size() - 1;
   numScansMergedInActiveSubmap_ = 0;
-  std::cout << "Created submap: " << activeSubmapIdx_ << " with parent " << submapParentId << std::endl;
-  //	std::cout << "Submap " << activeSubmapIdx_ << " pose: " << asString(newSubmap.getMapToSubmapOrigin())
-  //			<< std::endl;
 }
 
-size_t SubmapCollection::findClosestSubmap(const Transform& mapToRangeSensor) const {
-  std::vector<size_t> idxs(submaps_.size());
-  std::iota(idxs.begin(), idxs.end(), 0);
-  auto lessThan = [this, &mapToRangeSensor](size_t idxa, size_t idxb) {
-    const auto p0 = mapToRangeSensor.translation();
-    const auto pa = submaps_.at(idxa).getMapToSubmapCenter();
-    const auto pb = submaps_.at(idxb).getMapToSubmapCenter();
-    return (p0 - pa).norm() < (p0 - pb).norm();
-  };
-  return *(std::min_element(idxs.begin(), idxs.end(), lessThan));
+size_t SubmapCollection::findClosestSubmap(const Transform& mapToRS, size_t exclude_idx) const {
+  const Eigen::Vector3d robot = mapToRS.translation();
+  size_t best = SIZE_MAX;
+  double best_d = std::numeric_limits<double>::infinity();
+  for (size_t i = 0; i < submaps_.size(); ++i) {
+    if (i == exclude_idx) continue;
+    double d = (robot - submaps_[i].getMapToSubmapCenter()).norm();
+    if (d < best_d) {
+      best_d = d;
+      best = i;
+    }
+  }
+  return best;
 }
 
 const Submap& SubmapCollection::getActiveSubmap() const {
@@ -203,71 +460,53 @@ void SubmapCollection::forceNewSubmapCreation() {
   isForceNewSubmapCreation_ = false;
 }
 
-bool SubmapCollection::insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& mapToRangeSensor,
-                                  const Time& timestamp) {
-  ProfilerScopeGuard totalProfiler("SubmapCollection::insertScan", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
+bool SubmapCollection::insertScan(const PointCloud& raw, const PointCloud& proc, const Transform& mapToRS, const Time& stamp) {
+  ProfilerScopeGuard total("SubmapCollection::insertScan", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
 
-  mapToRangeSensor_ = mapToRangeSensor;
-  timestamp_ = timestamp;
+  mapToRangeSensor_ = mapToRS;
+  timestamp_ = stamp;
   const size_t prevActiveSubmapIdx = activeSubmapIdx_;
 
+  /* ---- first scan ------------------------------------------------------- */
   if (submaps_.empty()) {
-    ProfilerScopeGuard prof("createNewSubmap (first)", "/tmp/slam_profile.csv");
+    std::cout << "\033[1;48;5;208m\033[1;30m"
+              << "==================== FIRST SUBMAP CREATED ====================\n"
+              << "   First scan received. Creating first submap.\n"
+              << "==============================================================\033[0m\n";
     createNewSubmap(mapToRangeSensor_);
-    submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
+    submaps_[activeSubmapIdx_].insertScan(raw, proc, mapToRS, stamp, true);
+    // centre stays fixed → no recomputation here
     ++numScansMergedInActiveSubmap_;
     return true;
   }
 
-  {
-    ProfilerScopeGuard prof("addScanToBuffer", "/tmp/slam_profile.csv");
-    addScanToBuffer(preProcessedScan, mapToRangeSensor, timestamp);
-  }
+  addScanToBuffer(proc, mapToRS, stamp);
+  updateActiveSubmap(mapToRS, proc);
 
-  {
-    ProfilerScopeGuard prof("updateActiveSubmap", "/tmp/slam_profile.csv");
-    updateActiveSubmap(mapToRangeSensor, preProcessedScan);
-  }
+  const bool switched = (prevActiveSubmapIdx != activeSubmapIdx_);
 
-  const bool isActiveSubmapChanged = prevActiveSubmapIdx != activeSubmapIdx_;
+  if (switched) {
+    std::cout << "\033[1;44m\033[1;97m"
+              << "==================== ACTIVE SUBMAP CHANGED ====================\n"
+              << "   FROM SUBMAP ID: " << prevActiveSubmapIdx << "   TO SUBMAP ID: " << activeSubmapIdx_ << "\n"
+              << "==============================================================\033[0m\n";
 
-  if (isActiveSubmapChanged) {
-    ProfilerScopeGuard prof("handleSubmapSwitch", "/tmp/slam_profile.csv",
-                            "from=" + std::to_string(prevActiveSubmapIdx) + ",to=" + std::to_string(activeSubmapIdx_));
-
+    /* finish previous ----------------------------------------------------- */
     {
       std::lock_guard<std::mutex> lck(featureComputationMutex_);
-      ProfilerScopeGuard profScan("insertScan (old submap)", "/tmp/slam_profile.csv");
-      submaps_.at(prevActiveSubmapIdx).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
+      submaps_[prevActiveSubmapIdx].insertScan(raw, proc, mapToRS, stamp, true);
     }
+    submaps_[prevActiveSubmapIdx].computeSubmapCenter();  // recompute centre ON EXIT
 
-    {
-      ProfilerScopeGuard prof("computeSubmapCenter", "/tmp/slam_profile.csv");
-      submaps_.at(prevActiveSubmapIdx).computeSubmapCenter();
-    }
-
-    std::cout << "Active submap changed from " << prevActiveSubmapIdx << " to " << activeSubmapIdx_ << "\n";
-    lastFinishedSubmapIdx_ = prevActiveSubmapIdx;
-    finishedSubmapsIdxs_.push({prevActiveSubmapIdx, timestamp});
+    finishedSubmapsIdxs_.push({prevActiveSubmapIdx, stamp});
     numScansMergedInActiveSubmap_ = 0;
 
-    {
-      ProfilerScopeGuard prof("updateAdjacency", "/tmp/slam_profile.csv");
-      const auto id1 = submaps_.at(prevActiveSubmapIdx).getId();
-      const auto id2 = submaps_.at(activeSubmapIdx_).getId();
-      adjacencyMatrix_.addEdge(id1, id2);
-    }
+    /* add edge in adjacency ---------------------------------------------- */
+    adjacencyMatrix_.addEdge(submaps_[prevActiveSubmapIdx].getId(), submaps_[activeSubmapIdx_].getId());
 
-    {
-      ProfilerScopeGuard prof("insertBufferedScans", "/tmp/slam_profile.csv");
-      insertBufferedScans(&submaps_.at(activeSubmapIdx_));
-    }
-
-    assert_true(!submaps_.at(activeSubmapIdx_).isEmpty(), "submap should not be empty after switching");
-
+    insertBufferedScans(&submaps_[activeSubmapIdx_]);
   } else {
-    ProfilerScopeGuard prof("insertScan (same submap)", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
-    submaps_.at(activeSubmapIdx_).insertScan(rawScan, preProcessedScan, mapToRangeSensor, timestamp, true);
+    submaps_[activeSubmapIdx_].insertScan(raw, proc, mapToRS, stamp, true);
   }
 
   ++numScansMergedInActiveSubmap_;
@@ -336,16 +575,39 @@ Constraints SubmapCollection::buildLoopClosureConstraints(const TimestampedSubma
 
 bool SubmapCollection::dumpToFile(const std::string& folderPath, const std::string& filename, const bool& isDenseMap) const {
   bool result = true;
-  for (size_t i = 0; i < submaps_.size(); ++i) {
+  const size_t n_submaps = submaps_.size();
+  for (size_t i = 0; i < n_submaps; ++i) {
     PointCloud copy;
     if (isDenseMap) {
       copy = submaps_.at(i).getDenseMapCopy().toPointCloud();
     } else {
       copy = submaps_.at(i).getMapPointCloudCopy();
     }
-    const std::string fullPath = folderPath + "/" + filename + "_" + std::to_string(i) + ".pcd";
-    result = result && open3d::io::WritePointCloudToPCD(fullPath, copy, open3d::io::WritePointCloudOption());
+
+    // Assign unique color to all points in submap i
+    Eigen::Vector3d color = getColorFromIndex(i, n_submaps);
+    copy.colors_.resize(copy.points_.size(), color);
+
+    // File path with .ply extension
+    const std::string fullPath = folderPath + "/" + filename + "_" + std::to_string(i) + ".ply";
+    result = result && open3d::io::WritePointCloud(fullPath, copy, {/* compressed = false, write_ascii = false, print_progress = false */});
   }
+
+  // Save center spheres
+  for (size_t i = 0; i < n_submaps; ++i) {
+    Eigen::Vector3d center = submaps_.at(i).getMapToSubmapCenter();
+    Eigen::Vector3d color = getColorFromIndex(i, n_submaps);
+
+    // Create a sphere mesh at the submap center
+    auto sphere = open3d::geometry::TriangleMesh::CreateSphere(0.3);  // radius in meters, adjust as needed
+    sphere->PaintUniformColor(color);
+    sphere->Translate(center);
+
+    // Save sphere mesh
+    const std::string spherePath = folderPath + "/" + filename + "_center_" + std::to_string(i) + ".ply";
+    open3d::io::WriteTriangleMesh(spherePath, *sphere, /*write_ascii=*/false, /*compressed=*/false, /*write_vertex_normals=*/true);
+  }
+
   return result;
 }
 
@@ -417,17 +679,35 @@ void SubmapCollection::setFolderPath(const std::string& folderPath) {
   placeRecognition_.setFolderPath(folderPath);
 }
 
-bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size_t newActiveSubmapCandidate,
-                                                    const Transform& mapToRangeSensor) const {
-  // Timer("submap_switch_consistency_check");
-  int numOverlappingPoints = 0;
-  const VoxelMap& voxelMap = submaps_.at(newActiveSubmapCandidate).getVoxelMap();
-  for (int i = 0; i < scan.points_.size(); ++i) {
-    const Eigen::Vector3d p = mapToRangeSensor * scan.points_.at(i);
-    numOverlappingPoints += int(voxelMap.hasVoxelContainingPoint(p));
+bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size_t cand, const Transform& T) const {
+  /* --- read-only fast path: no lock needed -------------------------- */
+  const Eigen::Vector3d robot = T.translation();
+  const auto& c = consistency_cache_[cand];  // never throws – vector sized
+
+  if (c.valid && (robot - c.last_position).norm() < kConsistencyCheckSpatialThresh)
+    return c.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
+  /* ------------------------------------------------------------------ */
+
+  /* --- we need to update the slot --> take the lock ----------------- */
+  std::lock_guard<std::mutex> lk(consistency_cache_mtx_);
+
+  // re-read after obtaining the lock (double-checked locking)
+  auto& cache = consistency_cache_[cand];
+  if (cache.valid && (robot - cache.last_position).norm() < kConsistencyCheckSpatialThresh)
+    return cache.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
+
+  int inliers = 0;
+  const VoxelMap& vox = submaps_[cand].getVoxelMap();
+  for (const auto& p_local : scan.points_) {
+    Eigen::Vector3d p = T * p_local;
+    inliers += static_cast<int>(vox.hasVoxelContainingPoint(p));
   }
-  const double fitness = static_cast<double>(numOverlappingPoints) / scan.points_.size();
-  //	std::cout << "Fitness: " << fitness << std::endl;
+  double fitness = static_cast<double>(inliers) / scan.points_.size();
+
+  cache.last_position = robot;
+  cache.last_fitness = fitness;
+  cache.valid = true;
+
   return fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
 }
 

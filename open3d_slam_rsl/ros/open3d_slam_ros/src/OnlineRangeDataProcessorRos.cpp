@@ -354,19 +354,24 @@ std::optional<visualization_msgs::Marker> OnlineRangeDataProcessorRos::generateM
   vectorsMarker.id = 0;
   vectorsMarker.scale.x = 0.02;
   vectorsMarker.color = colorMsg;
-  vectorsMarker.points.resize(pointCloud.points_.size() * 2);
 
-  const auto& surfaceNormalsView = pointCloud.normals_;
-  for (size_t i = 0; i < pointCloud.points_.size(); i += 2) {
-    // The actual position of the point that the surface normal belongs to.
-    vectorsMarker.points[i].x = pointCloud.points_[i][0];
-    vectorsMarker.points[i].y = pointCloud.points_[i][1];
-    vectorsMarker.points[i].z = pointCloud.points_[i][2];
+  const size_t n = pointCloud.points_.size();
+  vectorsMarker.points.resize(n * 2);
 
-    // End if arrow.
-    vectorsMarker.points[i + 1].x = pointCloud.points_[i][0] + surfaceNormalsView[i][0] * 0.09;
-    vectorsMarker.points[i + 1].y = pointCloud.points_[i][1] + surfaceNormalsView[i][1] * 0.09;
-    vectorsMarker.points[i + 1].z = pointCloud.points_[i][2] + surfaceNormalsView[i][2] * 0.09;
+  const auto& points = pointCloud.points_;
+  const auto& normals = pointCloud.normals_;
+
+#pragma omp parallel for
+  for (int i = 0; i < static_cast<int>(n); ++i) {
+    // Start point of the normal
+    vectorsMarker.points[2 * i].x = points[i][0];
+    vectorsMarker.points[2 * i].y = points[i][1];
+    vectorsMarker.points[2 * i].z = points[i][2];
+
+    // End point (arrow tip)
+    vectorsMarker.points[2 * i + 1].x = points[i][0] + normals[i][0] * 0.09;
+    vectorsMarker.points[2 * i + 1].y = points[i][1] + normals[i][1] * 0.09;
+    vectorsMarker.points[2 * i + 1].z = points[i][2] + normals[i][2] * 0.09;
   }
 
   return vectorsMarker;

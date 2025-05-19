@@ -28,6 +28,7 @@
 #include <small_gicp/factors/symmetric_plane_icp_factor.hpp>
 #include <small_gicp/points/point_cloud.hpp>
 #include <small_gicp/registration/reduction_omp.hpp>
+#include <small_gicp/registration/reduction_omp_trimmed.hpp>
 #include <small_gicp/registration/registration.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 #include <small_gicp/util/downsampling_omp.hpp>
@@ -53,6 +54,7 @@ class Mapper {
   const SubmapCollection& getSubmaps() const;
   SubmapCollection* getSubmapsPtr();
   PointCloud getAssembledMapPointCloud() const;
+  PointCloud getAssembledMapPointCloudVisualization() const;
   MapperParameters* getParametersPtr();
   Transform getMapToOdom(const Time& timestamp) const;
   Transform getMapToRangeSensor(const Time& timestamp) const;
@@ -69,8 +71,12 @@ class Mapper {
   void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
 
+  void copyOrEstimateNormals(const open3d::geometry::PointCloud& src, small_gicp::PointCloud& dst,
+                             small_gicp::KdTree<small_gicp::PointCloud>& dst_tree, int normal_knn = 10, int num_threads = 0);
+
   // This is re-initialized in the constructor as well as by a setter.
   Transform calibration_ = Transform::Identity();
+  Transform lastReferenceInitializationPose_ = Transform::Identity();
   bool isCalibrationSet_ = false;
 
   nav_msgs::Path trackedPath_;
@@ -80,10 +86,13 @@ class Mapper {
 
   using RegistrationType = small_gicp::Registration<
       small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::SymmetricPointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,
-      small_gicp::NullFactor,
-      small_gicp::CompoundRejector,                    // CompoundRejector //
-      small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //RobustLevenbergMarquardtOptimizer //
-                                                       // LevenbergMarquardtOptimizer // ICPFactor //NullRejector //Cauchy
+      small_gicp::NullFactor,                          // Empty_Factor, Cauchy, Huber
+      small_gicp::CompoundRejector,                    // CompoundRejector //DistanceRejector //NullRejector // ParallelReductionOMPTrimmed
+      small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //PointToPlaneICPFactor
+                                                       // //HouseholderSolver LevenbergMarquardtOptimizer
+                                                       // //RobustLevenbergMarquardtOptimizer //GaussNewtonOptimizer ICPFactor
+                                                       // //NullRejector
+                                                       // //Cauchy
 
   // using RegistrationType = small_gicp::Registration<
   //     small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::SymmetricPointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,

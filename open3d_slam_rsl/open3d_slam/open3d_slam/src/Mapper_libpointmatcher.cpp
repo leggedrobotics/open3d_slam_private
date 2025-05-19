@@ -199,7 +199,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   {
     ProfilerScopeGuard scope("checkTransformBuffer", "/tmp/slam_profile.csv");
-    bool isOdomOkay = odomToRangeSensorBuffer_.has(timestamp);
+    bool isOdomOkay = odomToRangeSensorBuffer_.has_query(timestamp);
     if (!isOdomOkay) {
       std::cerr << "WARNING: odomToRangeSensorBuffer_ DOES NOT HAVE THE DESIRED TRANSFORM! \n";
       std::cerr << "Going to attempt the scan to map refinement anyway. \n";

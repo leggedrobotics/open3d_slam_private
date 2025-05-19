@@ -23,6 +23,7 @@ std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(doubl
                                                                            const open3d::geometry::PointCloud& cloud);
 void randomDownSample(double downSamplingRatio, open3d::geometry::PointCloud* pcl);
 void voxelize(double voxelSize, open3d::geometry::PointCloud* pcl);
+Eigen::Vector3d getColorFromIndex(size_t idx, size_t total);
 
 void estimateNormals(int numNearestNeighbours, open3d::geometry::PointCloud* pcl);
 

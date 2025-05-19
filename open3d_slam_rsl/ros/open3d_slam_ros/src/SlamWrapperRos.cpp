@@ -384,12 +384,21 @@ void SlamWrapperRos::publishMaps(const Time& time) {
 
   const ros::Time timestamp = toRos(time);
   {
-    PointCloud map = mapper_->getAssembledMapPointCloud();
-    voxelize(params_.visualization_.assembledMapVoxelSize_, &map);
-    o3d_slam::publishCloud(map, frames_.mapFrame, timestamp, assembledMapPub_);
+    if (assembledMapPub_.getNumSubscribers() > 0) {
+      PointCloud map = mapper_->getAssembledMapPointCloudVisualization();
+      voxelize(params_.visualization_.assembledMapVoxelSize_, &map);
+      o3d_slam::publishCloud(map, frames_.mapFrame, timestamp, assembledMapPub_);
+    }
   }
-  o3d_slam::publishCloud(mapper_->getPreprocessedScan(), frames_.rangeSensorFrame, timestamp, mappingInputPub_);
-  o3d_slam::publishSubmapCoordinateAxes(mapper_->getSubmaps(), frames_.mapFrame, timestamp, submapOriginsPub_);
+
+  if (mappingInputPub_.getNumSubscribers() > 0) {
+    o3d_slam::publishCloud(mapper_->getPreprocessedScan(), frames_.rangeSensorFrame, timestamp, mappingInputPub_);
+  }
+
+  if (submapOriginsPub_.getNumSubscribers() > 0) {
+    o3d_slam::publishSubmapCoordinateAxes(mapper_->getSubmaps(), frames_.mapFrame, timestamp, submapOriginsPub_);
+  }
+
   if (submapsPub_.getNumSubscribers() > 0) {
     open3d::geometry::PointCloud cloud;
     o3d_slam::assembleColoredPointCloud(mapper_->getSubmaps(), &cloud);

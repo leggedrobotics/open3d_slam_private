@@ -35,7 +35,7 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
   // `updates` with default parameters
   update(params_);
-  double max_correspondence_distance = 2.0;
+  double max_correspondence_distance = 0.5;
   small_registration_.reduction.num_threads = 8;
   small_registration_.rejector.max_dist_sq = max_correspondence_distance * max_correspondence_distance;
   small_registration_.criteria.rotation_eps = 0.05 * M_PI / 180.0;  // 0.001;
@@ -155,7 +155,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     submaps_->setMapToRangeSensor(mapToRangeSensor_);
   }
 
-  if (submaps_->getActiveSubmap().isEmpty()) {
+  if (submaps_->getNumSubmaps() == 0) {
     ProfilerScopeGuard scope("insertInitialScan", "/tmp/slam_profile.csv");
 
     if (params_.isUseInitialMap_) {
@@ -163,7 +163,51 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       submaps_->insertScan(rawScan, rawScan, mapToRangeSensor_, timestamp);
     } else {
       mapToRangeSensorPrev_ = mapToRangeSensor_;
-      ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
+      ProcessedScans processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_, true);
+
+      {
+        ProfilerScopeGuard scope_source_init("sourceInit", "/tmp/slam_profile.csv",
+                                             "size=" + std::to_string(processed.merge_->points_.size()));
+
+        source_ = std::make_shared<small_gicp::PointCloud>(processed.merge_->points_);
+        // c_s = computeCentroid(*source_);
+        // translatePointCloud(*source_, -c_s);
+      }
+
+      {
+        ProfilerScopeGuard scope_source_kdtree("sourceKdTree", "/tmp/slam_profile.csv");
+        source_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(source_, small_gicp::KdTreeBuilderOMP(4));
+      }
+
+      {
+        ProfilerScopeGuard scope_source_normals("sourceNormals", "/tmp/slam_profile.csv");
+
+        small_gicp::PointCloud& dst = *source_;  // always small‑gicp
+        const auto& src_ptr = processed.merge_;  // OPEN3D ptr
+        // const std::size_t N = dst.size();
+
+        const int num_threads = (small_registration_.reduction.num_threads > 0) ? small_registration_.reduction.num_threads
+                                                                                : static_cast<int>(std::thread::hardware_concurrency());
+
+        estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
+
+        const size_t N = dst.normals.size();
+        if (processed.merge_->normals_.size() != N) processed.merge_->normals_.resize(N);
+
+        constexpr size_t OMP_THRESHOLD = 8192;
+        if (N >= OMP_THRESHOLD) {
+#pragma omp parallel for schedule(static)
+          for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
+            // Efficient: Copy first 3 doubles from dst.normals[i] to processed.match_->normals_[i]
+            std::memcpy(processed.merge_->normals_[i].data(), dst.normals[i].data(), 3 * sizeof(double));
+          }
+        } else {
+          for (size_t i = 0; i < N; ++i) {
+            std::memcpy(processed.merge_->normals_[i].data(), dst.normals[i].data(), 3 * sizeof(double));
+          }
+        }
+      }
+
       submaps_->insertScan(rawScan, *processed.merge_, mapToRangeSensor_, timestamp);
       mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
       bestGuessBuffer_.push(timestamp, mapToRangeSensor_);
@@ -202,7 +246,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
   {
     ProfilerScopeGuard scope("checkTransformBuffer", "/tmp/slam_profile.csv");
-    bool isOdomOkay = odomToRangeSensorBuffer_.has(timestamp);
+    bool isOdomOkay = odomToRangeSensorBuffer_.has_query(timestamp);
     if (!isOdomOkay) {
       std::cerr << "WARNING: odomToRangeSensorBuffer_ DOES NOT HAVE THE DESIRED TRANSFORM! \n";
       std::cerr << "Going to attempt the scan to map refinement anyway. \n";
@@ -227,101 +271,93 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   ProcessedScans processed;
   {
     ProfilerScopeGuard scope("scanPreprocessing", "/tmp/slam_profile.csv");
-    // auxilaryTimer_.startStopwatch();
-    processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_);
+    processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_, false);
   }
-  // double auxilarytimeElapsed = auxilaryTimer_.elapsedMsecSinceStopwatchStart();
-  // auxilaryTimer_.addMeasurementMsec(auxilarytimeElapsed);
 
   Transform correctedTransform_o3d;
   {
+    // Compute time since last reference update
     double passedTime =
         std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
 
-    if (isNewValueSetMapper_ || (passedTime >= params_.scanMatcher_.icp_.referenceCloudSettingPeriod_)) {
+    // Compute relative motion since last reference update
+    Transform relative = lastReferenceInitializationPose_.inverse() * mapToRangeSensor_;
+    double translation = relative.translation().norm();
+    double rotation = Eigen::AngleAxisd(relative.linear()).angle();
+
+    // Configurable thresholds
+    const double minTrans = 0.5;  // meters
+    // Convert degrees to radians for minRot parameter
+    const double minRot = 5.0 * M_PI / 180.0;                                           // degrees to radians
+    const double minInterval = params_.scanMatcher_.icp_.referenceCloudSettingPeriod_;  // seconds
+
+    bool enoughMotion = (translation >= minTrans) || (rotation >= minRot);
+    bool enoughTime = (passedTime >= minInterval);
+    bool updateReference = isNewValueSetMapper_ || (enoughMotion && enoughTime);
+
+    if (updateReference) {
       PointCloudPtr mapPatch;
       {
         ProfilerScopeGuard scope_crop("cropSubmap", "/tmp/slam_profile.csv");
-        mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_);
+
+        if (submaps_->getNumSubmaps() == 1) {
+          // Only one submap, crop from the active submap
+          mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_, false);
+        } else {
+          size_t active = submaps_->activeSubmapIdx_;
+
+          /* K-1 = 1 neighbour  →  total K = 2 maps in the composite */
+          std::vector<size_t> nbrs = submaps_->findKClosestSubmaps(mapToRangeSensor_,
+                                                                   /*k=*/2,  // number of neighbours you want
+                                                                   active);  // <-- exclude only for search
+
+          nbrs.push_back(active);
+          mapPatch = submaps_->getCachedCompositeSubmapFromMulti(nbrs);
+
+          // TODO needs work.
+          // mapPatch = submaps_->getCachedCompositeSubmapFromVoxel(nbrs);
+        }
       }
 
-      if (mapPatch->IsEmpty()) return false;
+      if (mapPatch->IsEmpty()) {
+        std::cerr << "\033[1;31m[Mapper] mapPatch is empty! Skipping scan matching.\033[0m" << std::endl;
+        return false;
+      }
 
       std::lock_guard<std::mutex> lck(mapManipulationMutex_);
       lastReferenceInitializationTimestamp_ = timestamp;
+      lastReferenceInitializationPose_ = mapToRangeSensor_;  // save pose for next time
 
       {
         ProfilerScopeGuard scope_target_init("targetInit", "/tmp/slam_profile.csv", "size=" + std::to_string(mapPatch->points_.size()));
         target_ = std::make_shared<small_gicp::PointCloud>(mapPatch->points_);
-        // c_t = computeCentroid(*target_);
-        // translatePointCloud(*target_, -c_t);
       }
 
       {
         ProfilerScopeGuard scope_target_kdtree("targetKdTree", "/tmp/slam_profile.csv");
-        // We anyway need the tree for the correspondance search.
-        target_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(
-            target_, small_gicp::KdTreeBuilderOMP(static_cast<int>(std::thread::hardware_concurrency())));
+        target_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(target_, small_gicp::KdTreeBuilderOMP(8));
       }
 
       {
         ProfilerScopeGuard scope_target_cov("targetNormals", "/tmp/slam_profile.csv");
-
-        small_gicp::PointCloud& dst = *target_;  // always small‑gicp
-        const auto& tgt_ptr = mapPatch;          // OPEN3D ptr
-        const std::size_t N = dst.size();
-
-        /* Are normals available on the *Open3D* cloud? ------------------- */
-        if (tgt_ptr->HasNormals() && tgt_ptr->normals_.size() == N) {
-          if (dst.normals.size() != N) dst.normals.resize(N);
-
-          assert((reinterpret_cast<uintptr_t>(dst.normals.data()) & 0xF) == 0 && "dst.normals is not 16‑byte aligned");
-
-          constexpr std::size_t OMP_THRESHOLD = 8192;
-
-          if (N >= OMP_THRESHOLD) {
-#pragma omp parallel for schedule(static)
-            for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
-              /* Open3D keeps normals in Eigen::Vector3d, so copy three doubles */
-              std::memcpy(dst.normals[i].data(), tgt_ptr->normals_[i].data(), 3 * sizeof(double));
-              dst.normals[i][3] = 0.0;
-            }
-          } else {
-            for (std::size_t i = 0; i < N; ++i) {
-              std::memcpy(dst.normals[i].data(), tgt_ptr->normals_[i].data(), 3 * sizeof(double));
-              dst.normals[i][3] = 0.0;
-            }
-          }
-        }
-        /* --------------------------------------------------------------- */
-        else {
-          const int num_threads = (small_registration_.reduction.num_threads > 0) ? small_registration_.reduction.num_threads
-                                                                                  : static_cast<int>(std::thread::hardware_concurrency());
-
-          estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
-        }
+        copyOrEstimateNormals(*mapPatch, *target_, *target_tree_, /*knn=*/10, /*num_threads=*/8);
       }
     }
 
     {
       ProfilerScopeGuard scope_source_init("sourceInit", "/tmp/slam_profile.csv",
-                                           "size=" + std::to_string(processed.match_->points_.size()));
+                                           "size=" + std::to_string(processed.merge_->points_.size()));
 
-      source_ = std::make_shared<small_gicp::PointCloud>(processed.match_->points_);
+      source_ = std::make_shared<small_gicp::PointCloud>(processed.merge_->points_);
       // c_s = computeCentroid(*source_);
       // translatePointCloud(*source_, -c_s);
-    }
-
-    {
-      ProfilerScopeGuard scope_source_kdtree("sourceKdTree", "/tmp/slam_profile.csv");
-      source_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(source_, small_gicp::KdTreeBuilderOMP(4));
     }
 
     {
       ProfilerScopeGuard scope_source_normals("sourceNormals", "/tmp/slam_profile.csv");
 
       small_gicp::PointCloud& dst = *source_;  // always small‑gicp
-      const auto& src_ptr = processed.match_;  // OPEN3D ptr
+      const auto& src_ptr = processed.merge_;  // OPEN3D ptr
       const std::size_t N = dst.size();
 
       /* Are normals available on the *Open3D* cloud? ------------------- */
@@ -348,10 +384,33 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       }
       /* --------------------------------------------------------------- */
       else {
+        ProfilerScopeGuard scope_source_normals("sourceNormalsCalculatedAndCopied", "/tmp/slam_profile.csv");
         const int num_threads = (small_registration_.reduction.num_threads > 0) ? small_registration_.reduction.num_threads
                                                                                 : static_cast<int>(std::thread::hardware_concurrency());
 
+        {
+          // Source tree is only needed for the normals calculation
+          ProfilerScopeGuard scope_source_kdtree("sourceKdTree", "/tmp/slam_profile.csv");
+          source_tree_ = std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(source_, small_gicp::KdTreeBuilderOMP(4));
+        }
+
         estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
+
+        const size_t N = dst.normals.size();
+        if (processed.merge_->normals_.size() != N) processed.merge_->normals_.resize(N);
+
+        constexpr size_t OMP_THRESHOLD = 8192;
+        if (N >= OMP_THRESHOLD) {
+#pragma omp parallel for schedule(static)
+          for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
+            // Efficient: Copy first 3 doubles from dst.normals[i] to processed.match_->normals_[i]
+            std::memcpy(processed.merge_->normals_[i].data(), dst.normals[i].data(), 3 * sizeof(double));
+          }
+        } else {
+          for (size_t i = 0; i < N; ++i) {
+            std::memcpy(processed.merge_->normals_[i].data(), dst.normals[i].data(), 3 * sizeof(double));
+          }
+        }
       }
     }
 
@@ -359,16 +418,29 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       ProfilerScopeGuard scope_icp_align("icpAlign", "/tmp/slam_profile.csv");
       std::lock_guard<std::mutex> lck(mapManipulationMutex_);
 
-      Eigen::Isometry3d init_T_target_source =
-          Eigen::Translation3d(-c_t) * Eigen::Isometry3d(mapToRangeSensorEstimate.matrix()) * Eigen::Translation3d(c_s);
+      // Eigen::Isometry3d init_T_target_source =
+      //     Eigen::Translation3d(-c_t) * Eigen::Isometry3d(mapToRangeSensorEstimate.matrix()) * Eigen::Translation3d(c_s);
 
-      // Eigen::Isometry3d init_T_target_source(mapToRangeSensorEstimate.matrix());
-
+      Eigen::Isometry3d init_T_target_source(mapToRangeSensorEstimate.matrix());
       auto result = small_registration_.align(*target_, *source_, *target_tree_, init_T_target_source);
-
-      result.T_target_source = Eigen::Translation3d(c_t) * result.T_target_source * Eigen::Translation3d(-c_s);
-
+      // result.T_target_source = Eigen::Translation3d(c_t) * result.T_target_source * Eigen::Translation3d(-c_s);
       correctedTransform_o3d.matrix() = result.T_target_source.matrix();
+
+      // Check if the result transform differs too much from the initial transform
+      double translation_diff = (result.T_target_source.translation() - init_T_target_source.translation()).norm();
+      double rotation_diff = Eigen::AngleAxisd(result.T_target_source.linear().transpose() * init_T_target_source.linear()).angle();
+
+      const double max_translation_diff = 2.0;               // meters
+      const double max_rotation_diff = 50.0 * M_PI / 180.0;  // 30 degrees in radians
+
+      if (translation_diff > max_translation_diff || rotation_diff > max_rotation_diff) {
+        std::cerr << "\n\n\033[1;41;97m"
+                  << "!!!!!!! ICP result transform differs too much from initial guess: "
+                  << "translation diff = " << translation_diff << ", rotation diff (deg) = " << (rotation_diff * 180.0 / M_PI)
+                  << ". Using initial guess instead! "
+                  << "\033[0m\n\n";
+        correctedTransform_o3d.matrix() = init_T_target_source.matrix();
+      }
     }
   }
 
@@ -383,7 +455,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     return true;
   }
 
-  preProcessedScan_ = *processed.match_;
+  preProcessedScan_ = *processed.merge_;
+  // preProcessedScan_ = *processed.match_;
   mapToRangeSensor_.matrix() = correctedTransform_o3d.matrix();
   mapToRangeSensorBuffer_.push(timestamp, mapToRangeSensor_);
   bestGuessBuffer_.push(timestamp, mapToRangeSensorEstimate);
@@ -420,6 +493,44 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   return true;
 }
 
+void Mapper::copyOrEstimateNormals(const open3d::geometry::PointCloud& src, small_gicp::PointCloud& dst,
+                                   small_gicp::KdTree<small_gicp::PointCloud>& dst_tree, int normal_knn, int num_threads) {
+  const std::size_t N = dst.size();
+  assert(N == src.points_.size());
+
+  constexpr std::size_t OMP_THRESHOLD = 16384;  // Use single-threaded below this
+  constexpr std::size_t BLOCK_SIZE = 256;       // Cache-aware block size for OMP scheduling
+
+  if (src.HasNormals() && src.normals_.size() == N) {
+    if (dst.normals.size() != N) dst.normals.resize(N);
+
+    assert((reinterpret_cast<uintptr_t>(dst.normals.data()) & 0xF) == 0 && "dst.normals is not 16-byte aligned");
+
+    const Eigen::Vector3d* src_ptr = src.normals_.data();
+    Eigen::Vector4d* dst_ptr = dst.normals.data();
+
+    if (N < OMP_THRESHOLD || (num_threads == 1)) {
+      // Single-threaded copy for small clouds
+      for (std::size_t i = 0; i < N; ++i) {
+        std::memcpy(dst_ptr[i].data(), src_ptr[i].data(), 3 * sizeof(double));
+        dst_ptr[i][3] = 0.0;
+      }
+    } else {
+      if (num_threads <= 0) num_threads = static_cast<int>(std::thread::hardware_concurrency());
+// Multi-threaded, cache-blocked copy
+#pragma omp parallel for schedule(static, BLOCK_SIZE) num_threads(num_threads)
+      for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
+        std::memcpy(dst_ptr[i].data(), src_ptr[i].data(), 3 * sizeof(double));
+        dst_ptr[i][3] = 0.0;
+      }
+    }
+  } else {
+    // Fallback: estimate normals if Open3D cloud lacks them
+    if (num_threads <= 0) num_threads = static_cast<int>(std::thread::hardware_concurrency());
+    estimate_normals_omp(dst, dst_tree, normal_knn, num_threads);
+  }
+}
+
 Eigen::Vector3d Mapper::computeCentroid(const small_gicp::PointCloud& pc) {
   const size_t N = pc.size();
   Eigen::Vector3d sum = Eigen::Vector3d::Zero();
@@ -439,6 +550,61 @@ void Mapper::translatePointCloud(small_gicp::PointCloud& pc, const Eigen::Vector
   for (std::int64_t i = 0; i < static_cast<std::int64_t>(N); ++i) {
     pc.point(i).head<3>() += t;
   }
+}
+
+Mapper::PointCloud Mapper::getAssembledMapPointCloudVisualization() const {
+  const size_t nSubmaps = submaps_->getNumSubmaps();
+  if (nSubmaps == 0) {
+    std::cerr << "No submaps. Returning empty cloud." << std::endl;
+    return PointCloud();
+  }
+
+  std::vector<size_t> per_submap_sizes(nSubmaps, 0);
+  std::vector<std::vector<Eigen::Vector3d>> thread_points(nSubmaps);
+
+#pragma omp parallel for
+  for (int i = 0; i < static_cast<int>(nSubmaps); ++i) {
+    const auto& submap = submaps_->getSubmap(i);
+    const auto& voxel_map = submap.getVoxelMap();
+    auto& points_out = thread_points[i];
+
+    // Check if voxel_map has any occupied voxels
+    size_t voxel_count = 0;
+    for (const auto& kv : voxel_map.voxels_) {
+      if (!kv.second.idxs_.empty()) ++voxel_count;
+    }
+
+    if (voxel_count > 0) {
+      // Use voxel map centers
+      points_out.reserve(voxel_count);
+      for (const auto& kv : voxel_map.voxels_) {
+        if (!kv.second.idxs_.empty()) {
+          points_out.push_back(voxel_map.getCenterFromKey(kv.first));
+        }
+      }
+    } else {
+      // Fallback: use raw point cloud
+      const auto& pc = submap.getMapPointCloud();
+      points_out.assign(pc.points_.begin(), pc.points_.end());
+    }
+    per_submap_sizes[i] = points_out.size();
+  }
+
+  // Print verbose info
+  size_t total_points = 0;
+  for (size_t i = 0; i < nSubmaps; ++i) {
+    // std::cout << "[AssembledMap] Submap " << i << " has " << per_submap_sizes[i] << " points." << std::endl;
+    total_points += per_submap_sizes[i];
+  }
+  // std::cout << "[AssembledMap] Total points in assembled map: " << total_points << std::endl;
+
+  // Merge results
+  PointCloud cloud;
+  cloud.points_.reserve(total_points);
+  for (auto& pts : thread_points) {
+    cloud.points_.insert(cloud.points_.end(), std::make_move_iterator(pts.begin()), std::make_move_iterator(pts.end()));
+  }
+  return cloud;
 }
 
 Mapper::PointCloud Mapper::getAssembledMapPointCloud() const {

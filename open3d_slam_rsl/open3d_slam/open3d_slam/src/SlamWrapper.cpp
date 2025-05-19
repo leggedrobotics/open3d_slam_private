@@ -273,8 +273,8 @@ void SlamWrapper::finishProcessing() {
   numLatesLoopClosureConstraints_ = -1;
   submaps_->forceNewSubmapCreation();
   while (isRunWorkers_) {
+    computeFeaturesIfReady();
     if (params_.mapper_.isAttemptLoopClosures_) {
-      computeFeaturesIfReady();
       attemptLoopClosuresIfReady();
     } else {
       break;
@@ -309,10 +309,10 @@ void SlamWrapper::offlineFinishProcessing() {
   std::cout << "Finishing all submaps! \n";
   numLatesLoopClosureConstraints_ = -1;
   submaps_->forceNewSubmapCreation();
-
+  computeFeaturesIfReady();
   if (params_.mapper_.isAttemptLoopClosures_) {
     // In the current setup the async thread is not helping.
-    computeFeaturesIfReady();
+
     attemptLoopClosuresIfReady();
   } else {
     std::cout << "Loop closure feature is toggled off. Will not attempt! \n";
@@ -605,7 +605,7 @@ void SlamWrapper::unifiedWorkerMap() {
       TimestampedPointCloud meas = mappingBuffer_.wait_and_pop();
 
       /* sanity check – unchanged                                            */
-      if (!odometry_->getBuffer().has(meas.time_)) {
+      if (!odometry_->getBuffer().has_query(meas.time_)) {
         std::cout << "Weird, the odom buffer does not seem to have the transform!\n";
         std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << '\n';
         auto& b = odometry_->getBuffer();
@@ -637,10 +637,9 @@ void SlamWrapper::unifiedWorkerMap() {
         guess.targetFrame_ = frames_.mapFrame;
         registrationBestGuessBuffer_.push(guess);
       }
-
+      computeFeaturesIfReady();
       /* optional loop-closure related work (runs after every frame)         */
       if (params_.mapper_.isAttemptLoopClosures_) {
-        computeFeaturesIfReady();
         attemptLoopClosuresIfReady();
         checkIfOptimizedGraphAvailable();
       }
@@ -687,7 +686,7 @@ void SlamWrapper::unifiedWorker() {
 
     TimestampedPointCloud measurement_map = mappingBuffer_.pop();
 
-    if (!odometry_->getBuffer().has(measurement_map.time_)) {
+    if (!odometry_->getBuffer().has_query(measurement_map.time_)) {
       std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
       std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
       const auto& b = odometry_->getBuffer();
@@ -696,13 +695,12 @@ void SlamWrapper::unifiedWorker() {
       std::cout << "requested: " << toSecondsSinceFirstMeasurement(measurement_map.time_) << std::endl;
     }
 
-    // Get the active submap size.
-    const size_t activeSubmapIdx = mapper_->getActiveSubmap().getId();
-
     // Entry point to the mapper. Also does the registration.
     const bool mappingResult = mapper_->addRangeMeasurement(measurement_map.cloud_, measurement_map.time_);
 
     if (mappingResult) {
+      // Get the active submap size.
+      const size_t activeSubmapIdx = mapper_->getActiveSubmap().getId();
       RegisteredPointCloud registeredCloud;
       registeredCloud.submapId_ = activeSubmapIdx;
       registeredCloud.raw_ = measurement_map;
@@ -768,7 +766,7 @@ void SlamWrapper::odometryWorker() {
 }
 
 bool SlamWrapper::doesOdometrybufferHasMeasurement(const Time& t) {
-  bool success = odometry_->getBuffer().has(t);
+  bool success = odometry_->getBuffer().has_query(t);
   if (!success) {
     std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
     std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
@@ -789,7 +787,7 @@ void SlamWrapper::offlineMappingWorker() {
 
   TimestampedPointCloud measurement = mappingBuffer_.pop();
 
-  if (!odometry_->getBuffer().has(measurement.time_)) {
+  if (!odometry_->getBuffer().has_query(measurement.time_)) {
     std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
     std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
     const auto& b = odometry_->getBuffer();
@@ -798,9 +796,6 @@ void SlamWrapper::offlineMappingWorker() {
     std::cout << "requested: " << toSecondsSinceFirstMeasurement(measurement.time_) << std::endl;
   }
 
-  // Get the active submap size.
-  const size_t activeSubmapIdx = mapper_->getActiveSubmap().getId();
-
   mapperOnlyTimer_.startStopwatch();
 
   // Entry point to the mapper. Also does the registration.
@@ -808,6 +803,14 @@ void SlamWrapper::offlineMappingWorker() {
 
   const double timeElapsed = mapperOnlyTimer_.elapsedMsecSinceStopwatchStart();
   mapperOnlyTimer_.addMeasurementMsec(timeElapsed);
+
+  // TimestampedTransform latestOdomMeasurement = odometry_->getBuffer().latest_measurement(0);
+  // if (submaps_->getNumSubmaps() < 1) {
+  //   submaps_->createNewSubmap(latestOdomMeasurement.transform_);
+  // }
+
+  // Get the active submap size.
+  const size_t activeSubmapIdx = mapper_->getActiveSubmap().getId();
 
   // std::cout << " Last Scan to Map registration: " << "\033[92m" << timeElapsed
   //          << " msec , frequency: " << 1e3 / mapperOnlyTimer_.getAvgMeasurementMsec() << " Hz \n" << "\033[0m";
@@ -832,9 +835,9 @@ void SlamWrapper::offlineMappingWorker() {
     }
   }
 
+  computeFeaturesIfReady();
   // Compute the loop closure features if needed.
   if (params_.mapper_.isAttemptLoopClosures_) {
-    computeFeaturesIfReady();
     attemptLoopClosuresIfReady();
   }
 
@@ -903,7 +906,7 @@ void SlamWrapper::mappingWorker() {
       measurement.time_ = raw.time_;
       measurement.cloud_ = *undistortedCloud;
     }
-    if (!odometry_->getBuffer().has(measurement.time_)) {
+    if (!odometry_->getBuffer().has_query(measurement.time_)) {
       std::cout
           << "[O3D_slam] Weird, the odom buffer does not seem to have the transform. Latency of odometry might be high. Still trying. \n";
       std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
@@ -938,9 +941,8 @@ void SlamWrapper::mappingWorker() {
       bestGuess.targetFrame_ = frames_.mapFrame;
       registrationBestGuessBuffer_.push(bestGuess);
     }
-
+    computeFeaturesIfReady();
     if (params_.mapper_.isAttemptLoopClosures_) {
-      computeFeaturesIfReady();
       attemptLoopClosuresIfReady();
     }
 

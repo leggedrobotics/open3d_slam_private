@@ -54,8 +54,18 @@ PointCloudPtr ScanToMapIcp::reducedPreprocess(const PointCloud& in) const {
   return croppedCloud->RandomDownSample(params_.scanProcessing_.downSamplingRatio_);
 }
 
-ProcessedScans ScanToMapIcp::processForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const {
+ProcessedScans ScanToMapIcp::processForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor,
+                                                              bool passthrough) const {
   ProcessedScans retVal;
+
+  if (passthrough) {
+    // Assume PointCloudPtr can be constructed/copied from `in`
+    PointCloudPtr rawPtr = std::make_shared<PointCloud>(in);
+    retVal.match_ = rawPtr;
+    retVal.merge_ = rawPtr;
+    return retVal;
+  }
+
   PointCloudPtr narrowCropped, wideCropped;
   Timer timer;
   wideCropped = preprocess(in);
@@ -68,7 +78,8 @@ ProcessedScans ScanToMapIcp::processForScanMatchingAndMerging(const PointCloud& 
   return retVal;
 }
 
-PointCloudPtr ScanToMapIcp::reducedProcessForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor) const {
+PointCloudPtr ScanToMapIcp::reducedProcessForScanMatchingAndMerging(const PointCloud& in, const Transform& mapToRangeSensor,
+                                                                    bool passthrough) const {
   ProcessedScans retVal;
   PointCloudPtr wideCropped;
   wideCropped = reducedPreprocess(in);
@@ -87,7 +98,11 @@ PointCloudPtr ScanToMapIcp::getCroppedCloud(const PointCloudPtr& in) const {
   return narrowCropped;
 }
 
-PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor) const {
+PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor, bool passthrough) const {
+  if (passthrough) {
+    return std::make_shared<PointCloud>(activeSubmap.getMapPointCloud());
+  }
+
   const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();
   scanMatcherCropper_->setPose(mapToRangeSensor);
   PointCloudPtr mapPatch = scanMatcherCropper_->crop(activeSubmapPointCloud);

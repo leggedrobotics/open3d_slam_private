@@ -29,6 +29,12 @@ class SubmapCollection {
     Transform mapToRangeSensor_;
   };
 
+  struct ConsistencyCheckCache {
+    Eigen::Vector3d last_position;
+    double last_fitness;
+    bool valid = false;
+  };
+
  public:
   using SubmapId = Submap::SubmapId;
   using TimestampedSubmapIds = std::vector<TimestampedSubmapId>;
@@ -64,22 +70,45 @@ class SubmapCollection {
   void setFolderPath(const std::string& folderPath);
 
   void forceNewSubmapCreation();
+  void createNewSubmap(const Transform& mapToSubmap);
+  PointCloudPtr getCachedCompositeSubmapFromMulti(const std::vector<size_t>& neighbor_idxs) const;
+  PointCloudPtr getCachedCompositeSubmapFromVoxel(const std::vector<size_t>& neighbor_idxs) const;
+
+  std::vector<size_t> findKClosestSubmaps(const Transform& mapToRS, size_t k, size_t exclude_idx = SIZE_MAX) const;
+
+  PointCloud buildCompositeSubmapSingle(const std::vector<size_t>& idxs, double voxel_size_downsample = 0.0) const;
+  PointCloud buildCompositeSubmapFromMulti(const std::vector<size_t>& idxs) const;
+  PointCloud buildCompositeSubmapFromVoxel(const std::vector<size_t>& idxs) const;
+  size_t activeSubmapIdx_ = 0;
+
+  mutable std::vector<size_t> cached_neighbor_idxs_;
+  mutable PointCloudPtr cached_neighbor_cloud_;
+  mutable size_t cached_active_submap_idx_ = SIZE_MAX;
+  mutable std::mutex composite_cache_mutex_;
+  mutable PointCloudPtr cached_static_neighbors_cloud_;      // neighbours - active
+  mutable std::vector<size_t> cached_static_neighbor_idxs_;  // neighbours - active
+
+  mutable PointCloudPtr cached_static_cloud_;       // neighbours only
+  mutable std::vector<size_t> cached_static_idxs_;  // neighbour ids
+  mutable size_t cached_static_point_count_ = 0;    // for resize checks
+
+  mutable PointCloudPtr cached_combined_cloud_;   // neighbours + active
+  mutable size_t cached_active_point_count_ = 0;  // active size last time
 
  private:
   bool isSwitchingSubmapsConsistant(const PointCloud& scan, size_t newActiveSubmapCandidate, const Transform& mapToRangeSensor) const;
   void insertBufferedScans(Submap* submap);
   void addScanToBuffer(const PointCloud& scan, const Transform& mapToRangeSensor, const Time& timestamp);
   void updateActiveSubmap(const Transform& mapToRangeSensor, const PointCloud& scan);
-  void createNewSubmap(const Transform& mapToSubmap);
-  size_t findClosestSubmap(const Transform& mapToRangesensor) const;
+
+  // size_t findClosestSubmap(const Transform& mapToRangesensor) const;
+  size_t findClosestSubmap(const Transform& mapToRangeSensor, size_t exclude_idx) const;
   std::vector<size_t> getAllSubmapIdxs() const;
-  void recordSubmapVisit(size_t submapId);
-  bool isRecentlyVisited(size_t submapId) const;
 
   Transform mapToRangeSensor_ = Transform::Identity();
   Time timestamp_;
   std::vector<Submap> submaps_;
-  size_t activeSubmapIdx_ = 0;
+
   MapperParameters params_;
   size_t numScansMergedInActiveSubmap_ = 0;
   size_t lastFinishedSubmapIdx_ = 0;
@@ -94,12 +123,13 @@ class SubmapCollection {
   CircularBuffer<ScanTimeTransform> overlapScansBuffer_;
   std::string savingDataFolderPath_;
   bool isForceNewSubmapCreation_ = false;
+  std::vector<Eigen::Vector3d> lastVisitPosition_;
+  mutable std::vector<ConsistencyCheckCache> consistency_cache_;
+  mutable std::mutex consistency_cache_mtx_;
 
-  mutable std::mutex submapHistoryMutex_;
-  std::deque<size_t> recentSubmapHistory_;
-  const size_t maxSubmapHistorySize_ = 3;  // Keep last 3 for safety
   // TODO MAGIC
-  const double minDistanceToReturnToRecentSubmap_ = 5.0;  // in meters
+  // const double minDistanceToReturnToRecentSubmap_ = 30.0;  // in meters
+  const double kConsistencyCheckSpatialThresh = 5.0;  // meters
 };
 
 }  // namespace o3d_slam

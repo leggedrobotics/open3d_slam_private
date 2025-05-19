@@ -1,4 +1,6 @@
 open3d_slam_rsl/open3d_catkin/prebuilt
 open3d_slam_rsl/open3d_catkin/src
+open3d_slam_rsl/open3d_catkin/open3d/
+open3d_slam_rsl/open3d_catkin/tmp/
 *.pcd
 *.vscode

@@ -149,6 +149,11 @@ class VoxelHashMap {
     return search != voxels_.end() ? &(search->second) : nullptr;
   }
 
+  inline Eigen::Vector3d getCenterFromKey(const Eigen::Vector3i& key) const {
+    // No origin offset is currently tracked, so just use:
+    return key.cast<double>().array() * voxelSize_.array() + voxelSize_.array() * 0.5;
+  }
+
   Eigen::Vector3d getVoxelSize() const { return voxelSize_; }
 
   ContainerImpl_t voxels_;
