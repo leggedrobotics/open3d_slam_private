@@ -126,6 +126,8 @@ class SubmapCollection {
   std::vector<Eigen::Vector3d> lastVisitPosition_;
   mutable std::vector<ConsistencyCheckCache> consistency_cache_;
   mutable std::mutex consistency_cache_mtx_;
+  mutable VoxelMap consistencyCheckNeighbourVoxCopy_;
+  mutable size_t lastConsistencyCandidateSubmapIdx_ = std::numeric_limits<size_t>::max();
 
   // TODO MAGIC
   // const double minDistanceToReturnToRecentSubmap_ = 30.0;  // in meters

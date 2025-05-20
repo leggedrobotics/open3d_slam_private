@@ -679,28 +679,28 @@ void SubmapCollection::setFolderPath(const std::string& folderPath) {
   placeRecognition_.setFolderPath(folderPath);
 }
 
-bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size_t cand, const Transform& T) const {
-  /* --- read-only fast path: no lock needed -------------------------- */
+bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size_t candidateSubmapIdx, const Transform& T) const {
   const Eigen::Vector3d robot = T.translation();
-  const auto& c = consistency_cache_[cand];  // never throws – vector sized
+  const auto& c = consistency_cache_[candidateSubmapIdx];
 
   if (c.valid && (robot - c.last_position).norm() < kConsistencyCheckSpatialThresh)
     return c.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
-  /* ------------------------------------------------------------------ */
 
-  /* --- we need to update the slot --> take the lock ----------------- */
   std::lock_guard<std::mutex> lk(consistency_cache_mtx_);
-
-  // re-read after obtaining the lock (double-checked locking)
-  auto& cache = consistency_cache_[cand];
+  auto& cache = consistency_cache_[candidateSubmapIdx];
   if (cache.valid && (robot - cache.last_position).norm() < kConsistencyCheckSpatialThresh)
     return cache.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
 
+  // Update cached voxel map only if candidate changed
+  if (candidateSubmapIdx != lastConsistencyCandidateSubmapIdx_) {
+    consistencyCheckNeighbourVoxCopy_ = submaps_[candidateSubmapIdx].getVoxelMap();
+    lastConsistencyCandidateSubmapIdx_ = candidateSubmapIdx;
+  }
+
   int inliers = 0;
-  const VoxelMap& vox = submaps_[cand].getVoxelMap();
   for (const auto& p_local : scan.points_) {
     Eigen::Vector3d p = T * p_local;
-    inliers += static_cast<int>(vox.hasVoxelContainingPoint(p));
+    inliers += static_cast<int>(consistencyCheckNeighbourVoxCopy_.hasVoxelContainingPoint(p));
   }
   double fitness = static_cast<double>(inliers) / scan.points_.size();
 

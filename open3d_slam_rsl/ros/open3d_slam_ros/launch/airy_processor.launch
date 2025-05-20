@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+  <!-- Arguments -->
+  <arg name="launch_prefix" default="" doc="Prefix to launch node, e.g., 'gdb -ex run --args'"/>
+  <arg name="cloud_topic" default="/rslidar_points" doc="Input point cloud topic"/>
+  <arg name="pose_topic" default="/state_estimator/pose_in_odom" doc="Input point cloud topic"/>
+  <arg name="launch_rviz" default="true" doc="Whether to launch RViz visualization"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="rviz_config" default="$(find open3d_slam_ros)/rviz/airy.rviz"/>
+
+  <!-- Set ROS Param -->
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <!-- Main Node -->
+  <node name="airy_processor" pkg="open3d_slam_ros"
+        type="airy_processing_node" output="screen"
+        launch-prefix="$(arg launch_prefix)">
+    <param name="cloud_topic" value="$(arg cloud_topic)"/>
+    <param name="pose_topic" value="$(arg pose_topic)"/>
+  </node>
+
+  <!-- Visualization (optional) -->
+
+  <include file="$(find open3d_slam_ros)/launch/vis.launch">
+    <arg name="rviz_config" value="$(arg rviz_config)"/>
+    <arg name="launch_rviz" value="$(arg launch_rviz)"/>
+  </include>
+</launch>

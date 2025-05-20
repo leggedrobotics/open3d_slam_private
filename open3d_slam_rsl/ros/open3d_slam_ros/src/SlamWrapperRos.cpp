@@ -386,7 +386,7 @@ void SlamWrapperRos::publishMaps(const Time& time) {
   {
     if (assembledMapPub_.getNumSubscribers() > 0) {
       PointCloud map = mapper_->getAssembledMapPointCloudVisualization();
-      voxelize(params_.visualization_.assembledMapVoxelSize_, &map);
+      // voxelize(params_.visualization_.assembledMapVoxelSize_, &map);
       o3d_slam::publishCloud(map, frames_.mapFrame, timestamp, assembledMapPub_);
     }
   }

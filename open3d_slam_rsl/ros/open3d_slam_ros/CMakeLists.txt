@@ -15,6 +15,7 @@ set(SRC_FILES
   src/OnlineRangeDataProcessorRos.cpp
   src/creators.cpp
   src/DataProcessorRos.cpp
+  src/AiryProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
   src/ImuBuffer.cpp
@@ -108,25 +109,28 @@ target_link_libraries(mapping_node
   ${OpenMP_CXX_LIBRARIES}
   )
 
+  add_executable(airy_processing_node
+  src/airy_processing_node.cpp)
+
+target_link_libraries(airy_processing_node
+  ${catkin_LIBRARIES}
+  ${gflags_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  ${PROJECT_NAME}
+  ${OpenMP_CXX_LIBRARIES}
+  )
+target_compile_definitions(airy_processing_node PRIVATE EIGEN_DONT_PARALLELIZE)
+
+
 find_package(cmake_clang_tools QUIET)
 if(cmake_clang_tools_FOUND)
   message(STATUS "Run clang tooling for target " mapping_node)
+  message(STATUS "Run clang tooling for target " airy_processing_node)
   add_clang_tooling(
-    TARGETS mapping_node
+    TARGETS mapping_node airy_processing_node
     SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
     CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
     CF_FIX
     #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
   )
 endif(cmake_clang_tools_FOUND)
-
-add_executable(adjacency_graph_example_node
-  src/adjacency_graph_example_node.cpp
-  )
-
-target_link_libraries(adjacency_graph_example_node
-  ${catkin_LIBRARIES}
-  ${PROJECT_NAME}
-  )
-
-

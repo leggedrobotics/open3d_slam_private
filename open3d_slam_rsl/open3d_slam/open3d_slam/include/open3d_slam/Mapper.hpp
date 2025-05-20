@@ -90,19 +90,10 @@ class Mapper {
       small_gicp::CompoundRejector,                    // CompoundRejector //DistanceRejector //NullRejector // ParallelReductionOMPTrimmed
       small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //PointToPlaneICPFactor
                                                        // //HouseholderSolver LevenbergMarquardtOptimizer
-                                                       // //RobustLevenbergMarquardtOptimizer //GaussNewtonOptimizer ICPFactor
+                                                       // //RobustLevenbergMarquardtOptimizer //NonstandardLevenbergMarquardtOptimizer
+                                                       // //GaussNewtonOptimizer ICPFactor
                                                        // //NullRejector
                                                        // //Cauchy
-
-  // using RegistrationType = small_gicp::Registration<
-  //     small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::SymmetricPointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,
-  //     small_gicp::NullFactor,
-  //     small_gicp::NullRejector,                        // DistanceRejector //
-  //     small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //RobustLevenbergMarquardtOptimizer //
-  //                                                      // LevenbergMarquardtOptimizer // ICPFactor //NullRejector //Cauchy
-
-  // // small_gicp::Registration<small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::GICPFactor>, small_gicp::ParallelReductionOMP>
-  // //     small_registration_;
 
   RegistrationType small_registration_;
 

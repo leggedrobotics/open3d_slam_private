@@ -35,11 +35,11 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
   // `updates` with default parameters
   update(params_);
-  double max_correspondence_distance = 0.5;
+  double max_correspondence_distance = 0.4;
   small_registration_.reduction.num_threads = 8;
   small_registration_.rejector.max_dist_sq = max_correspondence_distance * max_correspondence_distance;
-  small_registration_.criteria.rotation_eps = 0.05 * M_PI / 180.0;  // 0.001;
-  small_registration_.criteria.translation_eps = 1e-2;              // 0.0008;
+  small_registration_.criteria.rotation_eps = 0.005 * M_PI / 180.0;  // 0.001;
+  small_registration_.criteria.translation_eps = 1e-3;               // 0.0008;
   small_registration_.optimizer.max_iterations = 30;
   small_registration_.optimizer.verbose = false;
 }
