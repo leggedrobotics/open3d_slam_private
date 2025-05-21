@@ -71,6 +71,39 @@ class AiryProcessorRos {
   sensor_msgs::PointCloud2 deskewPointCloud(const sensor_msgs::PointCloud2ConstPtr& msg);
   void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
 
+  void isom3d_to_mat33_vec3(const Eigen::Isometry3d& iso, double R[3][3], double t[3]);
+
+  // 3x3 matrix transpose
+  inline void mat3x3_transpose(const double in[3][3], double out[3][3]) {
+    out[0][0] = in[0][0];
+    out[0][1] = in[1][0];
+    out[0][2] = in[2][0];
+    out[1][0] = in[0][1];
+    out[1][1] = in[1][1];
+    out[1][2] = in[2][1];
+    out[2][0] = in[0][2];
+    out[2][1] = in[1][2];
+    out[2][2] = in[2][2];
+  }
+
+  // Matrix-vector multiply
+  inline void mat3x3_vec3_mult(const double M[3][3], const double v[3], double out[3]) {
+    out[0] = M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2];
+    out[1] = M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2];
+    out[2] = M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2];
+  }
+  inline void mat3x3_vec3_mult(const double M[3][3], const float v[3], double out[3]) {
+    out[0] = M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2];
+    out[1] = M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2];
+    out[2] = M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2];
+  }
+
+  // Matrix-matrix multiply (3x3 * 3x3)
+  inline void mat3x3_mult(const double A[3][3], const double B[3][3], double out[3][3]) {
+    for (int r = 0; r < 3; ++r)
+      for (int c = 0; c < 3; ++c) out[r][c] = A[r][0] * B[0][c] + A[r][1] * B[1][c] + A[r][2] * B[2][c];
+  }
+
   struct FieldOffsets {
     int x = -1, y = -1, z = -1, t = -1;
   };
@@ -89,6 +122,8 @@ class AiryProcessorRos {
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
+  float distance_cutoff_ = 0.5f;  // meters
+  double R_base_lidar_[3][3], t_base_lidar_[3];
 };
 
 }  // namespace airy_processor
