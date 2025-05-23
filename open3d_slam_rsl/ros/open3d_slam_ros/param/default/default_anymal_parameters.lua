@@ -82,11 +82,6 @@ params.dense_map_builder.space_carving.truncation_distance = 0.1
 --                        ICP REGISTRATION SETTINGS
 ----------------------------------------------------------------------
 
--- ICP registration tuning (some parameters might be unused)
-params.mapper_localizer.scan_to_map_registration.icp.max_correspondence_dist = 2e8
-params.mapper_localizer.scan_to_map_registration.icp.knn = 1e7
-params.mapper_localizer.scan_to_map_registration.icp.max_distance_knn = 2e7
-
 -- No downsampling before ICP registration
 params.mapper_localizer.scan_to_map_registration.scan_processing.downsampling_ratio = 1.0
 
