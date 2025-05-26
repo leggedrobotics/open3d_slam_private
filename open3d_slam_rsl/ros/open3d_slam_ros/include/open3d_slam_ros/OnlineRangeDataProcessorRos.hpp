@@ -67,6 +67,8 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
 
   ros::Timer staticTfCallback_;
 
+  uint64_t counter_ = 0;
+
   bool poseStampedCallBackEnabled_ = false;
   bool odometryCallBackEnabled_ = false;
   bool poseStampedWithCovarianceCallBackEnabled_ = false;

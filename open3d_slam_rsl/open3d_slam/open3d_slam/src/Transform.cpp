@@ -60,7 +60,7 @@ TimestampedTransform extrapolate(const TimestampedTransform& start, const Timest
   /* identical stamps → cannot extrapolate velocity */
   constexpr double kEps = 1e-12;
   const double duration = toSeconds(e.time_ - s.time_);
-  if (duration < kEps) return {query, s.transform_};  // best we can do: constant pose
+  if (duration < kEps) return {query, s.transform_};
 
   /* compute factor that may be <0 or >1 */
   const double factor = toSeconds(query - s.time_) / duration;

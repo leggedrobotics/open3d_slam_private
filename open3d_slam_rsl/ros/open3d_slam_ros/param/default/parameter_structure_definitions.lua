@@ -74,7 +74,7 @@ ICP_PARAMETERS = {
 
 SCAN_MATCHING_PARAMETERS = {
   icp = deepcopy(ICP_PARAMETERS),
-  cloud_registration_type = "GeneralizedIcp", -- options GeneralizedIcp, PointToPointIcp, PointToPlaneIcp
+  cloud_registration_type = "PointToPlaneIcp", -- options GeneralizedIcp, PointToPointIcp, PointToPlaneIcp
 }
 
 ODOMETRY_PARAMETERS = {

@@ -96,6 +96,28 @@ void SubmapCollection::insertBufferedScans(Submap* submap) {
   }
 }
 
+std::vector<size_t> SubmapCollection::findKMostOverlappingSubmaps(const PointCloud& scan, const Transform& T, size_t k,
+                                                                  size_t exclude) const {
+  std::vector<SubmapOverlap> overlaps;
+  overlaps.reserve(submaps_.size());
+
+  for (size_t i = 0; i < submaps_.size(); ++i) {
+    if (i == exclude) continue;
+    const auto& vox = submaps_[i].getVoxelMap();
+    int count = 0;
+    for (const auto& p_local : scan.points_) {
+      Eigen::Vector3d p = T * p_local;
+      count += vox.hasVoxelContainingPoint(p);
+    }
+    overlaps.push_back({i, count});
+  }
+  std::partial_sort(overlaps.begin(), overlaps.begin() + std::min(k, overlaps.size()), overlaps.end(),
+                    [](const SubmapOverlap& a, const SubmapOverlap& b) { return a.overlap_count > b.overlap_count; });
+  std::vector<size_t> out;
+  for (size_t j = 0; j < k && j < overlaps.size(); ++j) out.push_back(overlaps[j].submap_idx);
+  return out;
+}
+
 void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, const PointCloud& scan) {
   /* ---- forced creation --------------------------------------------------- */
   if (isForceNewSubmapCreation_) {
@@ -108,16 +130,17 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
     isForceNewSubmapCreation_ = false;
     return;
   }
-  if (params_.isUseInitialMap_) return;  // localisation‑only mode
+  // If using an initial map, do not update the active submap (localization-only mode)
+  if (params_.isUseInitialMap_) {
+    return;
+  }
 
-  /* ---- constants --------------------------------------------------------- */
   const Eigen::Vector3d robot = mapToRangeSensor_.translation();
   const size_t N = submaps_.size();
   const size_t cur_idx = activeSubmapIdx_;
   const Eigen::Vector3d cur_ctr = submaps_[cur_idx].getMapToSubmapCenter();
   const double d_cur = (robot - cur_ctr).norm();
 
-  /* ---- single‑submap case ------------------------------------------------ */
   if (N == 1) {
     if (d_cur > params_.submaps_.radius_) {
       std::cout << "\033[1;48;5;208m\033[1;30m"
@@ -130,11 +153,9 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
     return;
   }
 
-  /* ---- nearest distance (current included) ------------------------------- */
   size_t nearest_idx = findClosestSubmap(mapToRangeSensor_, SIZE_MAX);
   const double d_near = (robot - submaps_[nearest_idx].getMapToSubmapCenter()).norm();
 
-  /* ---- outside *all* radii? --------------------------------------------- */
   if (d_near > params_.submaps_.radius_) {
     std::cout << "\033[1;48;5;208m\033[1;30m"
               << "==================== NEW SUBMAP CREATED ====================\n"
@@ -146,10 +167,11 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
     return;
   }
 
-  /* ---- nearest is current – stay put ------------------------------------ */
-  if (nearest_idx == cur_idx) return;
+  // If the nearest submap is the current active submap, do nothing
+  if (nearest_idx == cur_idx) {
+    return;
+  }
 
-  /* ---- check adj. + consistency ----------------------------------------- */
   bool adj = adjacencyMatrix_.isAdjacent(submaps_[nearest_idx].getId(), submaps_[cur_idx].getId());
   bool ok = isSwitchingSubmapsConsistant(scan, nearest_idx, mapToRangeSensor);
   if (!adj || !ok) {
@@ -171,22 +193,79 @@ void SubmapCollection::updateActiveSubmap(const Transform& mapToRangeSensor, con
   }
 }
 
-std::vector<size_t> SubmapCollection::findKClosestSubmaps(const Transform& T, size_t k, size_t exclude) const {
+std::vector<size_t> SubmapCollection::selectActiveMostOverlapAndKClosest(const PointCloud& rawScan, const Transform& T, size_t k,
+                                                                         size_t active_submap_idx) const {
+  // Step 1: Compute k closest (excluding active)
   struct Pair {
     double d;
     size_t i;
   };
-  std::vector<Pair> tmp;
-  tmp.reserve(submaps_.size());
+  std::vector<Pair> dist_list;
+  dist_list.reserve(submaps_.size());
   Eigen::Vector3d p0 = T.translation();
 
-  for (size_t i = 0; i < submaps_.size(); ++i)
-    if (i != exclude) tmp.push_back({(p0 - submaps_[i].getMapToSubmapCenter()).norm(), i});
+  for (size_t i = 0; i < submaps_.size(); ++i) {
+    if (i == active_submap_idx) continue;
+    dist_list.push_back({(p0 - submaps_[i].getMapToSubmapCenter()).norm(), i});
+  }
+  std::partial_sort(dist_list.begin(), dist_list.begin() + std::min(k, dist_list.size()), dist_list.end(),
+                    [](const Pair& a, const Pair& b) { return a.d < b.d; });
 
-  std::partial_sort(tmp.begin(), tmp.begin() + std::min(k, tmp.size()), tmp.end(), [](const Pair& a, const Pair& b) { return a.d < b.d; });
+  std::vector<size_t> k_closest_idxs;
+  for (size_t j = 0; j < k && j < dist_list.size(); ++j) k_closest_idxs.push_back(dist_list[j].i);
 
+  // Step 2: Find the most-overlapping submap (excluding active)
+  size_t most_overlap_idx = SIZE_MAX;
+  int max_overlap = -1;
+  for (size_t i = 0; i < submaps_.size(); ++i) {
+    if (i == active_submap_idx) continue;
+    const auto& vox = submaps_[i].getVoxelMap();
+    int count = 0;
+    for (const auto& p_local : rawScan.points_) {
+      Eigen::Vector3d p = T * p_local;
+      count += vox.hasVoxelContainingPoint(p);
+    }
+    if (count > max_overlap) {
+      max_overlap = count;
+      most_overlap_idx = i;
+    }
+  }
+
+  // Step 3: Insert all unique indices: active, k closest, most overlapped
+  std::set<size_t> idxs_set;
+  idxs_set.insert(active_submap_idx);
+  for (auto idx : k_closest_idxs) idxs_set.insert(idx);
+  if (most_overlap_idx != SIZE_MAX) idxs_set.insert(most_overlap_idx);
+
+  // Step 4: Output as vector
+  std::vector<size_t> idxs(idxs_set.begin(), idxs_set.end());
+  return idxs;
+}
+
+std::vector<size_t> SubmapCollection::findKClosestSubmaps(const Transform& T, size_t k, size_t exclude) const {
   std::vector<size_t> out;
-  for (size_t j = 0; j < k && j < tmp.size(); ++j) out.push_back(tmp[j].i);
+  {
+    ProfilerScopeGuard total("SubmapCollection::insertScan", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
+    std::vector<Pair> tmp;
+    tmp.reserve(submaps_.size());
+    Eigen::Vector3d p0 = T.translation();
+
+    for (size_t i = 0; i < submaps_.size(); ++i) {
+      if (i == exclude) {
+        continue;
+      }
+      double distance = (p0 - submaps_[i].getMapToSubmapCenter()).norm();
+      tmp.push_back({distance, i});
+    }
+
+    std::partial_sort(tmp.begin(), tmp.begin() + std::min(k, tmp.size()), tmp.end(),
+                      [](const Pair& a, const Pair& b) { return a.d < b.d; });
+
+    // Collect indices of the k closest submaps (excluding the specified one)
+    for (size_t j = 0; j < k && j < tmp.size(); ++j) {
+      out.push_back(tmp[j].i);
+    }
+  }
   return out;
 }
 
@@ -200,6 +279,174 @@ PointCloudPtr SubmapCollection::getCachedCompositeSubmapFromVoxel(const std::vec
     cached_neighbor_idxs_ = neighbor_idxs;
   }
   return cached_neighbor_cloud_;
+}
+
+bool SubmapCollection::setInitialMapIntoSingleSubmap(const PointCloud& initialMap) {
+  if (initialMap.points_.empty()) {
+    std::cerr << "[SubmapCollection] Initial map is empty – nothing to chunk.\n";
+    return false;
+  }
+
+  std::cout << "[SubmapCollection] Clearing previous submaps and caches...\n";
+  submaps_.clear();
+  adjacencyMatrix_ = AdjacencyMatrix();
+  consistency_cache_.clear();
+  lastVisitPosition_.clear();
+  cached_neighbor_idxs_.clear();
+  cached_neighbor_cloud_.reset();
+  cached_static_cloud_.reset();
+  cached_static_idxs_.clear();
+  cached_combined_cloud_.reset();
+  cached_static_point_count_ = 0;
+  cached_active_point_count_ = 0;
+  submapId_ = 0;
+  activeSubmapIdx_ = 0;
+  numScansMergedInActiveSubmap_ = 0;
+
+  std::cout << "[SubmapCollection] Creating single submap from initial map...\n";
+  const size_t my_id = 0u;
+  Submap submap(my_id, my_id);
+  submap.setParameters(params_);
+  submap.setMapToSubmapOrigin(Transform::Identity());
+
+  // submap.computeSubmapCenter();
+  Eigen::Vector3d ctr = Eigen::Vector3d::Zero();
+  submap.setSubmapCenter(ctr);
+
+  std::cout << "[SubmapCollection] Inserting initial map into submap...\n";
+  submap.insertScan(initialMap, initialMap, Transform::Identity(), timestamp_, true);
+
+  std::cout << "[SubmapCollection] Computing features for the submap...\n";
+  submap.computeFeatures();
+
+  std::cout << "[SubmapCollection] Pushing submap and updating caches...\n";
+  submaps_.push_back(std::move(submap));
+  consistency_cache_.emplace_back();
+  lastVisitPosition_.push_back(ctr);
+
+  std::cout << "[SubmapCollection] Initial map successfully set as a single submap.\n";
+  return true;
+}
+
+bool SubmapCollection::chunkTheInitialMapIntoSubmaps(const PointCloud& initialMap) {
+  // 1. Sanity checks
+  if (initialMap.points_.empty()) {
+    std::cerr << "[SubmapCollection] Initial map is empty – nothing to chunk.\n";
+    return false;
+  }
+  if (params_.submaps_.radius_ <= 0.0) {
+    std::cerr << "[SubmapCollection] Sub-map radius must be > 0 (got " << params_.submaps_.radius_ << ").\n";
+    return false;
+  }
+
+  // 2. Wipe old state
+  submaps_.clear();
+  adjacencyMatrix_ = AdjacencyMatrix();
+  consistency_cache_.clear();
+  lastVisitPosition_.clear();
+  cached_neighbor_idxs_.clear();
+  cached_neighbor_cloud_.reset();
+  cached_static_cloud_.reset();
+  cached_static_idxs_.clear();
+  cached_combined_cloud_.reset();
+  cached_static_point_count_ = 0;
+  cached_active_point_count_ = 0;
+  submapId_ = 0;
+  activeSubmapIdx_ = 0;
+
+  // 3. Bucket points
+  const double cell = params_.submaps_.radius_ * 3.0;
+  const double inv_cell = 1.0 / cell;
+
+  using BucketMap = std::unordered_map<CellKey, std::vector<size_t>, CellKeyHash>;
+  BucketMap buckets;
+  buckets.reserve(initialMap.points_.size() / 256);  // heuristic
+
+  const bool has_normals = initialMap.HasNormals();
+  for (size_t i = 0; i < initialMap.points_.size(); ++i) buckets[keyFromPoint(initialMap.points_[i], inv_cell)].push_back(i);
+
+  constexpr size_t kMinPointsPerSubmap = 5'000;  // skip sparse buckets
+
+  // 4. Create one sub-map per bucket
+  auto makeSubmap = [&](const std::vector<size_t>& idxs) {
+    if (idxs.size() < kMinPointsPerSubmap) {
+      if (kMinPointsPerSubmap > 0)
+        std::cout << "[SubmapCollection] bucket skipped – " << idxs.size() << " pts (< " << kMinPointsPerSubmap << ")\n";
+      return;
+    }
+
+    // 4.1 Build the cloud
+    PointCloud cloud;
+    cloud.points_.reserve(idxs.size());
+    if (has_normals) cloud.normals_.reserve(idxs.size());
+    for (size_t id : idxs) {
+      cloud.points_.push_back(initialMap.points_[id]);
+      if (has_normals) cloud.normals_.push_back(initialMap.normals_[id]);
+    }
+
+    // 4.2 Compute centroid
+    Eigen::Vector3d ctr = Eigen::Vector3d::Zero();
+    for (const auto& point : cloud.points_) {
+      ctr += point;
+    }
+    if (!cloud.points_.empty()) {
+      ctr /= static_cast<double>(cloud.points_.size());
+    }
+
+    // 4.3 Build and populate the Submap
+    const size_t my_id = 0u;
+    Submap submap(my_id, my_id);
+    submap.setParameters(params_);
+    submap.setMapToSubmapOrigin(Transform::Identity());
+    submap.computeSubmapCenter();
+    // Eigen::Vector3d ctr = submap.getMapToSubmapCenter();
+    submap.setSubmapCenter(ctr);
+
+    // Store points in the sub-map
+    submap.insertScan(cloud, cloud, Transform::Identity(), timestamp_, true);
+    submap.computeFeatures();
+
+    submaps_.push_back(std::move(submap));
+    consistency_cache_.emplace_back();
+    lastVisitPosition_.push_back(ctr);
+  };
+
+  for (const auto& [cell_key, point_indices] : buckets) {
+    makeSubmap(point_indices);
+  }
+
+  // 5. Naive adjacency (centre-to-centre)
+  const double link_thresh = 2.0 * cell;
+  for (size_t i = 0; i < submaps_.size(); ++i)
+    for (size_t j = i + 1; j < submaps_.size(); ++j)
+      if ((submaps_[i].getMapToSubmapCenter() - submaps_[j].getMapToSubmapCenter()).norm() < link_thresh)
+        adjacencyMatrix_.addEdge(submaps_[i].getId(), submaps_[j].getId());
+
+  // 6. Pick active sub-map
+  activeSubmapIdx_ = findClosestSubmap(Transform::Identity(), SIZE_MAX);
+
+  // 7. Logging
+  std::cout << "\033[1;48;5;208m\033[1;30m"
+            << "==================== INITIAL MAP CHUNKED ====================\n"
+            << "   " << submaps_.size() << " sub-maps created from " << initialMap.points_.size() << " points.\n"
+            << "   Active sub-map idx: " << activeSubmapIdx_ << "\n"
+            << "=============================================================\033[0m\n";
+
+  return true;
+}
+
+bool SubmapCollection::setInitialMap(const PointCloud& initialMap) {
+  if (params_.isUseInitialMap_) {
+    std::cout << "\033[1;48;5;208m\033[1;30m"
+              << "==================== INITIAL MAP SET ====================\n"
+              << "   Initial map is being set.\n"
+              << "==========================================================\033[0m\n";
+    // return chunkTheInitialMapIntoSubmaps(initialMap);
+
+    return setInitialMapIntoSingleSubmap(initialMap);
+  }
+
+  return false;
 }
 
 PointCloud SubmapCollection::buildCompositeSubmapFromVoxel(const std::vector<size_t>& idxs) const {
@@ -272,8 +519,14 @@ PointCloud SubmapCollection::buildCompositeSubmapFromVoxel(const std::vector<siz
   } else {
     size_t point_pos = 0, normal_pos = 0;
     for (size_t i = 0; i < n; ++i) {
-      for (auto& p : thread_points[i]) cloud.points_[point_pos++] = std::move(p);
-      for (auto& nrm : thread_normals[i]) cloud.normals_[normal_pos++] = std::move(nrm);
+      // Copy points from this thread's vector to the output cloud
+      for (const auto& point : thread_points[i]) {
+        cloud.points_[point_pos++] = point;
+      }
+      // Copy normals from this thread's vector to the output cloud
+      for (const auto& normal : thread_normals[i]) {
+        cloud.normals_[normal_pos++] = normal;
+      }
     }
   }
 
@@ -286,11 +539,23 @@ PointCloudPtr SubmapCollection::getCachedCompositeSubmapFromMulti(const std::vec
   const size_t active = activeSubmapIdx_;
   std::vector<size_t> static_idxs;
   static_idxs.reserve(all_idxs.size());
-  for (size_t id : all_idxs)
-    if (id != active) static_idxs.push_back(id);
+  // Collect all indices except the active submap index
+  for (size_t id : all_idxs) {
+    if (id != active) {
+      static_idxs.push_back(id);
+    }
+  }
+  std::sort(static_idxs.begin(), static_idxs.end());
 
   /* ---------- 1. (Re)build static neighbour patch if needed ----------- */
   if (!cached_static_cloud_ || cached_static_idxs_ != static_idxs) {
+    std::cout << "\033[1;96m"
+              << "==================== NEW CACHED STATIC CLOUD CREATED ====================\n"
+              << "  cached_static_idxs_: ";
+    for (auto idx : cached_static_idxs_) std::cout << idx << " ";
+    std::cout << "\n  static_idxs: ";
+    for (auto idx : static_idxs) std::cout << idx << " ";
+    std::cout << "\n==========================================================================\033[0m\n";
     cached_static_cloud_ = std::make_shared<PointCloud>(buildCompositeSubmapFromMulti(static_idxs));
     cached_static_point_count_ = cached_static_cloud_->points_.size();
     cached_static_idxs_ = static_idxs;
@@ -298,7 +563,6 @@ PointCloudPtr SubmapCollection::getCachedCompositeSubmapFromMulti(const std::vec
     cached_combined_cloud_.reset();
   }
 
-  /* ---------- 2. Always create the current active cloud --------------- */
   PointCloudPtr active_cloud = std::make_shared<PointCloud>(submaps_[active].getMapPointCloud());
   const size_t active_pts = active_cloud->points_.size();
 
@@ -683,30 +947,34 @@ bool SubmapCollection::isSwitchingSubmapsConsistant(const PointCloud& scan, size
   const Eigen::Vector3d robot = T.translation();
   const auto& c = consistency_cache_[candidateSubmapIdx];
 
-  if (c.valid && (robot - c.last_position).norm() < kConsistencyCheckSpatialThresh)
+  if (c.valid && (robot - c.last_position).norm() < kConsistencyCheckSpatialThresh) {
     return c.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
-
-  std::lock_guard<std::mutex> lk(consistency_cache_mtx_);
-  auto& cache = consistency_cache_[candidateSubmapIdx];
-  if (cache.valid && (robot - cache.last_position).norm() < kConsistencyCheckSpatialThresh)
-    return cache.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
-
-  // Update cached voxel map only if candidate changed
-  if (candidateSubmapIdx != lastConsistencyCandidateSubmapIdx_) {
-    consistencyCheckNeighbourVoxCopy_ = submaps_[candidateSubmapIdx].getVoxelMap();
-    lastConsistencyCandidateSubmapIdx_ = candidateSubmapIdx;
   }
 
-  int inliers = 0;
-  for (const auto& p_local : scan.points_) {
-    Eigen::Vector3d p = T * p_local;
-    inliers += static_cast<int>(consistencyCheckNeighbourVoxCopy_.hasVoxelContainingPoint(p));
-  }
-  double fitness = static_cast<double>(inliers) / scan.points_.size();
+  double fitness = -1.0;
+  {
+    std::lock_guard<std::mutex> lk(consistency_cache_mtx_);
+    auto& cache = consistency_cache_[candidateSubmapIdx];
+    if (cache.valid && (robot - cache.last_position).norm() < kConsistencyCheckSpatialThresh)
+      return cache.last_fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
 
-  cache.last_position = robot;
-  cache.last_fitness = fitness;
-  cache.valid = true;
+    // Update cached voxel map only if candidate changed
+    if (candidateSubmapIdx != lastConsistencyCandidateSubmapIdx_) {
+      consistencyCheckNeighbourVoxCopy_ = submaps_[candidateSubmapIdx].getVoxelMap();
+      lastConsistencyCandidateSubmapIdx_ = candidateSubmapIdx;
+    }
+
+    int inliers = 0;
+    for (const auto& p_local : scan.points_) {
+      Eigen::Vector3d p = T * p_local;
+      inliers += static_cast<int>(consistencyCheckNeighbourVoxCopy_.hasVoxelContainingPoint(p));
+    }
+    fitness = static_cast<double>(inliers) / scan.points_.size();
+
+    cache.last_position = robot;
+    cache.last_fitness = fitness;
+    cache.valid = true;
+  }
 
   return fitness > params_.submaps_.adjacencyBasedRevisitingMinFitness_;
 }

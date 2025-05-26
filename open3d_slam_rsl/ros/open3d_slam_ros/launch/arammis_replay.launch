@@ -25,10 +25,10 @@
   <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rs_lidar_airy/merge/merged.bag"/> -->
    <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/arammis_test/seelapsee_seam_clear.bag"/> -->
    <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rs_lidar_airy/merged_miss2_filt.bag"/> -->
-  <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rs_lidar_airy/no_gps_merge/merged_no_gps.bag"/> -->
-  <arg name="rosbag_filepath" default="/home/tutuna/Videos/rsl_Seam_Tests/query/merged_query_filt.bag"/>
+  <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rs_lidar_airy/no_gps_merge/merged_no_gps_filt.bag"/> -->
+  <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rsl_Seam_Tests/query/merged_query_filt.bag"/> -->
   <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rsl_Seam_Tests/merged_horrible_filt.bag"/> -->
-  <!-- <arg name="rosbag_filepath" default="/home/tutuna/Videos/rsl_Seam_Tests/query/query_rubble/merged_query_rubble.bag"/> -->
+  <arg name="rosbag_filepath" default="/home/tutuna/Videos/rsl_Seam_Tests/query/query_rubble/merged_query_rubble.bag"/>
 
 
   <arg name="use_syncronized_poses_to_replay" default="false"/>

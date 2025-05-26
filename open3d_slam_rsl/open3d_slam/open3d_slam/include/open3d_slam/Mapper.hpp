@@ -33,6 +33,7 @@
 #include <small_gicp/registration/registration_helper.hpp>
 #include <small_gicp/util/downsampling_omp.hpp>
 #include <small_gicp/util/normal_estimation_omp.hpp>
+#include <tuple>
 #include "open3d_conversions/usings.hpp"
 
 namespace o3d_slam {
@@ -63,10 +64,13 @@ class Mapper {
   const TransformInterpolationBuffer& getMapToRangeSensorBuffer() const;
   const PointCloud& getPreprocessedScan() const;
   const ScanToMapRegistration& getScanToMapRegistration() const;
+  bool setInitialMap(const PointCloud& initialMap);
+  bool firstCall_ = true;
 
   void loopClosureUpdate(const Transform& loopClosureCorrection);
   bool hasProcessedMeasurements() const;
   bool addRangeMeasurement(const PointCloud& cloud, const Time& timestamp);
+  void updateRejectorFromOdometryMotion(const Transform& odometryMotion);
 
   void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
@@ -79,6 +83,7 @@ class Mapper {
   Transform lastReferenceInitializationPose_ = Transform::Identity();
   bool isCalibrationSet_ = false;
 
+  std::mutex pathMutex_;
   nav_msgs::Path trackedPath_;
   nav_msgs::Path bestGuessPath_;
   bool isNewValueSetMapper_ = false;
@@ -102,13 +107,36 @@ class Mapper {
 
   std::shared_ptr<small_gicp::PointCloud> target_;
   std::shared_ptr<small_gicp::PointCloud> source_;
-  // pointmatcher_ros::PmIcp icp_;
 
   Eigen::Vector3d c_t = Eigen::Vector3d::Zero();
   Eigen::Vector3d c_s = Eigen::Vector3d::Zero();
 
   Eigen::Vector3d computeCentroid(const small_gicp::PointCloud& pc);
   void translatePointCloud(small_gicp::PointCloud& pc, const Eigen::Vector3d& t);
+  std::shared_ptr<small_gicp::PointCloud> cropPreparePointCloud(const open3d::geometry::PointCloud& input,
+                                                                const Eigen::Isometry3d& center_pose, double radius, int normal_knn,
+                                                                int num_threads) const;
+
+  std::deque<double> odometryMotionHistory_;  ///< sliding window of motion metrics
+  std::size_t odometryMotionWindowSize_{30};
+
+  inline void pushOdometryMetric(double m) {
+    odometryMotionHistory_.push_back(m);
+    if (odometryMotionHistory_.size() > odometryMotionWindowSize_) {
+      odometryMotionHistory_.pop_front();
+    }
+  }
+
+  struct AdaptiveMetrics {
+    float spaciousness = 0.0f;
+    float density = 0.0f;
+  };
+
+  void computeSpaciousness(const PointCloud& scan);
+  float computeDensity(const PointCloud& scan, float v);
+  void setAdaptiveParams();
+  AdaptiveMetrics metrics_;
+  float base_max_corr_dist_{0.0f};  // initial value from constructor
 
  private:
   void update(const MapperParameters& p);
@@ -140,7 +168,6 @@ class Mapper {
   bool firstRefinement_ = true;
 
   std::shared_ptr<ScanToMapRegistration> scan2MapReg_;
-  // std::shared_ptr<open3d_conversions::PmPointCloudFilters> pmPointCloudFilter_;
 };
 
 } /* namespace o3d_slam */
