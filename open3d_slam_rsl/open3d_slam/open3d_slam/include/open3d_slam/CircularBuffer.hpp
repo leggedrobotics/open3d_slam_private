@@ -12,7 +12,10 @@ class CircularBuffer {
  public:
   CircularBuffer() = default;
 
-  /* ---------- existing API (unchanged behaviour) ---------- */
+  std::deque<T> snapshot() const {
+    std::lock_guard<std::mutex> lck(m_);
+    return data_;
+  }
 
   void set_size_limit(size_t size) {
     std::lock_guard<std::mutex> lck(m_);
@@ -26,13 +29,13 @@ class CircularBuffer {
       data_.push_back(data);
       trim_unsafe();
     }
-    cv_.notify_one();  // NEW: wake one waiter
+    cv_.notify_one();
   }
 
   const T& peek_front() const { return data_.front(); }
   const T& peek_back() const { return data_.back(); }
 
-  T pop() {  // still *non-blocking*
+  T pop() {
     std::lock_guard<std::mutex> lck(m_);
     T copy = std::move(data_.front());
     data_.pop_front();
@@ -51,10 +54,7 @@ class CircularBuffer {
   const std::deque<T>& getImplementation() const { return data_; }
   std::deque<T>* getImplementationPtr() { return &data_; }
 
-  /* ---------- NEW blocking / shutdown API ---------- */
-
   /// blocks until an element is available, or the buffer is closed
-  /// throws std::runtime_error if closed and empty
   T wait_and_pop() {
     std::unique_lock<std::mutex> lk(m_);
     cv_.wait(lk, [&] { return !data_.empty() || !open_; });
@@ -86,14 +86,12 @@ class CircularBuffer {
   bool open() const { return open_; }
 
  private:
-  /* helpers */
   void trim_unsafe() {
     while (data_.size() > bufferSizeLimit_) data_.pop_front();
   }
 
-  /* data members */
   std::deque<T> data_;
-  size_t bufferSizeLimit_ = 10;
+  size_t bufferSizeLimit_ = 100;
 
   mutable std::mutex m_;
   std::condition_variable cv_;

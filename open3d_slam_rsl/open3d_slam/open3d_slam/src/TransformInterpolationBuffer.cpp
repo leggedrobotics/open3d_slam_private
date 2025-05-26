@@ -104,24 +104,31 @@ Transform TransformInterpolationBuffer::lookup(const Time& time) const {
 
   if (transforms_.empty()) throw std::runtime_error("TransformInterpolationBuffer:: Empty buffer");
 
-  /* ---------- 1. Outside range → extrapolate -------------------------- */
+  // ---------- 1. Outside range → extrapolate --------------------------
   if (time < transforms_.front().time_) {
     if (transforms_.size() == 1)  // no velocity info
       return transforms_.front().transform_;
+
+    std::cerr << "[TransformInterpolationBuffer] Extrapolation requested: query time (" << toSecondsSinceFirstMeasurement(time)
+              << ") is before earliest buffered transform (" << toSecondsSinceFirstMeasurement(transforms_.front().time_)
+              << "). Using velocity between first two entries for extrapolation.\n";
     return extrapolate(transforms_.front(), *std::next(transforms_.begin()), time).transform_;
   }
 
   if (time > transforms_.back().time_) {
     if (transforms_.size() == 1) return transforms_.back().transform_;
+
+    std::cerr << "[TransformInterpolationBuffer] Extrapolation requested: query time (" << toSecondsSinceFirstMeasurement(time)
+              << ") is after latest buffered transform (" << toSecondsSinceFirstMeasurement(transforms_.back().time_)
+              << "). Using velocity between last two entries for extrapolation.\n";
     return extrapolate(*std::prev(transforms_.end(), 2), transforms_.back(), time).transform_;
   }
 
-  /* ---------- 2. Inside range → interpolate (O(log N) search) --------- */
+  // ---------- 2. Inside range → interpolate (O(log N) search) ---------
   auto right = std::lower_bound(transforms_.begin(), transforms_.end(), time,
                                 [](const TimestampedTransform& a, const Time& t) { return a.time_ < t; });
 
   if (right == transforms_.end()) return transforms_.back().transform_;
-
   if (right->time_ == time) return right->transform_;
 
   const auto& left = *std::prev(right);
@@ -155,18 +162,16 @@ void TransformInterpolationBuffer::applyToAllElementsInTimeInterval(const Transf
     if (elem.time_ >= begin && elem.time_ <= end) elem.transform_ = elem.transform_ * T;
 }
 
-/* ------------------------ free helper (same log strings, now extrap.) -- */
-
 Transform getTransform(const Time& time, const TransformInterpolationBuffer& buffer) {
   if (time < buffer.earliest_time()) {
     std::cerr << "TransformInterpolationBuffer:: you are trying to get a "
                  "transform that is in the past, this should not happen \n";
-    return buffer.lookup(time);  // will extrapolate
+    return buffer.lookup(time);
   }
   if (time > buffer.latest_time()) {
     std::cerr << "TransformInterpolationBuffer:: you are trying to get a "
                  "transform that is in the future, this should not happen \n";
-    return buffer.lookup(time);  // will extrapolate
+    return buffer.lookup(time);
   }
   return buffer.lookup(time);
 }

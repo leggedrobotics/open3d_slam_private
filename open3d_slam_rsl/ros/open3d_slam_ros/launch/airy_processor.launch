@@ -6,7 +6,7 @@
   <arg name="cloud_topic" default="/rslidar_points" doc="Input point cloud topic"/>
   <arg name="pose_topic" default="/state_estimator/pose_in_odom" doc="Input point cloud topic"/>
   <arg name="distance_cutoff" default="0.2" doc="Distance cutoff in meters"/>
-  <arg name="launch_rviz" default="true" doc="Whether to launch RViz visualization"/>
+  <arg name="launch_rviz" default="false" doc="Whether to launch RViz visualization"/>
   <arg name="use_sim_time" default="true"/>
   <arg name="rviz_config" default="$(find open3d_slam_ros)/rviz/airy.rviz"/>
 

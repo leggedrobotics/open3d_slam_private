@@ -28,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: PostDeskewed
+    SyncSource: RawCloud
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -178,6 +178,8 @@ Visualization Manager:
           Value: true
         bottom_shell:
           Value: true
+        control:
+          Value: true
         depth_camera_front_lower_camera:
           Value: true
         depth_camera_front_lower_camera_parent:
@@ -276,28 +278,6 @@ Visualization Manager:
           Value: true
         docking_socket:
           Value: true
-        docking_station:
-          Value: true
-        docking_station__apriltag36_11_00000_link:
-          Value: true
-        docking_station__apriltag36_11_00000_link__visual__apriltag36_11_00000_visual:
-          Value: true
-        docking_station__apriltag36_11_00001_link:
-          Value: true
-        docking_station__apriltag36_11_00001_link__visual__apriltag36_11_00001_visual:
-          Value: true
-        docking_station__apriltag36_11_00002_link:
-          Value: true
-        docking_station__apriltag36_11_00002_link__visual__apriltag36_11_00002_visual:
-          Value: true
-        docking_station__apriltag36_11_00003_link:
-          Value: true
-        docking_station__apriltag36_11_00003_link__visual__apriltag36_11_00003_visual:
-          Value: true
-        docking_station__docking_port_link:
-          Value: true
-        docking_station__docking_port_link__visual__docking_port_visual:
-          Value: true
         face_front:
           Value: true
         face_rear:
@@ -312,19 +292,9 @@ Visualization Manager:
           Value: true
         gps:
           Value: true
-        ground_plane:
-          Value: true
-        ground_plane__link:
-          Value: true
-        ground_plane__link__collision__collision:
-          Value: true
-        ground_plane__link__visual__visual:
-          Value: true
         hatch_shell:
           Value: true
         hbc_receiver:
-          Value: true
-        hdr_cam_front:
           Value: true
         imu_link:
           Value: true
@@ -332,13 +302,13 @@ Visualization Manager:
           Value: true
         lidar_parent:
           Value: true
-        map:
+        loco_footprint:
           Value: true
         map_o3d:
           Value: true
-        map_o3d_graph_msf_aligned_:
-          Value: true
         map_o3d_localization_manager:
+          Value: true
+        ms_inlet:
           Value: true
         odom:
           Value: true
@@ -347,6 +317,8 @@ Visualization Manager:
         odom_o3d:
           Value: true
         raw_rs_o3d:
+          Value: true
+        rs_imu:
           Value: true
         rslidar:
           Value: true
@@ -478,8 +450,7 @@ Visualization Manager:
                 {}
               wide_angle_camera_front_camera:
                 wide_angle_camera_front_camera_parent:
-                  hdr_cam_front:
-                    {}
+                  {}
             face_rear:
               depth_camera_rear_lower_camera:
                 depth_camera_rear_lower_camera_parent:
@@ -523,17 +494,23 @@ Visualization Manager:
                     {}
                 odom_o3d:
                   {}
+            ms_inlet:
+              {}
             odom_graph_msf_:
               world_graph_msf_:
-                map_o3d_graph_msf_aligned_:
-                  {}
+                {}
             rslidar:
-              {}
+              rs_imu:
+                {}
             top_shell:
               {}
+          control:
+            {}
           feetcenter:
             {}
           footprint:
+            {}
+          loco_footprint:
             {}
           map_o3d_localization_manager:
             {}
@@ -590,7 +567,7 @@ Visualization Manager:
       Size (Pixels): 2
       Size (m): 0.019999999552965164
       Style: Points
-      Topic: /airy_processor/my_deskewed_cloud
+      Topic: /airy_processor/airy_deskewed_cloud
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true

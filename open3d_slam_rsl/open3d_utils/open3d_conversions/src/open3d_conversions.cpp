@@ -187,39 +187,63 @@ bool rosToOpen3d(const sensor_msgs::PointCloud2& cloud, open3d::geometry::PointC
 
   o3d_pc.points_.resize(num_points);
 
-  bool can_batch_load_xyz = (x_offset == 0) && (y_offset == 4) && (z_offset == 8) && (point_step >= 12);
+  // Use Eigen block-mapping only if data is exactly contiguous for float xyz (x@0, y@4, z@8, point_step==12)
+  bool can_eigen_map = (x_offset == 0) && (y_offset == 4) && (z_offset == 8) && (point_step == 12);
 
-  if (can_batch_load_xyz) {
-      // Fast path: batch load x,y,z in one shot
-      #pragma omp parallel for simd
+  if (can_eigen_map) {
+      // Eigen::Map the full memory as 3xN float matrix
+      const float* float_data = reinterpret_cast<const float*>(base_ptr);
+      Eigen::Map<const Eigen::Matrix<float, 3, Eigen::Dynamic, Eigen::ColMajor>> mat(float_data, 3, num_points);
+
+      #pragma omp parallel for
       for (int i = 0; i < static_cast<int>(num_points); ++i) {
-          Eigen::Vector3f temp;
-          std::memcpy(&temp, base_ptr + i * point_step, 12);
-          o3d_pc.points_[i] = temp.cast<double>();
+          o3d_pc.points_[i] = mat.col(i).cast<double>();
       }
   } else {
-      // Fallback: standard safe load
-      #pragma omp parallel for simd
-      for (int i = 0; i < static_cast<int>(num_points); ++i) {
-          const uint8_t* ptr = base_ptr + i * point_step;
-          float x = *reinterpret_cast<const float*>(ptr + x_offset);
-          float y = *reinterpret_cast<const float*>(ptr + y_offset);
-          float z = *reinterpret_cast<const float*>(ptr + z_offset);
-          o3d_pc.points_[i] = Eigen::Vector3d(x, y, z);
+      // Fast path: batch load x,y,z in one shot if offsets and stride allow, but not exactly Eigen-mappable
+      bool can_batch_load_xyz = (x_offset == 0) && (y_offset == 4) && (z_offset == 8) && (point_step >= 12);
+      if (can_batch_load_xyz) {
+          #pragma omp parallel for simd
+          for (int i = 0; i < static_cast<int>(num_points); ++i) {
+              Eigen::Vector3f temp;
+              std::memcpy(&temp, base_ptr + i * point_step, 12);
+              o3d_pc.points_[i] = temp.cast<double>();
+          }
+      } else {
+          // Fallback: standard safe load
+          #pragma omp parallel for simd
+          for (int i = 0; i < static_cast<int>(num_points); ++i) {
+              const uint8_t* ptr = base_ptr + i * point_step;
+              float x = *reinterpret_cast<const float*>(ptr + x_offset);
+              float y = *reinterpret_cast<const float*>(ptr + y_offset);
+              float z = *reinterpret_cast<const float*>(ptr + z_offset);
+              o3d_pc.points_[i] = Eigen::Vector3d(x, y, z);
+          }
       }
   }
 
   if (copy_normals && has_normals) {
-      o3d_pc.normals_.resize(num_points);
-      #pragma omp parallel for simd
-      for (int i = 0; i < static_cast<int>(num_points); ++i) {
-          const uint8_t* ptr = base_ptr + i * point_step;
-          float nx = *reinterpret_cast<const float*>(ptr + normal_x_offset);
-          float ny = *reinterpret_cast<const float*>(ptr + normal_y_offset);
-          float nz = *reinterpret_cast<const float*>(ptr + normal_z_offset);
-          o3d_pc.normals_[i] = Eigen::Vector3d(nx, ny, nz);
-      }
-  }
+    o3d_pc.normals_.resize(num_points);
+    bool normals_packed = (normal_x_offset >= 0 && normal_y_offset == normal_x_offset + 4 &&
+                           normal_z_offset == normal_x_offset + 8 && point_step == 12);
+    if (normals_packed) {
+        const float* normal_data = reinterpret_cast<const float*>(base_ptr + normal_x_offset);
+        Eigen::Map<const Eigen::Matrix<float, 3, Eigen::Dynamic, Eigen::ColMajor>> mat_normals(normal_data, 3, num_points);
+        #pragma omp parallel for
+        for (int i = 0; i < static_cast<int>(num_points); ++i) {
+            o3d_pc.normals_[i] = mat_normals.col(i).cast<double>();
+        }
+    } else {
+        #pragma omp parallel for simd
+        for (int i = 0; i < static_cast<int>(num_points); ++i) {
+            const uint8_t* ptr = base_ptr + i * point_step;
+            float nx = *reinterpret_cast<const float*>(ptr + normal_x_offset);
+            float ny = *reinterpret_cast<const float*>(ptr + normal_y_offset);
+            float nz = *reinterpret_cast<const float*>(ptr + normal_z_offset);
+            o3d_pc.normals_[i] = Eigen::Vector3d(nx, ny, nz);
+        }
+    }
+}
 
   if (skip_colors) {
       return true;

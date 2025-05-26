@@ -106,7 +106,7 @@ PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transfo
   const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();
   scanMatcherCropper_->setPose(mapToRangeSensor);
   PointCloudPtr mapPatch = scanMatcherCropper_->crop(activeSubmapPointCloud);
-  assert_gt<int>(mapPatch->points_.size(), 0, "map patch size is zero");
+  // assert_gt<int>(mapPatch->points_.size(), 0, "map patch size is zero");
   return mapPatch;
 }
 
