@@ -57,8 +57,8 @@ void Mapper::computeSpaciousness(const PointCloud& scan) {
   std::nth_element(r.begin(), r.begin() + mid, r.end());
   const float median = r[mid];
 
-  constexpr float α = 0.95f;  // LPF coefficient
-  metrics_.spaciousness = (metrics_.spaciousness == 0.0f) ? median : α * metrics_.spaciousness + (1.0f - α) * median;
+  constexpr float alpha = 0.95f;  // LPF coefficient
+  metrics_.spaciousness = (metrics_.spaciousness == 0.0f) ? median : alpha * metrics_.spaciousness + (1.0f - alpha) * median;
 }
 
 float Mapper::computeDensity(const PointCloud& scan, float v = 0.10f) {
@@ -111,8 +111,8 @@ void Mapper::setAdaptiveParams() {
   const float target_dist_sq = target_dist * target_dist;
 
   /* smooth the output                                              */
-  constexpr float β = 0.80f;  // 0 → instant, 1 → no change
-  small_registration_.rejector.max_dist_sq = β * small_registration_.rejector.max_dist_sq + (1.0f - β) * target_dist_sq;
+  constexpr float beta = 0.80f;  // 0 → instant, 1 → no change
+  small_registration_.rejector.max_dist_sq = beta * small_registration_.rejector.max_dist_sq + (1.0f - beta) * target_dist_sq;
 
   std::cout << "\033[38;5;208m[Mapper] max_dist_sq = " << small_registration_.rejector.max_dist_sq << "\033[0m\n";
 }
