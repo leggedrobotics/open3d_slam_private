@@ -267,11 +267,9 @@ bool Mapper::setInitialMap(const PointCloud& initialMap) {
     std::cerr << "Mapper is not configured to use an initial map." << std::endl;
     return false;
   }
-
   std::cout << "Setting initial map in Mapper." << std::endl;
   const bool ok = submaps_->setInitialMap(initialMap);
-  mapToRangeSensorPrev_ = mapToRangeSensor_;
-  isNewValueSetMapper_ = true;
+
   return ok;
 }
 
