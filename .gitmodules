@@ -1,4 +1,4 @@
 [submodule "open3d_slam_rsl/thirdparty/small_gicp"]
 	path = open3d_slam_rsl/thirdparty/small_gicp
 	url = git@github.com:leggedrobotics/small_gicp.git
-	branch = master
+	branch = ros2
