@@ -185,19 +185,20 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
   // Set the time regardless of whats going to happen next.
   updateFirstMeasurementTime(timestamp);
 
-  // Doesn't make sense to add the measurement if the pose buffer is empty.
-  if ((params_.odometry_.useOdometryTopic_) && (odometry_->odomToRangeSensorBuffer_.empty())) {
-    std::cerr << "open3d_slam: You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
-    return false;
-  }
+  if (params_.odometry_.useOdometryTopic_) {
+    // Doesn't make sense to add the measurement if the pose buffer is empty.
+    if (odometry_->odomToRangeSensorBuffer_.empty()) {
+      std::cerr << "open3d_slam: You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
+      return false;
+    }
 
-  // if (!odometry_->odomToRangeSensorBuffer_.empty()) {
-  const auto earliestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.earliest_time();
-  if (timestamp < earliestAvailableOdometryTime) {
-    std::cerr << "open3d_slam: You are trying to add a range scan earlier than all the odometry poses. Its okay. Dropping. \n";
-    std::cout << "Earliest available odometry time: " << toString(earliestAvailableOdometryTime) << std::endl;
-    std::cout << "Requested time: " << toString(timestamp) << std::endl;
-    return false;
+    const auto earliestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.earliest_time();
+    if (timestamp < earliestAvailableOdometryTime) {
+      std::cerr << "open3d_slam: You are trying to add a range scan earlier than all the odometry poses. Its okay. Dropping. \n";
+      std::cout << "Earliest available odometry time: " << toString(earliestAvailableOdometryTime) << std::endl;
+      std::cout << "Requested time: " << toString(timestamp) << std::endl;
+      return false;
+    }
   }
 
   if (!odometryBuffer_.empty()) {
