@@ -185,19 +185,20 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
   // Set the time regardless of whats going to happen next.
   updateFirstMeasurementTime(timestamp);
 
-  // Doesn't make sense to add the measurement if the pose buffer is empty.
-  if ((params_.odometry_.useOdometryTopic_) && (odometry_->odomToRangeSensorBuffer_.empty())) {
-    std::cerr << "open3d_slam: You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
-    return false;
-  }
+  if (params_.odometry_.useOdometryTopic_) {
+    // Doesn't make sense to add the measurement if the pose buffer is empty.
+    if (odometry_->odomToRangeSensorBuffer_.empty()) {
+      std::cerr << "open3d_slam: You are trying to add a range scan without a pose in the buffer. Its okay. Skipping. \n";
+      return false;
+    }
 
-  // if (!odometry_->odomToRangeSensorBuffer_.empty()) {
-  const auto earliestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.earliest_time();
-  if (timestamp < earliestAvailableOdometryTime) {
-    std::cerr << "open3d_slam: You are trying to add a range scan earlier than all the odometry poses. Its okay. Dropping. \n";
-    std::cout << "Earliest available odometry time: " << toString(earliestAvailableOdometryTime) << std::endl;
-    std::cout << "Requested time: " << toString(timestamp) << std::endl;
-    return false;
+    const auto earliestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.earliest_time();
+    if (timestamp < earliestAvailableOdometryTime) {
+      std::cerr << "open3d_slam: You are trying to add a range scan earlier than all the odometry poses. Its okay. Dropping. \n";
+      std::cout << "Earliest available odometry time: " << toString(earliestAvailableOdometryTime) << std::endl;
+      std::cout << "Requested time: " << toString(timestamp) << std::endl;
+      return false;
+    }
   }
 
   if (!odometryBuffer_.empty()) {
@@ -604,7 +605,7 @@ void SlamWrapper::unifiedWorkerMap() {
       TimestampedPointCloud meas = mappingBuffer_.wait_and_pop();
 
       if (!odometry_->getBuffer().has(meas.time_)) {
-        std::cout << "Weird, the odom buffer does not seem to have the transform!\n";
+        std::cout << "unifiedWorkerMap(): Weird, the odom buffer does not seem to have the transform for time " << meas.time_ << "!\n";
         std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << '\n';
         auto& b = odometry_->getBuffer();
         std::cout << "earliest:  " << toSecondsSinceFirstMeasurement(b.earliest_time()) << '\n'
@@ -668,7 +669,7 @@ void SlamWrapper::unifiedWorker() {
 
       // 4. Mapping step (uses the same measurement)
       if (!odometry_->getBuffer().has(meas.time_)) {
-        std::cout << "Weird, the odom buffer does not seem to have the transform!\n";
+        std::cout << "unifiedWorker(): Weird, the odom buffer does not seem to have the transform for time " << meas.time_ << "!\n";
         std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << '\n';
         const auto& b = odometry_->getBuffer();
         std::cout << "earliest:  " << toSecondsSinceFirstMeasurement(b.earliest_time()) << '\n'
@@ -722,7 +723,7 @@ void SlamWrapper::analyzeBufferedMeasurements() {
 bool SlamWrapper::doesOdometrybufferHasMeasurement(const Time& t) {
   bool success = odometry_->getBuffer().has_query(t);
   if (!success) {
-    std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
+    std::cout << "doesOdometrybufferHasMeasurement(const Time&): Weird, the odom buffer does not seem to have the transform for time " << t << "!\n";
     std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
     const auto& b = odometry_->getBuffer();
     std::cout << "earliest: " << toSecondsSinceFirstMeasurement(b.earliest_time()) << std::endl;
@@ -742,7 +743,7 @@ void SlamWrapper::offlineMappingWorker() {
   TimestampedPointCloud measurement = mappingBuffer_.pop();
 
   if (!odometry_->getBuffer().has_query(measurement.time_)) {
-    std::cout << "Weird, the odom buffer does not seem to have the transform!!! \n";
+    std::cout << "offlineMappingWorker(): Weird, the odom buffer does not seem to have the transform for time " << measurement.time_ << "!\n";
     std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << std::endl;
     const auto& b = odometry_->getBuffer();
     std::cout << "earliest: " << toSecondsSinceFirstMeasurement(b.earliest_time()) << std::endl;
