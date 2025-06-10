@@ -395,7 +395,13 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     ProfilerScopeGuard scope("odometryEstimation", "/tmp/slam_profile.csv");
     if (!isNewValueSetMapper_ && !isIgnoreOdometryPrediction_ && odomToRangeSensorBuffer_.has(timestamp)) {
       Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_) * calibration_.inverse();
-      Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+      Transform odomToRangeSensorPrev = odomToRangeSensor;
+      if (lastMeasurementTimestamp_ >= odomToRangeSensorBuffer_.earliest_time()) {
+        odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+      } else {
+        std::cerr << "Set odomToRangeSensorPrev = odomToRangeSensor so odometryMotion = I because "
+            "lastMeasurementTimestamp_ >= odomToRangeSensorBuffer_.earliest_time(). May happen on first iteration.\n";
+      }
       Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
 
       // // Check odometry motion for large jumps
