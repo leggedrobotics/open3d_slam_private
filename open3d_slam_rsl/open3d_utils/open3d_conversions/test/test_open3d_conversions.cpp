@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 
 // open3d_conversions
-#include "open3d_conversions/open3d_conversions.h"
+#include "open3d_conversions/open3d_conversions.hpp"
 
 // Open3D
 #include <open3d/Open3D.h>

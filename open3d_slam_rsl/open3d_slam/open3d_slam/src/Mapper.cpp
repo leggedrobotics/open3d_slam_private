@@ -14,7 +14,7 @@
 #include "open3d_slam/output.hpp"
 #include "open3d_slam/time.hpp"
 
-#include "open3d_conversions/open3d_conversions.h"
+#include "open3d_conversions/open3d_conversions.hpp"
 
 #include <open3d/Open3D.h>
 #include <open3d/pipelines/registration/Registration.h>

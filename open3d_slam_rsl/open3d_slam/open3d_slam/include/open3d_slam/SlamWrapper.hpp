@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <Eigen/Dense>
 #include <future>
 #include <thread>
@@ -104,8 +104,8 @@ class SlamWrapper {
   bool saveDenseSubmaps(const std::string& directory);
   bool saveSubmaps(const std::string& directory, const bool& isDenseMap = false);
 
-  void appendPoseToTrackedPath(geometry_msgs::PoseStamped transform);
-  void appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform);
+  void appendPoseToTrackedPath(geometry_msgs::msg::PoseStamped transform);
+  void appendPoseToBestGuessPath(geometry_msgs::msg::PoseStamped transform);
 
   // A simple worker call function for offlane replay package.
   void usePairForRegistration();

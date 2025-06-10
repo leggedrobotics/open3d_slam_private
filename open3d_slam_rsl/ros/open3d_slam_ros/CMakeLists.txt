@@ -1,13 +1,77 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(open3d_slam_ros)
 
 set(CMAKE_CXX_STANDARD 17)
-
-## Source: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
-#add_compile_options(-Wall -Wextra -Wpedantic -O3)
-add_compile_options(-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fopt-info-vec-optimized -fno-math-errno)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -frtti")
 
+# ---------------------------------------------------------------------------
+# 1-a  Compiler flags
+# ---------------------------------------------------------------------------
+add_compile_options(
+  -O3 -mtune=native -flto -funroll-loops -fopenmp
+  -fopt-info-vec-optimized -fno-math-errno)
+
+# ---------------------------------------------------------------------------
+# 1-b  Dependencies
+# ---------------------------------------------------------------------------
+find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(OpenMP)
+
+set(Unwind_INCLUDE_DIR "/usr/include")
+set(Unwind_LIBRARY "/usr/lib/x86_64-linux-gnu/libunwind.so")
+
+
+find_package(Glog REQUIRED)
+
+include_directories(
+  include
+  ${GLOG_INCLUDE_DIRS}
+)
+
+# Link directories for Glog (specify where the glog library resides)
+link_directories(/lib/x86_64-linux-gnu)
+
+find_package(yaml-cpp REQUIRED)
+
+find_package(rclcpp REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(rosgraph_msgs REQUIRED)
+find_package(interactive_markers REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+
+
+
+find_package(rosbag2_cpp REQUIRED)
+find_package(rosbag2_storage REQUIRED)
+find_package(rosbag2_storage_default_plugins REQUIRED)
+
+find_package(open3d_conversions REQUIRED)
+find_package(open3d_slam REQUIRED)
+find_package(open3d_slam_lua_io REQUIRED)
+
+# ---------------------------------------------------------------------------
+# 1-c  Include paths
+# ---------------------------------------------------------------------------
+include_directories(
+  include
+  ${GLOG_INCLUDE_DIRS}
+)
+
+# ---------------------------------------------------------------------------
+# 1-d  Library
+# ---------------------------------------------------------------------------
 set(SRC_FILES
   src/helpers_ros.cpp
   src/SlamMapInitializer.cpp
@@ -18,119 +82,74 @@ set(SRC_FILES
   src/AiryProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
-  src/ImuBuffer.cpp
-  )
+)
 
-set(CATKIN_PACKAGE_DEPENDENCIES
-  roscpp
-  roslib
-  open3d_conversions
-  open3d_slam
-  eigen_conversions
-  nav_msgs
-  geometry_msgs
-  rosgraph_msgs
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-  rosbag
+add_library(${PROJECT_NAME} SHARED ${SRC_FILES})
+
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_msgs
+  geometry_msgs nav_msgs sensor_msgs visualization_msgs rosgraph_msgs
   interactive_markers
-  open3d_slam_lua_io
-  )
-
-# We pass the path of the `FindXYZ.cmake` files to `CMAKE_MODULE_PATH`
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
-
-# You can individually give the path of the libraries as well.
-#list(APPEND LIBRARIES ".....so.0")
-#list(APPEND LIBRARIES ".......so")
-
-#find_package(gflags REQUIRED)
-find_package(Glog REQUIRED)
-find_package(Eigen3 REQUIRED)
-find_package(OpenMP REQUIRED)
-message(STATUS "OpenMP found: ${OpenMP_CXX_FLAGS}")
-
-# Add OpenMP compile options and definitions
-add_compile_options(${OpenMP_CXX_FLAGS})
-add_definitions(-Dopen3d_slam_ros_OPENMP_FOUND=1)
-
-find_package(catkin REQUIRED COMPONENTS
-  ${CATKIN_PACKAGE_DEPENDENCIES}
-  )
-
-catkin_package(
-  INCLUDE_DIRS
-  include
-  LIBRARIES
-  yaml-cpp
-  ${PROJECT_NAME}
-  CATKIN_DEPENDS
-  ${CATKIN_PACKAGE_DEPENDENCIES}
-  DEPENDS
+  open3d_conversions open3d_slam open3d_slam_lua_io
+  Glog yaml-cpp Eigen3
+  rosbag2_cpp rosbag2_storage rosbag2_storage_default_plugins
+  std_srvs
+  tf2_geometry_msgs tf2_eigen
 )
 
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  ${YAML_CPP_INCLUDE_DIR}
-  ${OpenMP_CXX_INCLUDE_DIRS}
-  ${GLOG_INCLUDE_DIRS}
-  ${gflags_INCLUDE_DIRS}
+# ONLY use the plain signature here:
+target_link_libraries(${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
+target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
+target_compile_definitions(${PROJECT_NAME} PUBLIC open3d_slam_ros_OPENMP_FOUND=1)
+
+# ---------------------------------------------------------------------------
+# 1-e  Executables
+# ---------------------------------------------------------------------------
+add_executable(mapping_node src/mapping_node.cpp)
+ament_target_dependencies(mapping_node
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_msgs
+  geometry_msgs nav_msgs sensor_msgs visualization_msgs rosgraph_msgs
+  interactive_markers
+  open3d_conversions open3d_slam open3d_slam_lua_io
+  Glog yaml-cpp Eigen3
+  rosbag2_cpp rosbag2_storage rosbag2_storage_default_plugins std_srvs tf2_geometry_msgs tf2_eigen rclcpp
+)
+target_link_libraries(mapping_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
+target_link_libraries(mapping_node OpenMP::OpenMP_CXX)
+
+add_executable(airy_processing_node src/airy_processing_node.cpp)
+ament_target_dependencies(airy_processing_node
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_msgs
+  geometry_msgs nav_msgs sensor_msgs visualization_msgs rosgraph_msgs
+  interactive_markers
+  open3d_conversions open3d_slam open3d_slam_lua_io
+  Glog yaml-cpp Eigen3
+  rosbag2_cpp rosbag2_storage rosbag2_storage_default_plugins std_srvs tf2_geometry_msgs tf2_eigen
+)
+target_link_libraries(airy_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
+target_link_libraries(airy_processing_node OpenMP::OpenMP_CXX)
+
+# ---------------------------------------------------------------------------
+# 1-f  Installation
+# ---------------------------------------------------------------------------
+install(TARGETS
+  ${PROJECT_NAME}
+  mapping_node
+  airy_processing_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}  # Ensures executables go to libexec
 )
 
-add_definitions(-std=c++17)
-
-add_library(${PROJECT_NAME}
-  ${SRC_FILES}
-  )
-
-add_dependencies(${PROJECT_NAME}
-  ${catkin_EXPORTED_TARGETS}
-  )
-
-target_link_libraries(${PROJECT_NAME}
-  ${catkin_LIBRARIES}
-  ${gflags_LIBRARIES}
-  ${GLOG_LIBRARIES}
-  yaml-cpp
-  ${OpenMP_CXX_LIBRARIES}
-  )
-
-add_executable(mapping_node
-  src/mapping_node.cpp)
-
-target_link_libraries(mapping_node
-  ${catkin_LIBRARIES}
-  ${gflags_LIBRARIES}
-  ${GLOG_LIBRARIES}
-  ${PROJECT_NAME}
-  ${OpenMP_CXX_LIBRARIES}
-  )
-
-  add_executable(airy_processing_node
-  src/airy_processing_node.cpp)
-
-target_link_libraries(airy_processing_node
-  ${catkin_LIBRARIES}
-  ${gflags_LIBRARIES}
-  ${GLOG_LIBRARIES}
-  ${PROJECT_NAME}
-  ${OpenMP_CXX_LIBRARIES}
-  )
-target_compile_definitions(airy_processing_node PRIVATE EIGEN_DONT_PARALLELIZE)
 
 
-# find_package(cmake_clang_tools QUIET)
-# if(cmake_clang_tools_FOUND)
-#   message(STATUS "Run clang tooling for target " mapping_node)
-#   message(STATUS "Run clang tooling for target " airy_processing_node)
-#   add_clang_tooling(
-#     TARGETS mapping_node airy_processing_node
-#     SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
-#     CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
-#     CF_FIX
-#     #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
-#   )
-# endif(cmake_clang_tools_FOUND)
+install(DIRECTORY include/ DESTINATION include)
+
+# Correct install directive for the launch directory
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch)
+
+# Install ROS2 package.xml for ament
+install(FILES package.xml DESTINATION share/${PROJECT_NAME})
+
+ament_package()

@@ -1,10 +1,11 @@
 #pragma once
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include <Eigen/Geometry>
 #include <deque>
@@ -13,10 +14,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 
-#ifdef _OPENMP
 #include <omp.h>
-#endif
 
 namespace airy_processor {
 
@@ -40,17 +40,15 @@ struct RgbaColorMap {
 
 // ───────────────────────────────── pose ring-buffer ─────────────────────────────
 struct TimedPose {
-  ros::Time stamp;
+  rclcpp::Time stamp;
   Eigen::Isometry3d pose;
 };
 
 class PoseBuffer {
  public:
-  void add(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg);
-
+  void add(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg);
   std::vector<TimedPose> snapshot() const;
-
-  static bool query(const std::vector<TimedPose>& buf, const ros::Time& stamp, Eigen::Isometry3d& out_pose);
+  static bool query(const std::vector<TimedPose>& buf, const rclcpp::Time& stamp, Eigen::Isometry3d& out_pose);
 
  private:
   std::deque<TimedPose> buffer_;
@@ -58,22 +56,21 @@ class PoseBuffer {
   const size_t max_size_ = 2000;
 };
 
-// ─────────────────────────────── ROS wrapper class ─────────────────────────────
-class AiryProcessorRos {
+// ─────────────────────────────── ROS2 wrapper class ─────────────────────────────
+class AiryProcessorRos : public rclcpp::Node {
  public:
-  explicit AiryProcessorRos(const ros::NodeHandlePtr& nh);
+  explicit AiryProcessorRos(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
   ~AiryProcessorRos() = default;
 
   void initCommonRosStuff();
   void subscribeCloud();
 
  protected:
-  sensor_msgs::PointCloud2 deskewPointCloud(const sensor_msgs::PointCloud2ConstPtr& msg);
-  void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
+  sensor_msgs::msg::PointCloud2 deskewPointCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg);
+  void cloudCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg);
 
   void isom3d_to_mat33_vec3(const Eigen::Isometry3d& iso, double R[3][3], double t[3]);
 
-  // 3x3 matrix transpose
   inline void mat3x3_transpose(const double in[3][3], double out[3][3]) {
     out[0][0] = in[0][0];
     out[0][1] = in[1][0];
@@ -86,7 +83,6 @@ class AiryProcessorRos {
     out[2][2] = in[2][2];
   }
 
-  // Matrix-vector multiply
   inline void mat3x3_vec3_mult(const double M[3][3], const double v[3], double out[3]) {
     out[0] = M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2];
     out[1] = M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2];
@@ -98,21 +94,24 @@ class AiryProcessorRos {
     out[2] = M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2];
   }
 
-  // Matrix-matrix multiply (3x3 * 3x3)
   inline void mat3x3_mult(const double A[3][3], const double B[3][3], double out[3][3]) {
-    for (int r = 0; r < 3; ++r)
-      for (int c = 0; c < 3; ++c) out[r][c] = A[r][0] * B[0][c] + A[r][1] * B[1][c] + A[r][2] * B[2][c];
+    for (int r = 0; r < 3; ++r) {
+      for (int c = 0; c < 3; ++c) {
+        out[r][c] = A[r][0] * B[0][c] +
+                    A[r][1] * B[1][c] +
+                    A[r][2] * B[2][c];
+      }
+    }
   }
 
   struct FieldOffsets {
     int x = -1, y = -1, z = -1, t = -1;
   };
-  FieldOffsets computeFieldOffsets(const sensor_msgs::PointCloud2& msg) const;
+  FieldOffsets computeFieldOffsets(const sensor_msgs::msg::PointCloud2& msg) const;
 
-  ros::Publisher processedPub_;
-  ros::Subscriber airySub_;
-  ros::Subscriber pose_sub_;
-  ros::NodeHandlePtr nh_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr processedPub_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr airySub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
 
   std::string cloud_topic_;
   std::string pose_topic_;
@@ -120,8 +119,9 @@ class AiryProcessorRos {
   PoseBuffer pose_buffer_;
   Eigen::Isometry3d T_base_rslidar_ = Eigen::Isometry3d::Identity();
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
   float distance_cutoff_ = 0.5f;  // meters
   double R_base_lidar_[3][3], t_base_lidar_[3];
 };

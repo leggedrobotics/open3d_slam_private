@@ -4,6 +4,7 @@
 #include <iostream>
 #include <numeric>
 #include <vector>
+#include <chrono>
 
 using std::chrono::steady_clock;
 
@@ -18,7 +19,7 @@ struct DeskewPoint {
   uint8_t* src_ptr;
 };
 
-void PoseBuffer::add(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg) {
+void PoseBuffer::add(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg) {
   Eigen::Isometry3d pose = Eigen::Translation3d(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z) *
                            Eigen::Quaterniond(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
                                               msg->pose.pose.orientation.z);
@@ -35,10 +36,10 @@ std::vector<TimedPose> PoseBuffer::snapshot() const {
   return {buffer_.begin(), buffer_.end()};
 }
 
-bool PoseBuffer::query(const std::vector<TimedPose>& buf, const ros::Time& stamp, Eigen::Isometry3d& out) {
+bool PoseBuffer::query(const std::vector<TimedPose>& buf, const rclcpp::Time& stamp, Eigen::Isometry3d& out) {
   if (buf.size() < 2) return false;
 
-  auto it = std::lower_bound(buf.begin(), buf.end(), stamp, [](const TimedPose& p, const ros::Time& t) { return p.stamp < t; });
+  auto it = std::lower_bound(buf.begin(), buf.end(), stamp, [](const TimedPose& p, const rclcpp::Time& t) { return p.stamp < t; });
 
   const TimedPose* p1;
   const TimedPose* p2;
@@ -55,11 +56,11 @@ bool PoseBuffer::query(const std::vector<TimedPose>& buf, const ros::Time& stamp
     p1 = &*(it - 1);
   }
 
-  const double t1 = p1->stamp.toSec();
-  const double t2 = p2->stamp.toSec();
+  const double t1 = p1->stamp.seconds();
+  const double t2 = p2->stamp.seconds();
   if (t1 == t2) return false;
 
-  tau = (stamp.toSec() - t1) / (t2 - t1);
+  tau = (stamp.seconds() - t1) / (t2 - t1);
 
   Eigen::Quaterniond q1(p1->pose.rotation());
   Eigen::Quaterniond q2(p2->pose.rotation());
@@ -72,48 +73,53 @@ bool PoseBuffer::query(const std::vector<TimedPose>& buf, const ros::Time& stamp
   return true;
 }
 
-AiryProcessorRos::AiryProcessorRos(const ros::NodeHandlePtr& nh) : nh_(nh), tf_listener_(tf_buffer_) {}
+AiryProcessorRos::AiryProcessorRos(const rclcpp::NodeOptions& options)
+    : rclcpp::Node("airy_processor_ros", options),
+      tf_buffer_(std::make_shared<tf2_ros::Buffer>(this->get_clock())),
+      tf_listener_(std::make_shared<tf2_ros::TransformListener>(*tf_buffer_)) {}
 
-// ------------------------------------------------------------------------------
 void AiryProcessorRos::initCommonRosStuff() {
-  nh_->param<std::string>("cloud_topic", cloud_topic_, "/rslidar_points");
-  nh_->param<std::string>("pose_topic", pose_topic_, "/state_estimator/pose_in_odom");
-  nh_->param<float>("distance_cutoff", distance_cutoff_, 0.5);
+  cloud_topic_ = this->declare_parameter<std::string>("cloud_topic", "/rslidar_points");
+  pose_topic_ = this->declare_parameter<std::string>("pose_topic", "/state_estimator/pose_in_odom");
+  distance_cutoff_ = this->declare_parameter<float>("distance_cutoff", 0.5);
 
   std::cout << "[AiryProcessor] cloud_topic param: " << cloud_topic_ << '\n';
   std::cout << "[AiryProcessor] pose_topic param: " << pose_topic_ << '\n';
   std::cout << "[AiryProcessor] distance_cutoff param: " << distance_cutoff_ << '\n';
 
-  processedPub_ = nh_->advertise<sensor_msgs::PointCloud2>("airy_deskewed_cloud", 1, false);
+  processedPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("airy_deskewed_cloud", rclcpp::QoS(1).transient_local());
 }
 
-// ------------------------------------------------------------------------------
 void AiryProcessorRos::subscribeCloud() {
   constexpr double TF_TIMEOUT = 1.0;
   constexpr double WAIT_INTERVAL = 0.5;
   constexpr double WARN_INTERVAL = 5.0;
 
-  ros::Time start_time = ros::Time::now();
-  ros::Duration warn_duration(WARN_INTERVAL);
+  rclcpp::Time start_time = this->now();
+  rclcpp::Duration warn_duration = rclcpp::Duration::from_seconds(WARN_INTERVAL);
 
-  while (ros::ok()) {
-    bool ready = tf_buffer_.canTransform("base", "rslidar", ros::Time(0), ros::Duration(TF_TIMEOUT));
+  while (rclcpp::ok()) {
+  bool ready = tf_buffer_->canTransform("base", "rslidar", tf2::TimePointZero, tf2::durationFromSec(TF_TIMEOUT));
+
     if (ready) {
       std::cout << "\033[1;32m[AiryProcessorRos] Found static TF base↔rslidar.\033[0m" << std::endl;
       break;
     }
 
-    ros::Duration(WAIT_INTERVAL).sleep();
+    rclcpp::sleep_for(std::chrono::milliseconds(static_cast<int>(WAIT_INTERVAL * 1000)));
 
-    ros::Time now = ros::Time::now();
+    rclcpp::Time now = this->now();
     if ((now - start_time) >= warn_duration) {
       std::cout << "\033[1;33m[AiryProcessorRos] Waiting for static TF base↔rslidar...\033[0m" << std::endl;
       start_time = now;
     }
   }
 
+  // NOTE: The following block will intentionally throw an exception if the static TF base↔rslidar is missing.
+  // This is by design! We want to fail fast and loudly if the transform is not available,
+  // so the user knows exactly what's wrong. This is not a bug, but a deliberate choice.
   try {
-    auto tf_msg = tf_buffer_.lookupTransform("base", "rslidar", ros::Time(0), ros::Duration(TF_TIMEOUT));
+    auto tf_msg = tf_buffer_->lookupTransform("base", "rslidar", tf2::TimePointZero, tf2::durationFromSec(TF_TIMEOUT));
     Eigen::Quaterniond q(tf_msg.transform.rotation.w, tf_msg.transform.rotation.x, tf_msg.transform.rotation.y,
                          tf_msg.transform.rotation.z);
     T_base_rslidar_.linear() = q.toRotationMatrix();
@@ -123,35 +129,31 @@ void AiryProcessorRos::subscribeCloud() {
     isom3d_to_mat33_vec3(T_base_rslidar_, R_base_lidar_, t_base_lidar_);
 
   } catch (tf2::TransformException& ex) {
+    RCLCPP_WARN(this->get_logger(), "\033[1;33m[AiryProcessorRos] This exception is thrown on purpose if the transform is missing!\033[0m");
     throw std::runtime_error(std::string("Cannot start: base↔rslidar TF missing: ") + ex.what());
   }
 
-  airySub_ = nh_->subscribe(cloud_topic_, 1, &AiryProcessorRos::cloudCallback, this);
+  airySub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      cloud_topic_, rclcpp::SensorDataQoS(),
+      std::bind(&AiryProcessorRos::cloudCallback, this, std::placeholders::_1));
 
   std::cout << "\033[1;32m[AiryProcessorRos] Subscribed to cloud topic successfully.\033[0m" << std::endl;
 
-  pose_sub_ = nh_->subscribe<geometry_msgs::PoseWithCovarianceStamped>(
-      pose_topic_, 400, [this](const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg) { pose_buffer_.add(msg); });
+  pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+      pose_topic_, 400, [this](const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg) { pose_buffer_.add(msg); });
 
   std::cout << "\033[1;32m[AiryProcessorRos] Subscribed to pose topic successfully.\033[0m" << std::endl;
 }
 
-// ------------------------------------------------------------------------------
-void AiryProcessorRos::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
-  // const auto t0 = steady_clock::now();
-
-  if (processedPub_.getNumSubscribers() == 0) {
+void AiryProcessorRos::cloudCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg) {
+  if (processedPub_->get_subscription_count() == 0) {
     return;
   }
   auto deskewed = deskewPointCloud(msg);
-  processedPub_.publish(deskewed);
-
-  // const auto t1 = steady_clock::now();
-  // const double ms = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000.0;
-  // ROS_INFO_STREAM_THROTTLE(1.0, "[AiryProcessor] deskew " << msg->width * msg->height << " pts in " << ms << " ms");
+  processedPub_->publish(deskewed);
 }
 
-AiryProcessorRos::FieldOffsets AiryProcessorRos::computeFieldOffsets(const sensor_msgs::PointCloud2& msg) const {
+AiryProcessorRos::FieldOffsets AiryProcessorRos::computeFieldOffsets(const sensor_msgs::msg::PointCloud2& msg) const {
   FieldOffsets o;
   for (const auto& f : msg.fields) {
     if (f.name == "x")
@@ -176,15 +178,14 @@ void AiryProcessorRos::isom3d_to_mat33_vec3(const Eigen::Isometry3d& iso, double
   t[2] = v.z();
 }
 
-sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::PointCloud2ConstPtr& msg) {
+sensor_msgs::msg::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg) {
   using clock = std::chrono::steady_clock;
-  // auto t_block0 = clock::now();
 
-  sensor_msgs::PointCloud2 ros_msg = *msg;
+  sensor_msgs::msg::PointCloud2 ros_msg = *msg;
 
   const FieldOffsets off = computeFieldOffsets(ros_msg);
   if (off.x < 0 || off.y < 0 || off.z < 0 || off.t < 0) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "Deskew: required fields missing");
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Deskew: required fields missing");
     return ros_msg;
   }
 
@@ -192,8 +193,6 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
   const size_t step = ros_msg.point_step;
   uint8_t* base = ros_msg.data.data();
 
-  // Gather validity mask and timestamps
-  // auto t_block1 = clock::now();
   std::vector<uint8_t> valid(n_pts, 0);
   std::vector<double> timestamps(n_pts, 0.0);
 
@@ -204,8 +203,8 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
       break;
     }
   }
-  if (timestamp_field_type != sensor_msgs::PointField::FLOAT64 && timestamp_field_type != sensor_msgs::PointField::FLOAT32) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "Deskew: timestamp field not FLOAT64 or FLOAT32");
+  if (timestamp_field_type != sensor_msgs::msg::PointField::FLOAT64 && timestamp_field_type != sensor_msgs::msg::PointField::FLOAT32) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Deskew: timestamp field not FLOAT64 or FLOAT32");
     return ros_msg;
   }
 
@@ -217,7 +216,7 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     if (range < distance_cutoff_) continue;
 
     double t_val;
-    if (timestamp_field_type == sensor_msgs::PointField::FLOAT64)
+    if (timestamp_field_type == sensor_msgs::msg::PointField::FLOAT64)
       t_val = *reinterpret_cast<const double*>(ptr + off.t);
     else
       t_val = static_cast<double>(*reinterpret_cast<const float*>(ptr + off.t));
@@ -225,9 +224,7 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     valid[i] = 1;
     timestamps[i] = t_val;
   }
-  // auto t_block2 = clock::now();
 
-  // Prefix sum: output indices for kept points
   std::vector<size_t> output_idx(n_pts, 0);
   size_t n_kept = 0;
   for (size_t i = 0; i < n_pts; ++i) {
@@ -241,12 +238,9 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     ros_msg.row_step = 0;
     return ros_msg;
   }
-  // auto t_block3 = clock::now();
 
-  // Batch interpolate unique poses for all kept timestamps
   std::vector<TimedPose> pose_snap = pose_buffer_.snapshot();
 
-  // Gather unique timestamps (sorted)
   std::vector<double> all_times;
   all_times.reserve(n_kept);
   for (size_t i = 0; i < n_pts; ++i)
@@ -261,10 +255,10 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
 #pragma omp parallel for schedule(static, 1024)
   for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n_times); ++i) {
     double t = all_times[i];
-    ros::Time stamp(t);
+    rclcpp::Time stamp(t * 1e9);  // seconds to nanoseconds
 
     auto it =
-        std::lower_bound(pose_snap.begin(), pose_snap.end(), stamp, [](const TimedPose& p, const ros::Time& t) { return p.stamp < t; });
+        std::lower_bound(pose_snap.begin(), pose_snap.end(), stamp, [](const TimedPose& p, const rclcpp::Time& t) { return p.stamp < t; });
 
     const TimedPose* p1;
     const TimedPose* p2;
@@ -279,8 +273,8 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
       p1 = &*(it - 1);
     }
 
-    double t1 = p1->stamp.toSec();
-    double t2 = p2->stamp.toSec();
+    double t1 = p1->stamp.seconds();
+    double t2 = p2->stamp.seconds();
     double tau = (t2 != t1) ? ((t - t1) / (t2 - t1)) : 0.0;
 
     Eigen::Quaterniond q1(p1->pose.rotation());
@@ -293,9 +287,7 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     result.translation() = tr;
     pose_results[i] = result;
   }
-  // auto t_block4 = clock::now();
 
-  // Precompute pose_idx for each valid point
   std::vector<size_t> pose_idx(n_pts, 0);
 #pragma omp parallel for schedule(static, 4096)
   for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n_pts); ++i) {
@@ -304,12 +296,10 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     size_t idx = std::lower_bound(all_times.begin(), all_times.end(), t) - all_times.begin();
     pose_idx[i] = idx;
   }
-  // auto t_block5 = clock::now();
 
-  // Prepare reference pose and Lidar-to-base transform at the scan time
   Eigen::Isometry3d T_odom_base_ref;
-  if (!PoseBuffer::query(pose_snap, msg->header.stamp, T_odom_base_ref)) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "No reference pose for deskewing");
+  if (!PoseBuffer::query(pose_snap, rclcpp::Time(msg->header.stamp), T_odom_base_ref)) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "No reference pose for deskewing");
     return ros_msg;
   }
 
@@ -330,9 +320,7 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
   t_ref_inv[0] = -tmp[0];
   t_ref_inv[1] = -tmp[1];
   t_ref_inv[2] = -tmp[2];
-  // auto t_block6 = clock::now();
 
-  // Allocate output buffer for kept points
   std::vector<uint8_t> compacted(n_kept * step);
 
 #pragma omp parallel for schedule(static, 2048)
@@ -346,7 +334,6 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     size_t idx = pose_idx[i];
     const Eigen::Isometry3d& pose = pose_results[idx];
 
-    // Compose full LiDAR pose at this time
     double R_base_pt[3][3], t_base_pt[3];
     isom3d_to_mat33_vec3(pose, R_base_pt, t_base_pt);
 
@@ -370,7 +357,6 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     p_ref[1] += t_ref_inv[1];
     p_ref[2] += t_ref_inv[2];
 
-    // Write back transformed coordinates
     size_t out_idx = output_idx[i];
     uint8_t* dst = compacted.data() + out_idx * step;
     std::memcpy(dst, ptr, step);
@@ -381,24 +367,12 @@ sensor_msgs::PointCloud2 AiryProcessorRos::deskewPointCloud(const sensor_msgs::P
     *out_py = static_cast<float>(p_ref[1]);
     *out_pz = static_cast<float>(p_ref[2]);
   }
-  // auto t_block7 = clock::now();
 
   ros_msg.data = std::move(compacted);
   ros_msg.width = n_kept;
   ros_msg.height = 1;
   ros_msg.row_step = ros_msg.width * ros_msg.point_step;
   ros_msg.header.stamp = msg->header.stamp;
-
-  // auto ms = [](const auto& t0, const auto& t1) { return std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000.0;
-  // };
-
-  // ROS_INFO_STREAM("[Profile] total:         " << ms(t_block0, t_block7) << " ms");
-  // ROS_INFO_STREAM("[Profile] valid+ts:      " << ms(t_block1, t_block2) << " ms");
-  // ROS_INFO_STREAM("[Profile] prefix_sum:    " << ms(t_block2, t_block3) << " ms");
-  // ROS_INFO_STREAM("[Profile] pose interp:   " << ms(t_block3, t_block4) << " ms");
-  // ROS_INFO_STREAM("[Profile] pose_idx:      " << ms(t_block4, t_block5) << " ms");
-  // ROS_INFO_STREAM("[Profile] ref_pose:      " << ms(t_block5, t_block6) << " ms");
-  // ROS_INFO_STREAM("[Profile] deskew+copy:   " << ms(t_block6, t_block7) << " ms");
 
   return ros_msg;
 }

@@ -1,173 +1,240 @@
 /*
  * RosbagRangeDataProcessorRos.hpp
  *
- *  Created on: Apr 21, 2022
+ *  Created on: Apr 21 2022
  *      Author: jelavice
+ *  Ported to ROS 2 Jazzy: May 31 2025
  */
 
 #pragma once
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <ros/ros.h>
-#include <rosbag/bag.h>
-#include <rosgraph_msgs/Clock.h>
-#include <sensor_msgs/PointCloud2.h>
+
+/* ────────────────────────────────────────────────────────
+ * Standard
+ * ──────────────────────────────────────────────────────── */
+#include <deque>
+#include <fstream>
+#include <memory>
+#include <optional>
+#include <chrono>
+#include <string>
+#include <tuple>
+#include <vector>
+
+/* ────────────────────────────────────────────────────────
+ * ROS 2 core
+ * ──────────────────────────────────────────────────────── */
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/time.hpp>
+#include <tf2_ros/buffer.h>
+
+#include <rosbag2_cpp/info.hpp>
+#include <rosbag2_storage/metadata_io.hpp>
+#include <rosbag2_storage/storage_options.hpp>
+/* ────────────────────────────────────────────────────────
+ * Messages
+ * ──────────────────────────────────────────────────────── */
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
+
+#include <geometry_msgs/msg/transform_stamped.hpp>   // <- used in processBuffers()
+#include <cmath>                                     // <- cos(), sin()
+
+
+#include <sensor_msgs/msg/point_cloud2.hpp>
+
+#include <rosgraph_msgs/msg/clock.hpp>
+
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+
+#include <std_srvs/srv/empty.hpp>
+
+/* ────────────────────────────────────────────────────────
+ * TF 2
+ * ──────────────────────────────────────────────────────── */
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-#include <deque>
-#include <memory>
-#include <string>
-#include <vector>
 
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
+/* ────────────────────────────────────────────────────────
+ * Rosbag 2
+ * ──────────────────────────────────────────────────────── */
+#include <rosbag2_cpp/writer.hpp>
+#include <rosbag2_cpp/reader.hpp>
 
+
+/* ────────────────────────────────────────────────────────
+ * Project-specific
+ * ──────────────────────────────────────────────────────── */
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam/output.hpp"
-
-#include <std_srvs/Empty.h>
-
 #include "open3d_slam_ros/DataProcessorRos.hpp"
 
-namespace o3d_slam {
+namespace o3d_slam
+{
 
-struct SlamInputs {
-  sensor_msgs::PointCloud2::ConstPtr pointCloud_;
-  geometry_msgs::PoseStamped::ConstPtr odometryPose_;
+/* ========================================================
+ * Helper struct
+ * ====================================================== */
+struct SlamInputs
+{
+  sensor_msgs::msg::PointCloud2::ConstSharedPtr        pointCloud_;
+  geometry_msgs::msg::PoseStamped::ConstSharedPtr      odometryPose_;
 
   SlamInputs() = default;
-
-  SlamInputs(sensor_msgs::PointCloud2::ConstPtr pointCloud, geometry_msgs::PoseStamped::ConstPtr odometryPose)
-      : pointCloud_(pointCloud), odometryPose_(odometryPose) {}
+  SlamInputs(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pc,
+             const geometry_msgs::msg::PoseStamped::ConstSharedPtr& odom)
+    : pointCloud_(pc), odometryPose_(odom) {}
 };
 
-class RosbagRangeDataProcessorRos : public DataProcessorRos {
-  using BASE = DataProcessorRos;
+/* ========================================================
+ * Main class
+ * ====================================================== */
+class RosbagRangeDataProcessorRos : public DataProcessorRos
+{
+  using BASE             = DataProcessorRos;
   using SlamInputsBuffer = std::deque<std::unique_ptr<SlamInputs>>;
 
- public:
-  RosbagRangeDataProcessorRos(ros::NodeHandlePtr nh);
+public:
+  explicit RosbagRangeDataProcessorRos(const rclcpp::Node::SharedPtr& nh);
   ~RosbagRangeDataProcessorRos() override = default;
 
+  rclcpp::Node::SharedPtr nh_;
+
+  /* ---------- lifecycle -------------------------------------------------- */
   void initialize() override;
   void startProcessing() override;
-  void processMeasurement(const PointCloud& cloud, const Time& timestamp) override;
+  void processMeasurement(const PointCloud& cloud, const Time& stamp) override;
 
-  void poseStampedCallback(const geometry_msgs::PoseStampedConstPtr& msg);
+  /* ---------- callbacks / helpers --------------------------------------- */
+  void poseStampedCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr& msg);
 
-  /**
-   * @brief Processes a buffer of SLAM inputs stored in memory.
-   *
-   * @param buffer  Buffer of SLAM inputs, FIFO.
-   */
-  bool processBuffers(SlamInputsBuffer& buffer);
+  bool  processBuffers(SlamInputsBuffer& buffer);
+  void  logTiming(const rclcpp::Duration&   elapsed, const std::string& filepath);
+  void  drawLinesBetweenPoses(const nav_msgs::msg::Path& path1,
+                              const nav_msgs::msg::Path& path2,
+                              const rclcpp::Time&        stamp);
 
-  void logTiming(const ros::WallDuration& duration, const std::string& filepath);
+  std::optional<visualization_msgs::msg::Marker>
+         generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& cloud,
+                                                const rclcpp::Time&                 stamp,
+                                                const o3d_slam::RgbaColorMap::Values& color);
 
-  void drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp);
+  bool  validateTopicsInRosbag(const std::string&               bag_path,
+                               const std::vector<std::string>&  mandatoryTopics);
 
-  std::optional<visualization_msgs::Marker> generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& o3d_pc,
-                                                                                   const ros::Time& timestamp,
-                                                                                   const o3d_slam::RgbaColorMap::Values& color);
+  bool  readCalibrationIfNeeded();
+  bool  run();
 
-  /**
-   * @brief Validates that essential topics required to run sequential evaluation are present in the bag file.
-   *
-   * @param bag               ROS bag file to analyze.
-   * @param mandatoryTopics   List of mandatory topics.
-   * @return true             If all mandatory topics are present in the data, false otherwise.
-   */
-  bool validateTopicsInRosbag(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics);
+  std::tuple<rclcpp::Duration, rclcpp::Duration, rclcpp::Duration>
+         usePairForRegistration();
 
-  bool readCalibrationIfNeeded();
-
-  /*!
-   * @brief Run sequential SLAM.
-   * @return true If successful, false otherwise.
-   */
-  bool run();
-
-  std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> usePairForRegistration();
-
- private:
-  void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg);
+private:
+  /* ---------- internal I/O --------------------------------------------- */
+  void cloudCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg);
   bool processRosbag();
 
-  std::string rosbagFilename_;
-
-  //! Parameters.
-  Parameters parameters_;
-
-  nav_msgs::Path trackedPath_;
-  nav_msgs::Path bestGuessPath_;
-  std::ofstream poseFile_;
-  std::ofstream imuFile_;
-  std::string asyncOdometryFrame_;
-
-  std::string buildUpLogFilename(const std::string& typeSuffix, const std::string& extension = ".txt");
+  /* ---------- utility --------------------------------------------------- */
+  std::string buildUpLogFilename(const std::string& suffix,
+                                 const std::string& ext = ".txt");
   bool createOutputDirectory();
-  visualization_msgs::MarkerArray convertPathToMarkerArray(const nav_msgs::Path& path);
-  visualization_msgs::Marker createLineStripMarker();
 
-  o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array, const int num_samples);
+  visualization_msgs::msg::MarkerArray convertPathToMarkerArray(const nav_msgs::msg::Path& path);
+  visualization_msgs::msg::Marker      createLineStripMarker();
+
+  o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::msg::MarkerArray& markers,
+                                             int num_samples);
 
   void calculateSurfaceNormals(o3d_slam::PointCloud& cloud);
-
   void processRosbagForIMU();
-
   void exportIMUData();
 
-  //! Publishers.
-  ros::Publisher clockPublisher_;
-  ros::Publisher inputPointCloudPublisher_;
+  /* ---------- configuration / parameters -------------------------------- */
+  std::string   rosbagFilename_;
+  Parameters    parameters_;
 
-  ros::Publisher odometryPosePublisher_;
-  ros::Publisher registeredPosePublisher_;
+  /* ---------- state ----------------------------------------------------- */
+  nav_msgs::msg::Path                         trackedPath_;
+  nav_msgs::msg::Path                         bestGuessPath_;
+  std::deque<geometry_msgs::msg::PoseStamped> registeredPoses_;
 
-  ros::ServiceServer sleepServer_;
+  rclcpp::Time      tracker;
+  rclcpp::Duration  timeDiff_{0, 0};          //  ⟵  **FIX** (valid default-ctor)
 
-  sensor_msgs::PointCloud2 registeredCloud_;
+  bool   isFirstMessage_         {true};
+  bool   isStaticTransformFound_ {false};
+  bool   isBagReadyToPlay_       {false};
+  bool   isFirstWrite            {true};
+  double maxProcessingRate_      {-0.1};
 
-  //! Tf2.
-  tf2_ros::TransformBroadcaster transformBroadcaster_;
-  tf2_ros::StaticTransformBroadcaster staticTransformBroadcaster_;
+  /* ---------- publishers / services ------------------------------------- */
+  rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr       clockPublisher_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr   inputPointCloudPublisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr odometryPosePublisher_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr registeredPosePublisher_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr              sleepServer_;
 
-  std::deque<geometry_msgs::PoseStamped> registeredPoses_;
+  /* ---------- TF -------------------------------------------------------- */
+  std::shared_ptr<tf2_ros::TransformBroadcaster>        transformBroadcaster_;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster>  staticTransformBroadcaster_;
+  std::shared_ptr<tf2_ros::Buffer>                      tfBuffer_;
+  std::unique_ptr<tf2_ros::TransformListener>           tfListener_;
+  geometry_msgs::msg::TransformStamped                  baseToLidarTransform_;
+  std::vector<geometry_msgs::msg::TransformStamped>     staticTransforms_;
 
-  ros::Time tracker;
+  /* ---------- rosbag 2 writer ------------------------------------------ */
+  std::unique_ptr<rosbag2_cpp::Writer> bag_writer_;
 
-  //! Maximum processing rate.
-  double maxProcessingRate_{-0.1};
+  /* ---------- misc ------------------------------------------------------ */
+  std::ofstream           poseFile_;
+  std::ofstream           imuFile_;
+  std::string             asyncOdometryFrame_;
+  std::string             odometryHeader_{"/bestHeaderThereis"};
+  std::string             tfTopic_{"/tf"};
+  std::string             tfStaticTopic_{"/tf_static"};
+  std::string             clockTopic_{"/clock"};
+  o3d_slam::RgbaColorMap  colorMap_;
 
-  //! Tf topic name.
-  std::string tfTopic_{"/tf"};
+  /* ========  TIME-CONVERSION HELPERS  ======== */
+  /* Convert builtin_interfaces::msg::Time → internal o3d_slam::Time  */
+  inline o3d_slam::Time fromRos2(const builtin_interfaces::msg::Time& stamp) {
+    using namespace std::chrono;
+    const auto ns = seconds(stamp.sec) + nanoseconds(stamp.nanosec);
+    return o3d_slam::Time(duration_cast<o3d_slam::Time::duration>(ns));
+  }
 
-  //! Static Tf topic name.
-  std::string tfStaticTopic_{"/tf_static"};
+  /* Convert internal o3d_slam::Time → builtin_interfaces::msg::Time  */
+  inline builtin_interfaces::msg::Time toRos2(const o3d_slam::Time& t) {
+    using namespace std::chrono;
+    const int64_t ns_total =
+        duration_cast<nanoseconds>(t.time_since_epoch()).count();
+    builtin_interfaces::msg::Time out;
+    out.sec     = static_cast<int32_t>(ns_total / 1000000000LL);
+    out.nanosec = static_cast<uint32_t>(ns_total % 1000000000LL);
+    return out;
+  }
 
-  //! ROS clock topic name.
-  std::string clockTopic_{"/clock"};
+  /* Overload kept for the (few) places where we really have an rclcpp::Time */
+  inline builtin_interfaces::msg::Time toRos2(const rclcpp::Time& t) {
+    builtin_interfaces::msg::Time out;
+    out.sec     = static_cast<int32_t>(t.seconds());
+    out.nanosec = static_cast<uint32_t>(t.nanoseconds() % 1000000000LL);
+    return out;
+  }
 
-  bool isFirstMessage_ = true;
-  bool isStaticTransformFound_ = false;
+  /* Convert internal o3d_slam::Time → rclcpp::Time (needed for RViz etc.) */
+  inline rclcpp::Time toRclcpp(const o3d_slam::Time& t) {
+    using namespace std::chrono;
+    return rclcpp::Time(
+        duration_cast<nanoseconds>(t.time_since_epoch()).count(),
+        RCL_ROS_TIME);
+  }
 
-  ros::Duration timeDiff_;
-  rosbag::Bag outBag;
-
-  geometry_msgs::TransformStamped baseToLidarTransform_;
-  std::string odometryHeader_{"/bestHeaderThereis"};
-  std::vector<geometry_msgs::TransformStamped> staticTransforms_;
-
-  std::unique_ptr<tf2_ros::Buffer> tfBuffer_;
-  std::unique_ptr<tf2_ros::TransformListener> tfListener_;
-
-  bool isBagReadyToPlay_ = false;
-  bool isFirstWrite = true;
-
-  o3d_slam::RgbaColorMap colorMap_;
+  std::unique_ptr<rosbag2_cpp::Reader> reader_;
 };
 
 }  // namespace o3d_slam

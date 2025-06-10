@@ -16,7 +16,7 @@
 #include "open3d_slam/croppers.hpp"
 #include "open3d_slam/time.hpp"
 
-#include <nav_msgs/Path.h>
+#include <nav_msgs/msg/path.hpp>
 
 #include <algorithm>
 #include <execution>
@@ -84,8 +84,8 @@ class Mapper {
   bool isCalibrationSet_ = false;
 
   std::mutex pathMutex_;
-  nav_msgs::Path trackedPath_;
-  nav_msgs::Path bestGuessPath_;
+  nav_msgs::msg::Path trackedPath_;
+  nav_msgs::msg::Path bestGuessPath_;
   bool isNewValueSetMapper_ = false;
   bool isInitialTransformSet_ = false;
 

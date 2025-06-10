@@ -118,15 +118,16 @@ size_t SlamWrapper::getMappingBufferSizeLimit() const {
   return mappingBuffer_.size_limit();
 }
 
-void SlamWrapper::appendPoseToTrackedPath(geometry_msgs::PoseStamped transform) {
+void SlamWrapper::appendPoseToTrackedPath(geometry_msgs::msg::PoseStamped transform) {
   {
     std::lock_guard<std::mutex> lock(mapper_->pathMutex_);
     mapper_->trackedPath_.poses.push_back(transform);
   }
 }
 
-void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::PoseStamped transform) {
+void SlamWrapper::appendPoseToBestGuessPath(geometry_msgs::msg::PoseStamped transform) {
   {
+    // TODO pass reference herE?
     std::lock_guard<std::mutex> lock(mapper_->pathMutex_);
     mapper_->bestGuessPath_.poses.push_back(transform);
   }

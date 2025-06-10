@@ -1,27 +1,26 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>open3d_slam</name>
   <version>0.0.0</version>
   <description>Range sensor based mapping</description>
 
   <maintainer email="jelavice@ethz.ch">Edo Jelavic</maintainer>
+  <license>BSD</license>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- One license tag required, multiple allowed, one license per tag -->
-  <!-- Commonly used license strings: -->
-  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>TODO</license>
-
-
-  <author email="jelavice@ethz.ch">Edo Jelavic</author>
-
-
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>open3d_catkin</depend>
   <depend>open3d_conversions</depend>
-  <depend>eigen_conversions</depend>
-  <depend>eigen</depend>
+  <depend>eigen3_cmake_module</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>boost</depend>
+  <depend>tbb</depend>
+  <depend>yaml-cpp</depend>
+  <depend>small_gicp</depend>   <!-- <<< added here if missing -->
 
+  <exec_depend>openmp</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

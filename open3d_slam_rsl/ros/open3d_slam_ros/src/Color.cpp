@@ -1,10 +1,3 @@
-/*
- * Color.cpp
- *
- *  Created on: Apr 21, 2022
- *      Author: jelavice
- */
-
 #include "open3d_slam_ros/Color.hpp"
 
 namespace o3d_slam {
@@ -21,74 +14,53 @@ void clamp(T* val, Limits lo, Limits hi) {
     return;
   }
 }
-}  // namespace
+} // namespace
 
-Color::Color() : std_msgs::ColorRGBA() {}
+Color::Color() {
+  msg_.r = 0.0;
+  msg_.g = 0.0;
+  msg_.b = 0.0;
+  msg_.a = 1.0;
+}
 Color::Color(double red, double green, double blue) : Color(red, green, blue, 1.0) {}
-Color::Color(double red, double green, double blue, double alpha) : Color() {
-  r = red;
-  g = green;
-  b = blue;
-  a = alpha;
+
+Color::Color(double red, double green, double blue, double alpha) {
+  msg_.r = red;
+  msg_.g = green;
+  msg_.b = blue;
+  msg_.a = alpha;
 }
 
 Color Color::operator*(double scalar) const {
   Color ret = *this;
-  ret.r *= scalar;
-  ret.g *= scalar;
-  ret.b *= scalar;
-  clamp(&ret.r, 0.0, 1.0);
-  clamp(&ret.g, 0.0, 1.0);
-  clamp(&ret.b, 0.0, 1.0);
+  ret.msg_.r *= scalar;
+  ret.msg_.g *= scalar;
+  ret.msg_.b *= scalar;
+  clamp(&ret.msg_.r, 0.0, 1.0);
+  clamp(&ret.msg_.g, 0.0, 1.0);
+  clamp(&ret.msg_.b, 0.0, 1.0);
   return ret;
 }
 Color operator*(double scalar, const Color& c) {
   return c * scalar;
 }
-const Color Color::getColor(int colorCode) {
+Color Color::getColor(int colorCode) {
   switch (colorCode) {
-    case 0: {
-      return White();
-    }
-    case 1: {
-      return Black();
-    }
-    case 2: {
-      return Gray();
-    }
-    case 3: {
-      return Red();
-    }
-    case 4: {
-      return Green();
-    }
-    case 5: {
-      return Blue();
-    }
-    case 6: {
-      return Yellow();
-    }
-    case 7: {
-      return Orange();
-    }
-    case 8: {
-      return Purple();
-    }
-    case 9: {
-      return Chartreuse();
-    }
-    case 10: {
-      return Teal();
-    }
-    case 11: {
-      return Pink();
-    }
-    case 12: {
-      return Magenta();
-    }
-    default:
-      throw std::runtime_error("unknown color code");
+    case 0: return White();
+    case 1: return Black();
+    case 2: return Gray();
+    case 3: return Red();
+    case 4: return Green();
+    case 5: return Blue();
+    case 6: return Yellow();
+    case 7: return Orange();
+    case 8: return Purple();
+    case 9: return Chartreuse();
+    case 10: return Teal();
+    case 11: return Pink();
+    case 12: return Magenta();
+    default: throw std::runtime_error("unknown color code");
   }
 }
 
-} /* namespace o3d_slam */
+} // namespace o3d_slam
