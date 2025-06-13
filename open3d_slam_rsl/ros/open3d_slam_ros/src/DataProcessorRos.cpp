@@ -34,21 +34,26 @@ void DataProcessorRos::initCommonRosStuff() {
   /* QoS chosen:
    * - depth 1
    * - transient local so late-joining RViz can see the last message   */
-  rclcpp::QoS latched_qos(1U);
-  const auto latched = latched_qos.transient_local();
+  // rclcpp::QoS latched_qos(1U);
+  // const auto latched = latched_qos.transient_local();
 
-  rawCloudPub_            = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("raw_cloud",             latched);
-  registeredCloudPub_     = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("registered_cloud",      latched);
-  offlinePathPub_         = nh_->create_publisher<nav_msgs::msg::Path>("tracked_path",     latched);
-  surfaceNormalPub_       = nh_->create_publisher<visualization_msgs::msg::Marker>("surface_normals", latched);
-  offlineDifferenceLinePub_ =
-      nh_->create_publisher<visualization_msgs::msg::Marker>("difference_lines", latched);
-  offlineBestGuessPathPub_ =
-      nh_->create_publisher<nav_msgs::msg::Path>("best_guess_path", latched);
+  // rclcpp::QoS qos(1);
+  // qos.best_effort();
+  // qos.durability_volatile();  // Use .durability_volatile(), not .volatile_()
 
-  numAccumulatedRangeDataDesired_ =
-      nh_->declare_parameter<int>("num_accumulated_range_data", 1);
-  std::cout << "Num accumulated range data: " << numAccumulatedRangeDataDesired_ << std::endl;
+  auto qos = rclcpp::QoS(1).reliable();
+
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  // rawCloudPub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("raw_cloud", qos, pub_options);
+  alreadyTransformedCloudPub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("already_transformed_cloud", qos, pub_options);
+  registeredCloudPub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("registered_cloud", qos, pub_options);
+  offlinePathPub_ = nh_->create_publisher<nav_msgs::msg::Path>("tracked_path", qos, pub_options);
+  surfaceNormalPub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("surface_normals", qos, pub_options);
+  offlineDifferenceLinePub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("difference_lines", qos, pub_options);
+  offlineBestGuessPathPub_ = nh_->create_publisher<nav_msgs::msg::Path>("best_guess_path", qos, pub_options);
+
 }
 
 /* -------------------------------------------------------------------------- */

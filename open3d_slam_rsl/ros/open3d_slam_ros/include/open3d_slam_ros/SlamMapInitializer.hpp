@@ -32,6 +32,8 @@ class SlamMapInitializer {
 
   void initialize(const MapInitializingParameters& params);
 
+  std::string get_map_file_path(const std::string& package, const std::string& map_name);
+
  private:
   void initInteractiveMarker();
   void setPoseCallback(const visualization_msgs::msg::InteractiveMarkerFeedback::ConstSharedPtr& msg);

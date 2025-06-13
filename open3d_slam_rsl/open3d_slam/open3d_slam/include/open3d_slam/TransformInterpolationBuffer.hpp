@@ -19,7 +19,7 @@ namespace o3d_slam {
 
 class TransformInterpolationBuffer {
  public:
-  explicit TransformInterpolationBuffer(std::size_t bufferSize = 2000);
+  explicit TransformInterpolationBuffer(std::size_t bufferSize = 500);
   // TransformInterpolationBuffer();                         // default size
   ~TransformInterpolationBuffer() = default;
 

@@ -80,6 +80,7 @@ set(SRC_FILES
   src/creators.cpp
   src/DataProcessorRos.cpp
   src/AiryProcessorRos.cpp
+  src/RobosenseProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
 )
@@ -129,6 +130,18 @@ ament_target_dependencies(airy_processing_node
 target_link_libraries(airy_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
 target_link_libraries(airy_processing_node OpenMP::OpenMP_CXX)
 
+add_executable(robosense_processing_node src/robosense_processing_node.cpp)
+ament_target_dependencies(robosense_processing_node
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_msgs
+  geometry_msgs nav_msgs sensor_msgs visualization_msgs rosgraph_msgs
+  interactive_markers
+  open3d_conversions open3d_slam open3d_slam_lua_io
+  Glog yaml-cpp Eigen3
+  rosbag2_cpp rosbag2_storage rosbag2_storage_default_plugins std_srvs tf2_geometry_msgs tf2_eigen
+)
+target_link_libraries(robosense_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
+target_link_libraries(robosense_processing_node OpenMP::OpenMP_CXX)
+
 # ---------------------------------------------------------------------------
 # 1-f  Installation
 # ---------------------------------------------------------------------------
@@ -136,18 +149,21 @@ install(TARGETS
   ${PROJECT_NAME}
   mapping_node
   airy_processing_node
+  robosense_processing_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}  # Ensures executables go to libexec
 )
 
-
+add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 install(DIRECTORY include/ DESTINATION include)
 
-# Correct install directive for the launch directory
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch)
+
+install(DIRECTORY data/
+  DESTINATION share/${PROJECT_NAME}/data)
 
 # Install ROS2 package.xml for ament
 install(FILES package.xml DESTINATION share/${PROJECT_NAME})

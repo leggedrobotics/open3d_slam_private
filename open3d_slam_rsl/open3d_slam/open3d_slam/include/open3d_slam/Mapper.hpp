@@ -90,10 +90,10 @@ class Mapper {
   bool isInitialTransformSet_ = false;
 
   using RegistrationType = small_gicp::Registration<
-      small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::SymmetricPointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,
+      small_gicp::RobustFactor<small_gicp::Cauchy, small_gicp::PointToPlaneICPFactor>, small_gicp::ParallelReductionOMP,
       small_gicp::NullFactor,                          // Empty_Factor, Cauchy, Huber
-      small_gicp::CompoundRejector,                    // CompoundRejector //DistanceRejector //NullRejector // ParallelReductionOMPTrimmed
-      small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //PointToPlaneICPFactor
+      small_gicp::DistanceRejector,                    // CompoundRejector //DistanceRejector //NullRejector // ParallelReductionOMPTrimmed
+      small_gicp::RobustLevenbergMarquardtOptimizer>;  // SymmetricPointToPlaneICPFactor //PointToPlaneICPFactor //GICPFactor
                                                        // //HouseholderSolver LevenbergMarquardtOptimizer
                                                        // //RobustLevenbergMarquardtOptimizer //NonstandardLevenbergMarquardtOptimizer
                                                        // //GaussNewtonOptimizer ICPFactor

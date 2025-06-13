@@ -18,7 +18,7 @@
 
 #include <omp.h>
 
-namespace airy_processor {
+namespace robosense_processor {
 
 enum class ColorKey : uint8_t { kWhite = 0, kRed, kGreen, kBlue, kCyan, kYellow, kGold, kGrey, kLavender, kOrange, kBlack };
 
@@ -57,10 +57,10 @@ class PoseBuffer {
 };
 
 // ─────────────────────────────── ROS2 wrapper class ─────────────────────────────
-class AiryProcessorRos : public rclcpp::Node {
+class RobosenseProcessorRos : public rclcpp::Node {
  public:
-  explicit AiryProcessorRos(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
-  ~AiryProcessorRos() = default;
+  explicit RobosenseProcessorRos(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
+  ~RobosenseProcessorRos() = default;
 
   void initCommonRosStuff();
   void subscribeCloud();
@@ -110,7 +110,7 @@ class AiryProcessorRos : public rclcpp::Node {
   FieldOffsets computeFieldOffsets(const sensor_msgs::msg::PointCloud2& msg) const;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr processedPub_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr airySub_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr robosenseSub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
 
   std::string cloud_topic_;

@@ -76,8 +76,9 @@ class DataProcessorRos {
 
   /* --- publishers -------------------------------------------------------- */
   // using PointCloudPubT = rclcpp::Publisher<sensor_msgs::msg::PointCloud2>;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr rawCloudPub_;
+  // rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr rawCloudPub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr registeredCloudPub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr alreadyTransformedCloudPub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr offlinePathPub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr surfaceNormalPub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr offlineDifferenceLinePub_;

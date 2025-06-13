@@ -48,6 +48,9 @@ bool saveToFile(const std::string& filename, const PointCloud& cloud) {
 
 bool createDirectoryOrNoActionIfExists(const std::string& directory) {
   boost::filesystem::path dir(directory);
+  if (boost::filesystem::exists(dir)) {
+    return true;
+  }
   return boost::filesystem::create_directory(dir);
 }
 

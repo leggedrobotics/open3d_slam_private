@@ -46,11 +46,32 @@ SlamWrapperRos::~SlamWrapperRos() {
     odomPublisherWorkerThread_.join();
 }
 
+void SlamWrapperRos::setThreadAffinityAndPriority(std::thread& t, int core_id, int prio) {
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core_id, &cpuset);
+  int rc = pthread_setaffinity_np(t.native_handle(), sizeof(cpu_set_t), &cpuset);
+
+  sched_param sch_params;
+  sch_params.sched_priority = prio;
+  int rc2 = pthread_setschedparam(t.native_handle(), SCHED_FIFO, &sch_params);
+
+  if (rc != 0 || rc2 != 0) {
+    // log or handle error (insufficient permissions, invalid priority, etc.)
+  }
+}
+
 void SlamWrapperRos::startWorkers() {
   tfWorkerThread_ = std::thread([this]() { tfWorker(); });
   visualizationWorkerThread_ = std::thread([this]() { visualizationWorker(); });
-  if (params_.odometry_.isPublishOdometryMsgs_)
+  if (params_.odometry_.isPublishOdometryMsgs_){
     odomPublisherWorkerThread_ = std::thread([this]() { odomPublisherWorker(); });
+    setThreadAffinityAndPriority(odomPublisherWorkerThread_, 3, 90);// Pin to core 4
+  }
+
+  setThreadAffinityAndPriority(tfWorkerThread_, 2, 90);           // Pin to core 2
+  setThreadAffinityAndPriority(visualizationWorkerThread_, 4, 40); // Pin to core 3
+
 
   BASE::startWorkers();
 }
@@ -81,8 +102,8 @@ void SlamWrapperRos::odomPublisherWorker() {
       const Transform T = mapper_->getMapToRangeSensor(latestScanToMap);
       geometry_msgs::msg::TransformStamped transformMsg = getTransformMsg(T, latestScanToMap);
       nav_msgs::msg::Odometry odomMsg = getOdomMsg(transformMsg);
-      if (scan2mapTransformPublisher_ && scan2mapTransformPublisher_->get_subscription_count() > 0)
-        scan2mapTransformPublisher_->publish(transformMsg);
+      // if (scan2mapTransformPublisher_ && scan2mapTransformPublisher_->get_subscription_count() > 0)
+      //   scan2mapTransformPublisher_->publish(transformMsg);
 
       odomMsg.child_frame_id = frames_.rangeSensorFrame;
       if (scan2mapOdomPublisher_ && scan2mapOdomPublisher_->get_subscription_count() > 0)
@@ -95,16 +116,16 @@ void SlamWrapperRos::odomPublisherWorker() {
 }
 
 void SlamWrapperRos::tfWorker() {
-  rclcpp::Rate r(500.0);
+  rclcpp::Rate r(100.0);
   while (rclcpp::ok()) {
-    const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
-    const bool isAlreadyPublished = (latestScanToScan == prevPublishedTimeScanToScan_);
-    if (!isAlreadyPublished && odometry_ && odometry_->hasProcessedMeasurements()) {
-      const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
-      rclcpp::Time timestamp = toRos(latestScanToScan);
-      o3d_slam::publishTfTransform(T.matrix().inverse(), timestamp, frames_.rangeSensorFrame, frames_.odomFrame, tfBroadcaster_.get());
-      prevPublishedTimeScanToScan_ = latestScanToScan;
-    }
+    // const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
+    // const bool isAlreadyPublished = (latestScanToScan == prevPublishedTimeScanToScan_);
+    // if (!isAlreadyPublished && odometry_ && odometry_->hasProcessedMeasurements()) {
+    //   const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
+    //   rclcpp::Time timestamp = toRos(latestScanToScan);
+    //   o3d_slam::publishTfTransform(T.matrix().inverse(), timestamp, frames_.rangeSensorFrame, frames_.odomFrame, tfBroadcaster_.get());
+    //   prevPublishedTimeScanToScan_ = latestScanToScan;
+    // }
 
     const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
 
@@ -166,13 +187,26 @@ void SlamWrapperRos::offlineTfWorker() {
 
 
 bool SlamWrapperRos::isPathValid(const nav_msgs::msg::Path& path) const {
-  if (path.poses.empty()) return false;
-  for (const auto& pose : path.poses) {
-    if (pose.header.frame_id.empty()) return false;
+  if (path.poses.empty()) {
+    RCLCPP_WARN(nh_->get_logger(), "Path is empty.");
+    return false;
+  }
+  for (size_t i = 0; i < path.poses.size(); ++i) {
+    const auto& pose = path.poses[i];
+    if (pose.header.frame_id.empty()) {
+      RCLCPP_WARN(nh_->get_logger(), "Pose %zu has empty frame_id.", i);
+      return false;
+    }
     const auto& p = pose.pose.position;
     const auto& q = pose.pose.orientation;
-    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) return false;
-    if (!std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z) || !std::isfinite(q.w)) return false;
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
+      RCLCPP_WARN(nh_->get_logger(), "Pose %zu has non-finite position.", i);
+      return false;
+    }
+    if (!std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z) || !std::isfinite(q.w)) {
+      RCLCPP_WARN(nh_->get_logger(), "Pose %zu has non-finite orientation.", i);
+      return false;
+    }
   }
   return true;
 }
@@ -247,26 +281,37 @@ bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
 }
 
 void SlamWrapperRos::loadParametersAndInitialize() {
-// odometryInputPub_ = nh_->create_publisher<nav_msgs::msg::Odometry>("odom_input", 1);
-  mappingInputPub_    = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("mapping_input", 1);
-  assembledMapPub_    = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("assembled_map", 1);
-  denseMapPub_        = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("dense_map", 1);
-  submapsPub_         = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("submaps", 1);
-  submapOriginsPub_   = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("submap_origins", 1);
+
+  // rclcpp::QoS qos(1);
+  // qos.best_effort();
+  // qos.durability_volatile();  // Use .durability_volatile(), not .volatile_() in Eigen 3.4.0
+
+  auto qos = rclcpp::QoS(1).reliable();
+
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+
+  mappingInputPub_    = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("mapping_input", qos, pub_options);
+  assembledMapPub_    = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("assembled_map", qos, pub_options);
+  denseMapPub_        = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("dense_map", qos, pub_options);
+  submapsPub_         = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("submaps", qos, pub_options);
+  submapOriginsPub_   = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("submap_origins", qos, pub_options);
+
+  // scan2scanTransformPublisher_ = nh_->create_publisher<geometry_msgs::msg::TransformStamped>("scan2scan_transform", qos, pub_options);
+  // scan2scanOdomPublisher_      = nh_->create_publisher<nav_msgs::msg::Odometry>("scan2scan_odometry", qos, pub_options);
+  // scan2mapTransformPublisher_  = nh_->create_publisher<geometry_msgs::msg::TransformStamped>("scan2map_transform", qos, pub_options);
+  scan2mapOdomPublisher_       = nh_->create_publisher<nav_msgs::msg::Odometry>("scan2map_odometry", qos, pub_options);
+
+  trackedPathPub_ = nh_->create_publisher<nav_msgs::msg::Path>("tracked_path_live", qos, pub_options);
+  bestGuessPathPub_ = nh_->create_publisher<nav_msgs::msg::Path>("best_guess_path_live", qos, pub_options);
+  differenceLinePub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("differenceLines", qos, pub_options);
+
 
   saveMapSrv_ = nh_->create_service<open3d_slam_msgs::srv::SaveMap>(
       "save_map", std::bind(&SlamWrapperRos::saveMapCallback, this, std::placeholders::_1, std::placeholders::_2));
   saveSubmapsSrv_ = nh_->create_service<open3d_slam_msgs::srv::SaveSubmaps>(
       "save_submaps", std::bind(&SlamWrapperRos::saveSubmapsCallback, this, std::placeholders::_1, std::placeholders::_2));
 
-  scan2scanTransformPublisher_ = nh_->create_publisher<geometry_msgs::msg::TransformStamped>("scan2scan_transform", 1);
-  scan2scanOdomPublisher_      = nh_->create_publisher<nav_msgs::msg::Odometry>("scan2scan_odometry", 1);
-  scan2mapTransformPublisher_  = nh_->create_publisher<geometry_msgs::msg::TransformStamped>("scan2map_transform", 1);
-  scan2mapOdomPublisher_       = nh_->create_publisher<nav_msgs::msg::Odometry>("scan2map_odometry", 10);
-
-  trackedPathPub_ = nh_->create_publisher<nav_msgs::msg::Path>("tracked_path_live", 1);
-  bestGuessPathPub_ = nh_->create_publisher<nav_msgs::msg::Path>("best_guess_path_live", 1);
-  differenceLinePub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("differenceLines", 1);
 
   folderPath_ = nh_->declare_parameter<std::string>("data_folder", "") + "/data/";
   mapSavingFolderPath_ = nh_->declare_parameter<std::string>("map_saving_folder", folderPath_);
@@ -318,8 +363,8 @@ bool SlamWrapperRos::saveSubmapsCallback(
 }
 
 void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
-  const rclcpp::Time timestamp = toRos(time);
-  o3d_slam::publishTfTransform(mapper_->getMapToRangeSensor(time).matrix(), timestamp, frames_.mapFrame, "raw_rs_o3d", tfBroadcaster_.get());
+  // const rclcpp::Time timestamp = toRos(time);
+  // o3d_slam::publishTfTransform(mapper_->getMapToRangeSensor(time).matrix(), timestamp, frames_.mapFrame, "raw_rs_o3d", tfBroadcaster_.get());
 
   if (!(mapper_->getMapToRangeSensorBuffer().empty())) {
     auto latestMapToRangeMeasurement_ = mapper_->getMapToRangeSensorBuffer().latest_measurement();

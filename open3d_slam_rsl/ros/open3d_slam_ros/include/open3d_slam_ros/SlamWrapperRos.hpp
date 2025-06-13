@@ -45,6 +45,8 @@ class SlamWrapperRos : public SlamWrapper {
   void offlineTfWorker() override;
   void offlineVisualizationWorker() override;
 
+  void setThreadAffinityAndPriority(std::thread& t, int core_id, int prio);
+
   void drawLinesBetweenPoses(const nav_msgs::msg::Path& path1, const nav_msgs::msg::Path& path2, const rclcpp::Time& stamp);
 
   geometry_msgs::msg::TransformStamped baseToLidarTransform_;
@@ -73,9 +75,9 @@ class SlamWrapperRos : public SlamWrapper {
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr bestGuessPathPub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr trackedPathPub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr differenceLinePub_;
-  rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr scan2scanTransformPublisher_;
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr scan2scanOdomPublisher_;
-  rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr scan2mapTransformPublisher_;
+  // rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr scan2scanTransformPublisher_;
+  // rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr scan2scanOdomPublisher_;
+  // rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr scan2mapTransformPublisher_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr scan2mapOdomPublisher_;
 
   // Services

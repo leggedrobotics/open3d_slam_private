@@ -157,9 +157,6 @@ if (!slam_->isUseExistingMapEnabled() && slam_->isUsingOdometryTopic()) {
     }
   }
 
-  // Re-publish the raw point cloud for visualization purposes.
-  o3d_slam::publishCloud(cloud, slam_->frames_.rangeSensorFrame, toRos(timestamp), rawCloudPub_);
-
   // TODO(TT) Is this the best place to do this? (ofc its not)
   // Get the latest registered point cloud and publish it.
   std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
@@ -172,6 +169,18 @@ if (!slam_->isUseExistingMapEnabled() && slam_->isUsingOdometryTopic()) {
   if (isTimeValid(std::get<1>(cloudTimePair))) {
     o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)),
                            registeredCloudPub_);
+
+    // Transform the registered cloud to the map frame using the calculated transform
+    auto mapTransform = std::get<2>(cloudTimePair);
+    auto transformedCloud = std::get<0>(cloudTimePair);
+    transformedCloud.Transform(mapTransform.matrix());
+
+    // Publish the transformed cloud in the map frame
+    o3d_slam::publishCloud(
+      transformedCloud,
+      slam_->frames_.mapFrame,
+      toRos(std::get<1>(cloudTimePair)),
+      alreadyTransformedCloudPub_);
 
     if (surfaceNormalPub_->get_subscription_count() > 0u) {
       auto surfaceNormalLineMarker{
@@ -305,9 +314,15 @@ void OnlineRangeDataProcessorRos::startProcessing() {
   //     std::bind(&OnlineRangeDataProcessorRos::cloudCallback, this, std::placeholders::_1));
 
   // ---- Point cloud subscriber (10 Hz, lossless, robust, reliable, big buffer) ----
-  rclcpp::QoS cloud_qos(50);                // 5 seconds buffer at 10 Hz (increase if callback can stall longer)
+  rclcpp::QoS cloud_qos(1);                // 5 seconds buffer at 10 Hz (increase if callback can stall longer)
   cloud_qos.reliable();                     // Guarantee delivery
-  // Optionally: cloud_qos.deadline(std::chrono::milliseconds(150)); // Detect 10 Hz publisher stalls
+  // // Optionally: 
+  // cloud_qos.deadline(std::chrono::milliseconds(120)); // Detect 10 Hz publisher stalls
+
+  // rclcpp::QoS cloud_qos = rclcpp::QoS(rclcpp::KeepLast(1))
+  //     .best_effort()           // Lower latency than reliable; use reliable only if loss is unacceptable
+  //     .durability_volatile();  // Default, do not persist
+
 
   cloudSubscriber_ = nh_->create_subscription<sensor_msgs::msg::PointCloud2>(
       cloudTopic_,
@@ -324,9 +339,13 @@ void OnlineRangeDataProcessorRos::startProcessing() {
   //     40,
   //     std::bind(&OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this, std::placeholders::_1));
 
-  rclcpp::QoS pose_qos(400);                // 1 second buffer at 400 Hz
-  pose_qos.reliable();                      // Guarantee delivery
-  // Optionally: pose_qos.deadline(std::chrono::milliseconds(3)); // Detect stalls
+  // rclcpp::QoS pose_qos(400);                // 1 second buffer at 400 Hz
+  // pose_qos.reliable();                      // Guarantee delivery
+  // // Optionally: pose_qos.deadline(std::chrono::milliseconds(3)); // Detect stalls
+
+  rclcpp::QoS pose_qos = rclcpp::QoS(rclcpp::KeepLast(1))
+      .best_effort()           // Lower latency than reliable; use reliable only if loss is unacceptable
+      .durability_volatile();  // Default, do not persist
 
   poseStampedCovarianceSubscriber_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
       poseStampedWithCovarianceTopic_,
@@ -386,20 +405,31 @@ void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::msg::PointClo
 
 void OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback(
     const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
+  if (!slam_->isUsingOdometryTopic()) {
+    return;
+  }
+
   geometry_msgs::msg::Pose odomPose = msg->pose.pose;
   processOdometryData(o3d_slam::getTransform(odomPose), fromRos(msg->header.stamp));
   RCLCPP_DEBUG(nh_->get_logger(), "Pose with covariance callback is called.");
 }
 
 void OnlineRangeDataProcessorRos::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+
+  if (!slam_->isUsingOdometryTopic()) {
+    return;
+  }
+
   const geometry_msgs::msg::Pose& odomPose = msg->pose.pose;
   processOdometryData(o3d_slam::getTransform(odomPose), fromRos(msg->header.stamp));
-  RCLCPP_DEBUG(nh_->get_logger(), "Odometry callback is called.");
+  // RCLCPP_INFO(nh_->get_logger(), "Odometry message header timestamp: %u.%u", msg->header.stamp.sec, msg->header.stamp.nanosec);
+  // RCLCPP_INFO(nh_->get_logger(), "Odometry callback is called.");
 }
 
 
 void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, const Time& timestamp) {
   if (!slam_->isUsingOdometryTopic()) {
+    // RCLCPP_WARN(nh_->get_logger(), "BIG WARNING: Odometry received but SLAM is not using odometry topic! This should NOT happen.");
     return;
   }
 

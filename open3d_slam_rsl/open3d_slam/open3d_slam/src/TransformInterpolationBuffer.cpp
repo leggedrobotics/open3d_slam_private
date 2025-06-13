@@ -101,17 +101,25 @@ bool TransformInterpolationBuffer::has_query(const Time& time) const {
 
 Transform TransformInterpolationBuffer::lookup(const Time& time) const {
   std::shared_lock lk(m_);
-
-  if (transforms_.empty()) throw std::runtime_error("TransformInterpolationBuffer:: Empty buffer");
+  // Check for empty buffer
+  if (transforms_.empty()) {
+    throw std::runtime_error("TransformInterpolationBuffer:: Empty buffer");
+  }
 
   // ---------- 1. Outside range → extrapolate --------------------------
+  // If the query time is before the earliest buffered transform
   if (time < transforms_.front().time_) {
-    if (transforms_.size() == 1)  // no velocity info
+    // If there is only one transform, return it (no velocity info for extrapolation)
+    if (transforms_.size() == 1) {
       return transforms_.front().transform_;
+    }
 
-    std::cerr << "[TransformInterpolationBuffer] Extrapolation requested: query time (" << toSecondsSinceFirstMeasurement(time)
-              << ") is before earliest buffered transform (" << toSecondsSinceFirstMeasurement(transforms_.front().time_)
+    std::cerr << "[TransformInterpolationBuffer] Extrapolation requested: query time ("
+              << toSecondsSinceFirstMeasurement(time)
+              << ") is before earliest buffered transform ("
+              << toSecondsSinceFirstMeasurement(transforms_.front().time_)
               << "). Using velocity between first two entries for extrapolation.\n";
+
     return extrapolate(transforms_.front(), *std::next(transforms_.begin()), time).transform_;
   }
 

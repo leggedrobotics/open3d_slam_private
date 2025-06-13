@@ -325,6 +325,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
                                                                                 : static_cast<int>(std::thread::hardware_concurrency());
 
         estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
+        // estimate_covariances_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
 
         const size_t N = dst.normals.size();
         if (processed.merge_->normals_.size() != N) processed.merge_->normals_.resize(N);
@@ -395,7 +396,16 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     ProfilerScopeGuard scope("odometryEstimation", "/tmp/slam_profile.csv");
     if (!isNewValueSetMapper_ && !isIgnoreOdometryPrediction_ && odomToRangeSensorBuffer_.has(timestamp)) {
       Transform odomToRangeSensor = getTransform(timestamp, odomToRangeSensorBuffer_) * calibration_.inverse();
-      Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+      // Transform odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+
+      Transform odomToRangeSensorPrev = odomToRangeSensor;
+      if (lastMeasurementTimestamp_ >= odomToRangeSensorBuffer_.earliest_time()) {
+        odomToRangeSensorPrev = getTransform(lastMeasurementTimestamp_, odomToRangeSensorBuffer_) * calibration_.inverse();
+      } else {
+        std::cerr << "Set odomToRangeSensorPrev = odomToRangeSensor so odometryMotion = I because "
+            "lastMeasurementTimestamp_ >= odomToRangeSensorBuffer_.earliest_time(). May happen on first iteration.\n";
+      }
+
       Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
 
       // // Check odometry motion for large jumps
@@ -519,8 +529,8 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
                                            "size=" + std::to_string(processed.merge_->points_.size()));
 
       source_ = std::make_shared<small_gicp::PointCloud>(processed.merge_->points_);
-      c_s = computeCentroid(*source_);
-      translatePointCloud(*source_, -c_s);
+      // c_s = computeCentroid(*source_);
+      // translatePointCloud(*source_, -c_s);
     }
 
     {
@@ -563,6 +573,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
         }
 
         estimate_normals_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
+        // estimate_covariances_omp(dst, *source_tree_, /*knn=*/10, /*threads=*/num_threads);
 
         const size_t N = dst.normals.size();
         if (processed.merge_->normals_.size() != N) processed.merge_->normals_.resize(N);
@@ -592,12 +603,32 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       // metrics_.density = (metrics_.density == 0.0f) ? dens_now : 0.90f * metrics_.density + 0.10f * dens_now;
       // setAdaptiveParams();
 
-      Eigen::Isometry3d init_T_target_source =
-          Eigen::Translation3d(-c_t) * Eigen::Isometry3d(mapToRangeSensorEstimate.matrix()) * Eigen::Translation3d(c_s);
+      // Eigen::Isometry3d init_T_target_source =
+      //     Eigen::Translation3d(-c_t) * Eigen::Isometry3d(mapToRangeSensorEstimate.matrix()) * Eigen::Translation3d(c_s);
 
-      // Eigen::Isometry3d init_T_target_source(mapToRangeSensorEstimate.matrix());
+      Eigen::Isometry3d init_T_target_source(mapToRangeSensorEstimate.matrix());
+      // Print the 4x4 initial transformation matrix
+      // std::cout << "[Mapper] Initial T_target_source:\n" << init_T_target_source.matrix() << std::endl;
+
+      // // Print sizes of target and source clouds
+      // std::cout << "[Mapper] Target cloud size: " << target_->size() << std::endl;
+      // std::cout << "[Mapper] Source cloud size: " << source_->size() << std::endl;
+
+      // // Print first 10 points from target cloud
+      // std::cout << "[Mapper] First 10 points from target cloud:" << std::endl;
+      // for (size_t i = 0; i < std::min<size_t>(10, target_->size()); ++i) {
+      //   const auto& pt = target_->point(i);
+      //   std::cout << "  [" << i << "]: " << pt.transpose() << std::endl;
+      // }
+
+      // // Print first 10 points from source cloud
+      // std::cout << "[Mapper] First 10 points from source cloud:" << std::endl;
+      // for (size_t i = 0; i < std::min<size_t>(10, source_->size()); ++i) {
+      //   const auto& pt = source_->point(i);
+      //   std::cout << "  [" << i << "]: " << pt.transpose() << std::endl;
+      // }
       auto result = small_registration_.align(*target_, *source_, *target_tree_, init_T_target_source);
-      result.T_target_source = Eigen::Translation3d(c_t) * result.T_target_source * Eigen::Translation3d(-c_s);
+      // result.T_target_source = Eigen::Translation3d(c_t) * result.T_target_source * Eigen::Translation3d(-c_s);
       correctedTransform_o3d.matrix() = result.T_target_source.matrix();
 
       // // Check if the result transform differs too much from the initial transform
@@ -826,6 +857,7 @@ void Mapper::copyOrEstimateNormals(const open3d::geometry::PointCloud& src, smal
       num_threads = static_cast<int>(std::thread::hardware_concurrency());
     }
     estimate_normals_omp(dst, dst_tree, normal_knn, num_threads);
+    // estimate_covariances_omp(dst, dst_tree, normal_knn, num_threads);
     std::cout << "\033[35m[Mapper] Normals were estimated (not copied from Open3D cloud).\033[0m" << std::endl;
   }
 }

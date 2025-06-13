@@ -1,5 +1,5 @@
 # arammis.py
-
+import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, SetLaunchConfiguration
 from launch.conditions import IfCondition
@@ -14,20 +14,22 @@ def generate_launch_description():
     launch_dir = os.path.dirname(os.path.realpath(__file__))
     param_dir = os.path.join(launch_dir, '..', 'param')
 
+    # Dynamically set the default map_saving_folder relative to this launch file
+    default_map_saving_folder = os.path.normpath(
+        os.path.join(launch_dir, '..', 'data/')
+    )
+
     declared_args = [
         DeclareLaunchArgument('launch_prefix', default_value='', description='gdb -ex run --args'),
         DeclareLaunchArgument('launch_rviz', default_value='true'),
-        DeclareLaunchArgument('cloud_topic', default_value='/pointcloud'),
-        DeclareLaunchArgument('odometry_topic', default_value='/dlio/odom_node/odom'),
+        DeclareLaunchArgument('cloud_topic', default_value='/rslidar/points'), #/dlio/odom_node/pointcloud/deskewed #'/pointcloud #/rslidar/points
+        DeclareLaunchArgument('odometry_topic', default_value='/graph_msf/est_odometry_odom_imu'), #/graph_msf/est_odometry_odom_imu /dlio/odom_node/odom
+        DeclareLaunchArgument('assumed_external_odometry_tracked_frame', default_value='imu_link'), #imu_link #base_link
+        DeclareLaunchArgument('parameter_filename', default_value='param_summer_school.lua'),
         DeclareLaunchArgument('pose_stamped_topic', default_value='no_pose_stamped_topic'),
-        DeclareLaunchArgument('pose_stamped_with_covariance_topic', default_value='/state_estimator/pose_in_odom'),
-        DeclareLaunchArgument('assumed_external_odometry_tracked_frame', default_value='base_link'),
-        DeclareLaunchArgument('parameter_filename', default_value='param_arammis_layered.lua'),
-        DeclareLaunchArgument(
-            'parameter_folder_path',
-            default_value=param_dir,
-        ),
-        DeclareLaunchArgument('map_saving_folder', default_value='/tmp/'),
+        DeclareLaunchArgument('pose_stamped_with_covariance_topic', default_value='empty'),
+        DeclareLaunchArgument('parameter_folder_path',default_value=param_dir),
+        DeclareLaunchArgument('map_saving_folder', default_value= default_map_saving_folder),
         DeclareLaunchArgument('num_accumulated_range_data', default_value='1'),
         DeclareLaunchArgument('is_read_from_rosbag', default_value='false'),
         DeclareLaunchArgument('rosbag_filepath', default_value=''),
@@ -74,13 +76,18 @@ def generate_launch_description():
         prefix=LaunchConfiguration('launch_prefix'),
     )
 
-    # Optionally launch rviz2 (using the canonical default config path)
+    launch_dir = os.path.dirname(os.path.realpath(__file__))
+    rviz_config_path = os.path.normpath(os.path.join(launch_dir, '..', 'rviz', 'ros2.rviz'))
+
     rviz2_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
         output='screen',
-        arguments=['-d', '/opt/ros/jazzy/share/rviz_common/default.rviz'],
+        arguments=[
+            '-d', rviz_config_path,
+            '--ros-args', '--log-level', 'WARN'
+        ],
         condition=IfCondition(LaunchConfiguration('launch_rviz')),
     )
 
