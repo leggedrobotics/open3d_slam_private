@@ -74,6 +74,8 @@ def generate_launch_description():
         output='screen',
         parameters=[node_params],
         prefix=LaunchConfiguration('launch_prefix'),
+        respawn=True,
+        respawn_delay=0.0,
     )
 
     launch_dir = os.path.dirname(os.path.realpath(__file__))
