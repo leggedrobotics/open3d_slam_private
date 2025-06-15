@@ -14,7 +14,7 @@
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>boost</depend>
-  <depend>tbb</depend>
+  <!-- <depend>tbb</depend> -->
   <depend>yaml-cpp</depend>
   <depend>small_gicp</depend>   <!-- <<< added here if missing -->
 

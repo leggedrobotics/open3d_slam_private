@@ -39,7 +39,7 @@ list(PREPEND SRC_FILES src/Mapper.cpp)
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3        REQUIRED)
 find_package(Boost         REQUIRED COMPONENTS serialization filesystem system program_options)
-find_package(TBB           REQUIRED)
+# find_package(TBB           REQUIRED)
 find_package(OpenMP REQUIRED)  # Ensure OpenMP is found
 find_package(yaml-cpp      REQUIRED)
 find_package(open3d_conversions REQUIRED)
@@ -75,7 +75,6 @@ target_link_libraries(${PROJECT_NAME}
   PUBLIC
     small_gicp::small_gicp
     yaml-cpp
-    TBB::tbb
   PRIVATE
     ${Boost_LIBRARIES}
     $<$<BOOL:${OpenMP_CXX_LIBRARIES}>:${OpenMP_CXX_LIBRARIES}>
@@ -90,7 +89,6 @@ ament_target_dependencies(${PROJECT_NAME}
     rclcpp                     # Ensure rclcpp is linked for ROS 2 message types
     Eigen3
     Boost
-    TBB
     yaml-cpp
     small_gicp
     OpenMP  # Add OpenMP as a dependency here for `open3d_slam` only
@@ -112,7 +110,7 @@ ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(
   open3d_conversions nav_msgs geometry_msgs
-  Eigen3 Boost TBB yaml-cpp small_gicp rclcpp OpenMP
+  Eigen3 Boost yaml-cpp small_gicp rclcpp OpenMP
 )
 
 ament_package()

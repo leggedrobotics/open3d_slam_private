@@ -17,9 +17,9 @@
 #include <open3d/geometry/KDTreeFlann.h>
 #include <open3d/pipelines/registration/Registration.h>
 #include <open3d/utility/Eigen.h>
-#include <tbb/blocked_range.h>
-#include <tbb/concurrent_unordered_map.h>
-#include <tbb/parallel_reduce.h>
+// #include <tbb/blocked_range.h>
+// #include <tbb/concurrent_unordered_map.h>
+// #include <tbb/parallel_reduce.h>
 #include <algorithm>  // Required for std::transform
 #include <execution>  // Required for parallel STL
 
