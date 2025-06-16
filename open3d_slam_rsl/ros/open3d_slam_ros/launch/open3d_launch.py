@@ -6,13 +6,16 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, ThisLaunchFileDir, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from ament_index_python.packages import get_package_share_directory
 import os
 
 def generate_launch_description():
     # Arguments (all corresponding to your XML)
     # Dynamically get the directory of this launch file
     launch_dir = os.path.dirname(os.path.realpath(__file__))
-    param_dir = os.path.join(launch_dir, '..', 'param')
+    param_dir = os.path.join(
+        get_package_share_directory('open3d_slam_ros'), 'param'
+    )
 
     # Dynamically set the default map_saving_folder relative to this launch file
     default_map_saving_folder = os.path.normpath(
@@ -79,7 +82,9 @@ def generate_launch_description():
     )
 
     launch_dir = os.path.dirname(os.path.realpath(__file__))
-    rviz_config_path = os.path.normpath(os.path.join(launch_dir, '..', 'rviz', 'ros2.rviz'))
+    rviz_config_path = os.path.join(
+        get_package_share_directory('open3d_slam_ros'), 'rviz', 'ros2.rviz'
+    )
 
     rviz2_node = Node(
         package='rviz2',

@@ -162,6 +162,12 @@ install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch)
 
+install(DIRECTORY param/
+  DESTINATION share/${PROJECT_NAME}/param)
+
+install(DIRECTORY rviz/
+  DESTINATION share/${PROJECT_NAME}/rviz)
+
 install(DIRECTORY data/
   DESTINATION share/${PROJECT_NAME}/data)
 
