@@ -69,7 +69,7 @@ void SlamWrapperRos::startWorkers() {
     setThreadAffinityAndPriority(odomPublisherWorkerThread_, 3, 90);// Pin to core 4
   }
 
-  setThreadAffinityAndPriority(tfWorkerThread_, 2, 90);           // Pin to core 2
+  setThreadAffinityAndPriority(tfWorkerThread_, 2, 95);           // Pin to core 2
   setThreadAffinityAndPriority(visualizationWorkerThread_, 4, 40); // Pin to core 3
 
 
@@ -117,51 +117,62 @@ void SlamWrapperRos::odomPublisherWorker() {
 
 void SlamWrapperRos::tfWorker() {
   rclcpp::Rate r(100.0);
-  while (rclcpp::ok()) {
-    // const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
-    // const bool isAlreadyPublished = (latestScanToScan == prevPublishedTimeScanToScan_);
-    // if (!isAlreadyPublished && odometry_ && odometry_->hasProcessedMeasurements()) {
-    //   const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
-    //   rclcpp::Time timestamp = toRos(latestScanToScan);
-    //   o3d_slam::publishTfTransform(T.matrix().inverse(), timestamp, frames_.rangeSensorFrame, frames_.odomFrame, tfBroadcaster_.get());
-    //   prevPublishedTimeScanToScan_ = latestScanToScan;
-    // }
+  nav_msgs::msg::Path trackedPathCopy;
+  nav_msgs::msg::Path bestGuessPathCopy;
 
+  while (rclcpp::ok()) {
     const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
 
     if (!isTimeValid(latestScanToMap)) {
       r.sleep();
       continue;
     }
-    const bool isScanToMapAlreadyPublished = (latestScanToMap == prevPublishedTimeScanToMap_);
-    if (!isScanToMapAlreadyPublished && mapper_ && mapper_->hasProcessedMeasurements()) {
-      publishMapToOdomTf(latestScanToMap);
-      prevPublishedTimeScanToMap_ = latestScanToMap;
+    if (latestScanToMap == prevPublishedTimeScanToMap_) {
+      r.sleep();
+      continue;
+    }
+    if (!(mapper_ && mapper_->hasProcessedMeasurements())) {
+      r.sleep();
+      continue;
+    }
 
-      nav_msgs::msg::Path trackedPathCopy;
-      nav_msgs::msg::Path bestGuessPathCopy;
-      {
-        std::lock_guard<std::mutex> lock(mapper_->pathMutex_);
+    publishMapToOdomTf(latestScanToMap);
+    prevPublishedTimeScanToMap_ = latestScanToMap;
+
+    const bool hasTrackedPathSub = trackedPathPub_ && trackedPathPub_->get_subscription_count() > 0;
+    const bool hasBestGuessPathSub = bestGuessPathPub_ && bestGuessPathPub_->get_subscription_count() > 0;
+    const bool hasDiffLineSub = differenceLinePub_ && differenceLinePub_->get_subscription_count() > 0;
+
+    // Only copy if someone is subscribed
+    trackedPathCopy.poses.clear();
+    bestGuessPathCopy.poses.clear();
+    if (hasTrackedPathSub || hasBestGuessPathSub || hasDiffLineSub) {
+      std::lock_guard<std::mutex> lock(mapper_->pathMutex_);
+      if (hasTrackedPathSub || hasDiffLineSub) {
         trackedPathCopy = mapper_->trackedPath_;
+      }
+      if (hasBestGuessPathSub || hasDiffLineSub) {
         bestGuessPathCopy = mapper_->bestGuessPath_;
       }
-
-      if (trackedPathPub_ && trackedPathPub_->get_subscription_count() > 0 && isPathValid(trackedPathCopy)) {
-        trackedPathCopy.header.stamp = o3d_slam::toRos(latestScanToMap);
-        trackedPathCopy.header.frame_id = frames_.mapFrame;
-        trackedPathPub_->publish(trackedPathCopy);
-      }
-
-      if (bestGuessPathPub_ && bestGuessPathPub_->get_subscription_count() > 0 && isPathValid(bestGuessPathCopy)) {
-        bestGuessPathCopy.header.stamp = o3d_slam::toRos(latestScanToMap);
-        bestGuessPathCopy.header.frame_id = frames_.mapFrame;
-        bestGuessPathPub_->publish(bestGuessPathCopy);
-      }
-
-      if (!trackedPathCopy.poses.empty() && !bestGuessPathCopy.poses.empty()) {
-        drawLinesBetweenPoses(trackedPathCopy, bestGuessPathCopy, toRos(latestScanToMap));
-      }
     }
+
+    // Only publish if subscriber and path valid
+    if (hasTrackedPathSub && isPathValid(trackedPathCopy)) {
+      trackedPathCopy.header.stamp = o3d_slam::toRos(latestScanToMap);
+      trackedPathCopy.header.frame_id = frames_.mapFrame;
+      trackedPathPub_->publish(trackedPathCopy);
+    }
+
+    if (hasBestGuessPathSub && isPathValid(bestGuessPathCopy)) {
+      bestGuessPathCopy.header.stamp = o3d_slam::toRos(latestScanToMap);
+      bestGuessPathCopy.header.frame_id = frames_.mapFrame;
+      bestGuessPathPub_->publish(bestGuessPathCopy);
+    }
+
+    if (hasDiffLineSub && !trackedPathCopy.poses.empty() && !bestGuessPathCopy.poses.empty()) {
+      drawLinesBetweenPoses(trackedPathCopy, bestGuessPathCopy, o3d_slam::toRos(latestScanToMap));
+    }
+
     r.sleep();
   }
 }
@@ -363,16 +374,13 @@ bool SlamWrapperRos::saveSubmapsCallback(
 }
 
 void SlamWrapperRos::publishMapToOdomTf(const Time& time) {
-  // const rclcpp::Time timestamp = toRos(time);
-  // o3d_slam::publishTfTransform(mapper_->getMapToRangeSensor(time).matrix(), timestamp, frames_.mapFrame, "raw_rs_o3d", tfBroadcaster_.get());
 
   if (!(mapper_->getMapToRangeSensorBuffer().empty())) {
     auto latestMapToRangeMeasurement_ = mapper_->getMapToRangeSensorBuffer().latest_measurement();
 
     if ((isTimeValid(latestMapToRangeMeasurement_.time_))) {
-      std::string adaptedMapFrame = frames_.mapFrame;
       o3d_slam::publishTfTransform(latestMapToRangeMeasurement_.transform_.matrix().inverse(),
-                                   o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, adaptedMapFrame,
+                                   o3d_slam::toRos(latestMapToRangeMeasurement_.time_), frames_.rangeSensorFrame, frames_.mapFrame,
                                    tfBroadcaster_.get());
     }
   }
