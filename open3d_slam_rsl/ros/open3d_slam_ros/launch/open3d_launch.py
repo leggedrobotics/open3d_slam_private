@@ -74,6 +74,7 @@ def generate_launch_description():
         package='open3d_slam_ros',
         executable='mapping_node',
         name='open3d_slam',
+        namespace='open3d',
         output='screen',
         parameters=[node_params],
         prefix=LaunchConfiguration('launch_prefix'),

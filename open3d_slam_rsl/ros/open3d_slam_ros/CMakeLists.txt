@@ -80,6 +80,7 @@ set(SRC_FILES
   src/creators.cpp
   src/DataProcessorRos.cpp
   src/AiryProcessorRos.cpp
+  src/Propagator.cpp
   src/RobosenseProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
@@ -141,6 +142,18 @@ ament_target_dependencies(robosense_processing_node
 )
 target_link_libraries(robosense_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
 target_link_libraries(robosense_processing_node OpenMP::OpenMP_CXX)
+
+add_executable(propagator_processing_node src/propagator_processing_node.cpp)
+ament_target_dependencies(propagator_processing_node
+  rclcpp tf2 tf2_ros tf2_geometry_msgs tf2_msgs
+  geometry_msgs nav_msgs sensor_msgs visualization_msgs rosgraph_msgs
+  interactive_markers
+  open3d_conversions open3d_slam open3d_slam_lua_io
+  Glog yaml-cpp Eigen3
+  rosbag2_cpp rosbag2_storage rosbag2_storage_default_plugins std_srvs tf2_geometry_msgs tf2_eigen
+)
+target_link_libraries(propagator_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
+target_link_libraries(propagator_processing_node OpenMP::OpenMP_CXX)
 
 # ---------------------------------------------------------------------------
 # 1-f  Installation
