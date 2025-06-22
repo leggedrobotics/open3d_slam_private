@@ -35,7 +35,7 @@ def launch_ros2_bag_play(context, *args, **kwargs):
         return []
     bag_path = LaunchConfiguration('bag_path').perform(context)
     cmd = [
-        'ros2', 'bag', 'play', bag_path, '--clock'
+        'ros2', 'bag', 'play', bag_path, '--clock', '--remap', '/tf:=/old_tf'
     ]
     return [
         ExecuteProcess(
@@ -61,7 +61,7 @@ def generate_launch_description():
         DeclareLaunchArgument('pose_stamped_topic', default_value='no_pose_stamped_topic'),
         DeclareLaunchArgument('pose_stamped_with_covariance_topic', default_value='empty'),
         DeclareLaunchArgument('launch_prefix', default_value=''),
-        DeclareLaunchArgument('launch_rviz', default_value='true'),
+        DeclareLaunchArgument('launch_rviz', default_value='false   '),
         DeclareLaunchArgument('distance_cutoff', default_value='0.2'),
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('rviz_config', default_value='/opt/ros/jazzy/share/rviz2/rviz/default_config.rviz'),
@@ -72,7 +72,7 @@ def generate_launch_description():
         DeclareLaunchArgument('wheel_velocities_topic_name', default_value='/control/smb_lowlevel_controller/wheelSpeeds', description='Wheel velocities topic name'),
         DeclareLaunchArgument('vio_odometry_topic_name', default_value='/tracking_camera/odom/sample', description='VIO odometry topic name'),
         # Bag play options
-        DeclareLaunchArgument('bag_path', default_value='/home/tutuna/colcon_ws/src/filt.mcap', description='Bag file to play'),
+        DeclareLaunchArgument('bag_path', default_value='/home/ttuna/colcon_ws/src/smb_bag_baraque.mcap', description='Bag file to play'),
         DeclareLaunchArgument('play_bag', default_value='true', description='Launch ros2 bag play (true/false)'),
     ]
 
@@ -137,6 +137,6 @@ def generate_launch_description():
             joint_state_publisher_node,
             open3d_launch,
             smb_estimator_launch,
-            bag_play_action,
+            # bag_play_action,
         ]
     )

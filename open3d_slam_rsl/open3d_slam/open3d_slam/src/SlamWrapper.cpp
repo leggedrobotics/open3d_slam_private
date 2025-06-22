@@ -656,8 +656,8 @@ void SlamWrapper::unifiedWorkerMap() {
     while (isRunWorkers_) {
       TimestampedPointCloud meas = mappingBuffer_.wait_and_pop();
 
-      if (!odometry_->getBuffer().has(meas.time_)) {
-        std::cout << "unifiedWorkerMap(): Weird, the odom buffer does not seem to have the transform for time " << meas.time_ << "!\n";
+      if (!odometry_->getBuffer().has_query(meas.time_)) {
+        std::cout << "unifiedWorkerMap(): Weird, the odom buffer does not seem to have the transform for time " << toSecondsSinceFirstMeasurement(meas.time_) << "!\n";
         std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << '\n';
         auto& b = odometry_->getBuffer();
         std::cout << "earliest:  " << toSecondsSinceFirstMeasurement(b.earliest_time()) << '\n'
@@ -720,7 +720,7 @@ void SlamWrapper::unifiedWorker() {
       }
 
       // 4. Mapping step (uses the same measurement)
-      if (!odometry_->getBuffer().has(meas.time_)) {
+      if (!odometry_->getBuffer().has_query(meas.time_)) {
         std::cout << "unifiedWorker(): Weird, the odom buffer does not seem to have the transform for time " << meas.time_ << "!\n";
         std::cout << "odom buffer size: " << odometry_->getBuffer().size() << "/" << odometry_->getBuffer().size_limit() << '\n';
         const auto& b = odometry_->getBuffer();

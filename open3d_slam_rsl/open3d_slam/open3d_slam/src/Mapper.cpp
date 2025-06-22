@@ -404,7 +404,13 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       } else {
         std::cerr << "Set odomToRangeSensorPrev = odomToRangeSensor so odometryMotion = I because "
             "lastMeasurementTimestamp_ >= odomToRangeSensorBuffer_.earliest_time(). May happen on first iteration.\n";
-      }
+      
+        std::cout << "[Mapper][DEBUG] mapToRangeSensorEstimate:\n" << mapToRangeSensorEstimate.matrix() << std::endl;
+        std::cout << "[Mapper][DEBUG] odomToRangeSensor:\n" << odomToRangeSensor.matrix() << std::endl;
+        std::cout << "[Mapper][DEBUG] odomToRangeSensorPrev:\n" << odomToRangeSensorPrev.matrix() << std::endl;
+        std::cout << "[Mapper][DEBUG] odometryMotionMemory_:\n" << odometryMotionMemory_.matrix() << std::endl;
+        
+          }
 
       Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
 
@@ -469,7 +475,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
         } else {
           size_t active = submaps_->activeSubmapIdx_;
           std::vector<size_t> nbrs = submaps_->findKClosestSubmaps(mapToRangeSensor_,
-                                                                   /*k=*/2,  // number of neighbours you want
+                                                                   /*k=*/0,  // number of neighbours you want
                                                                    active);  // <-- exclude only for search
 
           nbrs.push_back(active);
@@ -515,7 +521,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
       {
         ProfilerScopeGuard scope_target_kdtree("targetKdTree", "/tmp/slam_profile.csv");
         target_tree_ =
-            std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(target_, small_gicp::KdTreeBuilderOMP(omp_get_max_threads()));
+            std::make_shared<small_gicp::KdTree<small_gicp::PointCloud>>(target_, small_gicp::KdTreeBuilderOMP(8));
       }
 
       {
@@ -729,7 +735,7 @@ std::shared_ptr<small_gicp::PointCloud> Mapper::cropPreparePointCloud(const open
     //-----------------------------------------------------------------
     int nThreads = 1;
 #ifdef _OPENMP
-    nThreads = omp_get_max_threads();
+    nThreads = 8;
 #endif
     std::vector<std::vector<std::size_t>> thread_sel(nThreads);
 
@@ -737,7 +743,7 @@ std::shared_ptr<small_gicp::PointCloud> Mapper::cropPreparePointCloud(const open
     {
       int tid = 0;
 #ifdef _OPENMP
-      tid = omp_get_thread_num();
+      tid = 8;
 #endif
       auto& local = thread_sel[tid];
       local.reserve(N / nThreads + 64);
