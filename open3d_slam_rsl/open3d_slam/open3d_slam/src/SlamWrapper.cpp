@@ -9,6 +9,7 @@
 
 #include <open3d/Open3D.h>
 #include <chrono>
+#include <iomanip>
 #include "open3d_slam/Mapper.hpp"
 #include "open3d_slam/MotionCompensation.hpp"
 #include "open3d_slam/Odometry.hpp"
@@ -164,7 +165,7 @@ bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time
 
   if (!(params_.odometry_.useOdometryTopic_) || odometry_->odomToRangeSensorBuffer_.has(timestamp)) {
     std::cout << "WARNING: you are trying to add an odometry pose to the buffer, but the buffer already has it! \n";
-    std::cout << "The timestamp is: " << toSecondsSinceFirstMeasurement(timestamp) << std::endl;
+    std::cout << "The timestamp is: " << std::setprecision(10) << toSecondsSinceFirstMeasurement(timestamp) << std::endl;
     return false;
   }
 
