@@ -47,16 +47,12 @@ def launch_ros2_bag_play(context, *args, **kwargs):
 def generate_launch_description():
     check_required_packages([
         "open3d_slam_ros",
-        "smb_description",
-        "smb_estimator_graph_ros2",
-        "robot_state_publisher",
-        "joint_state_publisher",
     ])
 
     launch_dir = os.path.dirname(os.path.realpath(__file__))
 
     declared_args = [
-        DeclareLaunchArgument('cloud_topic', default_value='/rslidar/points'),
+        DeclareLaunchArgument('cloud_topic', default_value='/lidar/point_cloud'), # lidar frame
         DeclareLaunchArgument('odometry_topic', default_value='/graph_msf/est_odometry_odom_imu'),
         DeclareLaunchArgument('pose_stamped_topic', default_value='no_pose_stamped_topic'),
         DeclareLaunchArgument('pose_stamped_with_covariance_topic', default_value='empty'),
@@ -66,7 +62,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('rviz_config', default_value='/opt/ros/jazzy/share/rviz2/rviz/default_config.rviz'),
         # Arguments for smb_estimator_graph_ros2
-        DeclareLaunchArgument('imu_topic_name', default_value='/imu/data_raw', description='IMU topic name'),
+        DeclareLaunchArgument('imu_topic_name', default_value='/imu_sensor_broadcaster/imu', description='IMU topic name'),
         DeclareLaunchArgument('lidar_odometry_topic_name', default_value='/open3d/scan2map_odometry', description='Lidar odometry topic name'),
         DeclareLaunchArgument('wheel_odometry_topic_name', default_value='/control/smb_diff_drive/odom', description='Wheel odometry topic name'),
         DeclareLaunchArgument('wheel_velocities_topic_name', default_value='/control/smb_lowlevel_controller/wheelSpeeds', description='Wheel velocities topic name'),
@@ -74,33 +70,16 @@ def generate_launch_description():
         # Bag play options
         DeclareLaunchArgument('bag_path', default_value='/home/ttuna/colcon_ws/src/smb_bag_wheels_5.mcap', description='Bag file to play'),
         DeclareLaunchArgument('play_bag', default_value='true', description='Launch ros2 bag play (true/false)'),
+        DeclareLaunchArgument('parameter_filename', default_value='param_b2w.lua'),
     ]
 
     description_file = PathJoinSubstitution(
         [FindPackageShare("smb_description"), "urdf", "smb.urdf.xacro"]
     )
-    robot_description = ParameterValue(
-        Command([FindExecutable(name="xacro"), " ", description_file]),
-        value_type=str
-    )
-    robot_state_publisher_node = Node(
-        package="robot_state_publisher",
-        executable="robot_state_publisher",
-        name="robot_state_publisher",
-        output="screen",
-        parameters=[{"robot_description": robot_description, "use_sim_time": LaunchConfiguration("use_sim_time")}],
-    )
-    joint_state_publisher_node = Node(
-        package="joint_state_publisher",
-        executable="joint_state_publisher",
-        name="joint_state_publisher",
-        output="screen",
-        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
-    )
 
     open3d_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(launch_dir, 'open3d_launch.py')
+            os.path.join(launch_dir, 'open3d_b2w_launch.py')
         ),
         launch_arguments={
             'cloud_topic': LaunchConfiguration('cloud_topic'),
@@ -108,6 +87,8 @@ def generate_launch_description():
             'launch_prefix': LaunchConfiguration('launch_prefix'),
             'launch_rviz': LaunchConfiguration('launch_rviz'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'parameter_filename': LaunchConfiguration('parameter_filename'),
+            
         }.items(),
     )
 
@@ -129,14 +110,12 @@ def generate_launch_description():
         }.items(),
     )
 
-    bag_play_action = OpaqueFunction(function=launch_ros2_bag_play)
+    # bag_play_action = OpaqueFunction(function=launch_ros2_bag_play)
 
     return LaunchDescription(
         declared_args + [
-            robot_state_publisher_node,
-            joint_state_publisher_node,
             open3d_launch,
-            smb_estimator_launch,
-            bag_play_action,
+            # smb_estimator_launch,
+            # bag_play_action,
         ]
     )

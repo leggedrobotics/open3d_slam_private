@@ -33,7 +33,7 @@ struct PointToPlaneICPFactor {
 
     const Eigen::Vector4d transed_source_pt = T * traits::point(source, source_index);
 
-    constexpr size_t k_neighbors = 3;
+    constexpr size_t k_neighbors = 7;
 
     std::array<size_t, k_neighbors>  k_indices;
     std::array<double, k_neighbors>  k_sq_dists;
