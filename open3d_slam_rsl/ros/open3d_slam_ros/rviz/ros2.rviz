@@ -1,16 +1,15 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
+    Help Height: 138
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Submap Origins1
         - /Registration Updates1/Topic1
         - /O3D_odometry1/Shape1
         - /GMSF_odom1/Shape1
-        - /SMB_Model1
+        - /SMB_Model1/Status1
       Splitter Ratio: 0.5703703761100769
-    Tree Height: 1153
+    Tree Height: 2394
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -28,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: assembledMap
+    SyncSource: Already_registered_last
 Visualization Manager:
   Class: ""
   Displays:
@@ -78,39 +77,69 @@ Visualization Manager:
       Frame Timeout: 50
       Frames:
         All Enabled: false
-        LF_WHEEL:
+        LF_calf:
           Value: true
-        LH_WHEEL:
+        LF_hip:
           Value: true
-        RF_WHEEL:
+        LF_thigh:
           Value: true
-        RH_WHEEL:
+        LF_wheel:
           Value: true
-        base_footprint:
+        LH_calf:
           Value: true
-        base_inertia:
+        LH_hip:
           Value: true
-        base_link:
+        LH_thigh:
           Value: true
-        imu_link:
+        LH_wheel:
           Value: true
-        imu_sensor:
+        RF_calf:
           Value: true
-        lidar_mount_link:
+        RF_hip:
+          Value: true
+        RF_thigh:
+          Value: true
+        RF_wheel:
+          Value: true
+        RH_calf:
+          Value: true
+        RH_hip:
+          Value: true
+        RH_thigh:
+          Value: true
+        RH_wheel:
+          Value: true
+        base:
+          Value: true
+        depth_camera_front_depth_frame:
+          Value: true
+        depth_camera_front_depth_optical_frame:
+          Value: true
+        depth_camera_front_link:
+          Value: true
+        depth_camera_front_mount:
+          Value: true
+        depth_camera_rear_depth_frame:
+          Value: true
+        depth_camera_rear_depth_optical_frame:
+          Value: true
+        depth_camera_rear_link:
+          Value: true
+        depth_camera_rear_mount:
+          Value: true
+        head:
+          Value: true
+        imu:
+          Value: true
+        lidar:
           Value: true
         map_o3d:
           Value: true
-        rgb_camera_link:
+        optical_camera_front:
           Value: true
-        rgb_camera_optical_link:
+        optical_camera_rear:
           Value: true
-        rslidar:
-          Value: true
-        top:
-          Value: true
-        tracking_camera_link:
-          Value: true
-        tracking_camera_pose_frame:
+        tail:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -118,34 +147,50 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        base_link:
-          LF_WHEEL:
+        base:
+          LF_hip:
+            LF_thigh:
+              LF_calf:
+                LF_wheel:
+                  {}
+          LH_hip:
+            LH_thigh:
+              LH_calf:
+                LH_wheel:
+                  {}
+          RF_hip:
+            RF_thigh:
+              RF_calf:
+                RF_wheel:
+                  {}
+          RH_hip:
+            RH_thigh:
+              RH_calf:
+                RH_wheel:
+                  {}
+          depth_camera_front_mount:
+            depth_camera_front_link:
+              depth_camera_front_depth_frame:
+                depth_camera_front_depth_optical_frame:
+                  {}
+          depth_camera_rear_mount:
+            depth_camera_rear_link:
+              depth_camera_rear_depth_frame:
+                depth_camera_rear_depth_optical_frame:
+                  {}
+          head:
             {}
-          LH_WHEEL:
+          imu:
             {}
-          RF_WHEEL:
-            {}
-          RH_WHEEL:
-            {}
-          base_footprint:
-            {}
-          base_inertia:
-            {}
-          imu_link:
-            imu_sensor:
+          lidar:
+            map_o3d:
               {}
-          lidar_mount_link:
-            rslidar:
-              map_o3d:
-                {}
-          rgb_camera_link:
-            rgb_camera_optical_link:
-              {}
-          top:
+          optical_camera_front:
             {}
-          tracking_camera_link:
-            tracking_camera_pose_frame:
-              {}
+          optical_camera_rear:
+            {}
+          tail:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -180,7 +225,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz_default_plugins/Path
       Color: 25; 255; 0
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -203,25 +248,24 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /open3d/tracked_path_live
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
+      Enabled: false
       Name: Submap Origins
       Namespaces:
-        submap_0: true
-        submap_id_0: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /open3d/submap_origins
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/Marker
-      Enabled: true
+      Enabled: false
       Name: Registration Updates
       Namespaces:
-        paths: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -229,7 +273,7 @@ Visualization Manager:
         History Policy: Keep All
         Reliability Policy: Reliable
         Value: /open3d/differenceLines
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -280,7 +324,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Keep: 1
       Name: O3D_odometry
       Position Tolerance: 0
@@ -301,7 +345,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /open3d/scan2map_odometry
-      Value: true
+      Value: false
     - Angle Tolerance: 0
       Class: rviz_default_plugins/Odometry
       Covariance:
@@ -319,7 +363,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Keep: 1
       Name: GMSF_odom
       Position Tolerance: 0
@@ -340,7 +384,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /graph_msf/est_odometry_odom_imu
-      Value: true
+      Value: false
     - Alpha: 0.5
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -418,96 +462,20 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /robot_description
-      Enabled: true
+      Enabled: false
       Links:
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
-        LF_WHEEL:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_WHEEL:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         Link Tree Style: Links in Alphabetic Order
-        RF_WHEEL:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_WHEEL:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base_footprint:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base_inertia:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        imu_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        imu_sensor:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        lidar_mount_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rgb_camera_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rgb_camera_optical_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        rslidar:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        tracking_camera_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        tracking_camera_pose_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
       Mass Properties:
         Inertia: false
         Mass: false
       Name: SMB_Model
       TF Prefix: ""
       Update Interval: 0
-      Value: true
+      Value: false
       Visual Enabled: true
   Enabled: true
   Global Options:
@@ -555,7 +523,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 29.660184860229492
+      Distance: 33.21940612792969
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -570,18 +538,18 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7853981852531433
+      Pitch: 1.5697963237762451
       Target Frame: rslidar
       Value: Orbit (rviz)
-      Yaw: 0.7853981852531433
+      Yaw: 0.06039852276444435
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1376
+  Height: 2806
   Hide Left Dock: false
   Hide Right Dock: true
-  QMainWindow State: 000000ff00000000fd0000000400000000000001640000050afc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000050a000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f0000045cfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003b0000045c000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000006df0000003efc0100000002fb0000000800540069006d00650000000000000006df0000025300fffffffb0000000800540069006d006501000000000000045000000000000000000000084e0000050a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000059700000a56fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b000000b200fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000007000000a560000018600fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f0000045cfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003b0000045c0000013800fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000006df0000003efc0100000002fb0000000800540069006d00650000000000000006df0000047a00fffffffb0000000800540069006d0065010000000000000450000000000000000000000e5d00000a5600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -590,6 +558,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 2488
-  X: 72
-  Y: 27
+  Width: 5120
+  X: 0
+  Y: 0
