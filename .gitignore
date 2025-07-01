@@ -1,3 +1,4 @@
 open3d_slam_rsl/open3d_catkin/src/open3d-stamp/open3d-patch*
 open3d_slam_rsl/open3d_catkin*
 *.pcd
+open3d_slam_rsl/ros/open3d_slam_ros/data/maps/

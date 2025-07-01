@@ -6,14 +6,14 @@
       <!--        /point_cloud_filter/lidar_depth_camera/point_cloud_filtered   -->
       <!--        /lidar/point_cloud  -->
       <!--        /hesai/pandar  -->
-  <arg name="cloud_topic" default="/point_cloud_filter/lidar/point_cloud_filtered"/>
+  <arg name="cloud_topic" default="/dlio/deskewed_point_cloud"/>
   
   <!-- The tracked frame of the External odometry. Transformation from this frame to tracked_sensor_Frame should exist. -->
   <!-- Reads as `pose of <frame> in external odometry frame` -->
   <!-- Common Options:  -->
       <!--   base   -->
       <!--   zed2i_base_link  -->
-  <arg name="assumed_external_odometry_tracked_frame" default="base"/>
+  <arg name="assumed_external_odometry_tracked_frame" default="livox"/>
 
   <!-- Currently only used for attitude initialization -->
   <!-- Common Options:  -->
@@ -23,10 +23,10 @@
 
   <!-- Arguments -->
   <arg name="launch_prefix" default="" doc="gdb -ex run --args , valgrind --leak-check=full"/>
-  <arg name="launch_rviz" default="false"/>
+  <arg name="launch_rviz" default="true"/>
 
    <!-- These 3 topics are exclusive. Only one of them going to be used even if multiple exist. This is done to support multiple msg types. -->
-  <arg name="odometry_topic" default="/state_estimator/odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
+  <arg name="odometry_topic" default="/dlio/lidar_map_odometry"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_topic" default="/point_cloud_filter/lidar_depth_camera/odometry_pose"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="pose_stamped_with_covariance_topic" default="/state_estimator/pose_in_odom"/> <!-- /point_cloud_filter/lidar_depth_camera/odometry_pose -->
   <arg name="parameter_filename" default="param_velodyne_puck16.lua"/>

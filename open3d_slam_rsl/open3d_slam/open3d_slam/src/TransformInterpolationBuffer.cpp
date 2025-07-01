@@ -98,47 +98,37 @@ bool TransformInterpolationBuffer::has(const Time& time) const {
 }
 
 Transform TransformInterpolationBuffer::lookup(const Time& time) const {
-  if (!has(time)) {
-    throw std::runtime_error("TransformInterpolationBuffer:: Missing transform for: " + toString(time));
+  if (transforms_.empty()) throw std::runtime_error("TransformInterpolationBuffer:: Empty buffer");
+
+  // ---------- 1. Outside range → extrapolate --------------------------
+  if (time < transforms_.front().time_) {
+    if (transforms_.size() == 1)  // no velocity info
+      return transforms_.front().transform_;
+
+    std::cerr << "[TransformInterpolationBuffer] Extrapolation requested: query time (" << toSecondsSinceFirstMeasurement(time)
+              << ") is before earliest buffered transform (" << toSecondsSinceFirstMeasurement(transforms_.front().time_)
+              << "). Using velocity between first two entries for extrapolation.\n";
+    return extrapolate(transforms_.front(), *std::next(transforms_.begin()), time).transform_;
   }
 
-  if (size() == 1) {
-    return transforms_.front().transform_;
+  if (time > transforms_.back().time_) {
+    if (transforms_.size() == 1) return transforms_.back().transform_;
+
+    std::cerr << "[TransformInterpolationBuffer] Extrapolation requested: query time (" << toSecondsSinceFirstMeasurement(time)
+              << ") is after latest buffered transform (" << toSecondsSinceFirstMeasurement(transforms_.back().time_)
+              << "). Using velocity between last two entries for extrapolation.\n";
+    return extrapolate(*std::prev(transforms_.end(), 2), transforms_.back(), time).transform_;
   }
 
-  // just return the closest
-  const auto getMeasurement =
-      std::find_if(transforms_.begin(), transforms_.end(), [&time](const TimestampedTransform& tf) { return time <= tf.time_; });
-  const bool isIteratorValid = getMeasurement != transforms_.end();
-  if (isIteratorValid && getMeasurement->time_ == time) {
-    return getMeasurement->transform_;
-  }
+  // ---------- 2. Inside range → interpolate (O(log N) search) ---------
+  auto right = std::lower_bound(transforms_.begin(), transforms_.end(), time,
+                                [](const TimestampedTransform& a, const Time& t) { return a.time_ < t; });
 
-  // An idea -> if the measurement index is the last, having "next" might be ill defined? Maybe this is whats happenning.
-  if (!isTimeValid(getMeasurement->time_)) {
-    const auto nexxt = std::next(getMeasurement);
+  if (right == transforms_.end()) return transforms_.back().transform_;
+  if (right->time_ == time) return right->transform_;
 
-    if (nexxt != transforms_.end()) {
-      return nexxt->transform_;
-    } else {
-      const auto start2 = std::prev(getMeasurement);
-
-      return start2->transform_;
-    }
-  }
-
-  const auto start = std::prev(getMeasurement);
-
-  //  std::cout << "buffer size: " << size() << "\n";
-  //  std::cout << "left time: " << toSecondsSinceFirstMeasurement(start->time_) << "\n";
-  //  std::cout << "right time: " << toSecondsSinceFirstMeasurement(getMeasurement->time_) << "\n";
-  //  std::cout << "query time: " << toSecondsSinceFirstMeasurement(time) << "\n \n";
-  //  std::cout << "times in buffer: \n";
-
-  // Too dangerous, overloads the console
-  // printTimesCurrentlyInBuffer();
-
-  return interpolate(*start, *getMeasurement, time).transform_;
+  const auto& left = *std::prev(right);
+  return interpolate(left, *right, time).transform_;
 }
 
 void TransformInterpolationBuffer::removeOldMeasurementsIfNeeded() {
@@ -181,12 +171,12 @@ void TransformInterpolationBuffer::printTimesCurrentlyInBuffer() const {
 
 Transform getTransform(const Time& time, const TransformInterpolationBuffer& buffer) {
   if (time < buffer.earliest_time()) {
-    std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the past, this should not happen \n";
-    return buffer.lookup(buffer.earliest_time());
+    // std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the past, this should not happen \n";
+    return buffer.lookup(time);
   }
   if (time > buffer.latest_time()) {
-    std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the future, this should not happen \n";
-    return buffer.lookup(buffer.latest_time());
+    // std::cerr << "TransformInterpolationBuffer:: you are trying to get a transform that is in the future, this should not happen \n";
+    return buffer.lookup(time);
   }
   return buffer.lookup(time);
 }

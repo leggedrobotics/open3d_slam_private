@@ -13,6 +13,39 @@
 
 namespace o3d_slam {
 
+/* ------------------------------------------------------------------------- */
+/*  Extrapolate *outside* the interval.                                      */
+/*  If query < start.time_  : it linearly projects backwards.                 */
+/*  If query > end.time_    : it linearly projects forwards.                  */
+/*  Inside the interval it simply delegates to interpolate().               */
+/* ------------------------------------------------------------------------- */
+TimestampedTransform extrapolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& query) {
+  /* swap to ensure start.time_ ≤ end.time_ for the math */
+  const TimestampedTransform& s = (start.time_ <= end.time_) ? start : end;
+  const TimestampedTransform& e = (start.time_ <= end.time_) ? end : start;
+
+  /* inside the segment → ordinary interpolation */
+  if (query >= s.time_ && query <= e.time_) return interpolate(s, e, query);
+
+  /* identical stamps → cannot extrapolate velocity */
+  constexpr double kEps = 1e-12;
+  const double duration = toSeconds(e.time_ - s.time_);
+  if (duration < kEps) return {query, s.transform_};
+
+  /* compute factor that may be <0 or >1 */
+  const double factor = toSeconds(query - s.time_) / duration;
+
+  const Eigen::Vector3d p = s.transform_.translation() + factor * (e.transform_.translation() - s.transform_.translation());
+
+  const Eigen::Quaterniond q_s(s.transform_.rotation());
+  const Eigen::Quaterniond q_e(e.transform_.rotation());
+  const Eigen::Quaterniond q = q_s.slerp(factor, q_e);
+
+  Transform tf(q);
+  tf.translation() = p;
+  return {query, tf};
+}
+
 TimestampedTransform interpolate(const TimestampedTransform& start, const TimestampedTransform& end, const Time& time) {
   TimestampedTransform new_start;
   TimestampedTransform new_end;

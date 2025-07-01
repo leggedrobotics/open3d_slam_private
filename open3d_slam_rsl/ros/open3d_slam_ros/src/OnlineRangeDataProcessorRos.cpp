@@ -57,9 +57,11 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
       auto T_L_sensorFrame = tfBuffer_.lookupTransform(
           slam_->frames_.rangeSensorFrame, slam_->frames_.assumed_external_odometry_tracked_frame, ros::Time(0.0), ros::Duration(0.0));
 
-      ROS_INFO_STREAM("\033[92m" << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
-                                 << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
-      ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << T_L_sensorFrame << "\033[0m");
+      ROS_INFO_STREAM("\033[92m"
+                      << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
+                      << slam_->frames_.assumed_external_odometry_tracked_frame << "\033[0m");
+      ROS_INFO_STREAM("\033[92m"
+                      << "You dont believe me? Here it is:\n " << T_L_sensorFrame << "\033[0m");
 
       // Set the frame transformation between the external odometry frame and the range sensor frame.
       slam_->setExternalOdometryFrameToCloudFrameCalibration(tf2::transformToEigen(T_L_sensorFrame));
@@ -76,9 +78,11 @@ bool OnlineRangeDataProcessorRos::readCalibrationIfNeeded() {
         auto RangeSensorFrameToimuFrame =
             tfBuffer_.lookupTransform(slam_->frames_.rangeSensorFrame, slam_->frames_.imuFrame, ros::Time(0.0), ros::Duration(0.0));
 
-        ROS_INFO_STREAM("\033[92m" << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and "
-                                   << slam_->frames_.imuFrame << "\033[0m");
-        ROS_INFO_STREAM("\033[92m" << "You dont believe me? Here it is:\n " << RangeSensorFrameToimuFrame << "\033[0m");
+        ROS_INFO_STREAM("\033[92m"
+                        << "Found the transform between " << slam_->frames_.rangeSensorFrame << " and " << slam_->frames_.imuFrame
+                        << "\033[0m");
+        ROS_INFO_STREAM("\033[92m"
+                        << "You dont believe me? Here it is:\n " << RangeSensorFrameToimuFrame << "\033[0m");
 
         // Set the frame transformation between the external odometry frame and the range sensor frame.
         lidarToImu_.matrix() = tf2::transformToEigen(RangeSensorFrameToimuFrame).matrix();  //.inverse();
@@ -198,12 +202,12 @@ void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, co
   }
 
   if (slam_->isUsingOdometryTopic()) {
-    if (!slam_->doesOdometrybufferHasMeasurement(timestamp)) {
-      ROS_WARN(
-          "Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Skipping the measurement.");
+    // if (!slam_->doesOdometrybufferHasMeasurement(timestamp)) {
+    //   ROS_WARN(
+    //       "Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Skipping the measurement.");
 
-      return;
-    }
+    //   return;
+    // }
   }
 
   // Re-publish the raw point cloud for visualization purposes.
@@ -413,7 +417,8 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
   std::cout << " Gravity error in IMU frame is: " << gravityVectorErrorInImuFrame.transpose() << std::endl;
 
   if (!slam_->isExternalOdometryFrameToCloudFrameCalibrationSet()) {
-    std::cout << " Calibration is not available yet. Returning from IMU attitude initialization. " << " \n";
+    std::cout << " Calibration is not available yet. Returning from IMU attitude initialization. "
+              << " \n";
     return;
   }
 
@@ -440,7 +445,8 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
   // Convert the attitude of the IMU to the attitude of the LiDAR.
   Transform initAttitudeOfLiDAR = initAttitude * lidarToImu_.inverse();
 
-  std::cout << " The initial pose of LiDAR is: " << "\033[92m" << o3d_slam::asString(initAttitudeOfLiDAR) << " \n";
+  std::cout << " The initial pose of LiDAR is: "
+            << "\033[92m" << o3d_slam::asString(initAttitudeOfLiDAR) << " \n";
 
   // This casts isometry3d to affine3d.
   Transform newTransform = o3d_slam::getTransform(odomPose_transformed.pose) * initAttitudeOfLiDAR;

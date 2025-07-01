@@ -16,11 +16,11 @@ params.mapper_localizer.is_use_map_initialization = false
 params.mapper_localizer.republish_the_preloaded_map = true
 params.mapper_localizer.is_merge_scans_into_map = false
 params.mapper_localizer.is_build_dense_map = false
-params.mapper_localizer.is_attempt_loop_closures = true
+params.mapper_localizer.is_attempt_loop_closures = false
 params.mapper_localizer.is_print_timing_information = false
 params.mapper_localizer.map_merge_delay_in_seconds = 10.0
 
-params.mapper_localizer.is_carving_enabled = true
+params.mapper_localizer.is_carving_enabled = false
 params.mapper_localizer.scan_to_map_registration.scan_processing.voxel_size = 0.08
 params.mapper_localizer.scan_to_map_registration.scan_processing.downsampling_ratio = 1.0
 params.mapper_localizer.scan_to_map_registration.scan_processing.scan_cropping.cropping_radius_max = 100.0 --We don't want to crop the scans.

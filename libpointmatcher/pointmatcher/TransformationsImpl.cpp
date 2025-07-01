@@ -72,7 +72,7 @@ void TransformationsImpl<T>::RigidTransformation::inPlaceCompute(
 
 	if(this->checkParameters(parameters) == false){
 		//throw TransformationError("RigidTransformation: Error, rotation matrix is not orthogonal.");
-		std::cerr << "RigidTransformation: Error, rotation matrix is not orthogonal. Correcting" << std::endl;
+		// std::cerr << "RigidTransformation: Error, rotation matrix is not orthogonal. Correcting" << std::endl;
 		TransformationParameters correctedParameters = this->correctParameters(parameters);
 		// Apply the transformation to features.
 		// B = A * B translates to B.transpose *= A.transpose()
@@ -101,69 +101,105 @@ void TransformationsImpl<T>::RigidTransformation::inPlaceCompute(
 	}
 }
 
-//! Ensure orthogonality of the rotation matrix
 template<typename T>
-bool TransformationsImpl<T>::RigidTransformation::checkParameters(const TransformationParameters& parameters) const
+bool TransformationsImpl<T>::RigidTransformation::checkParameters(
+        const TransformationParameters& parameters) const
 {
-	//FIXME: FP - should we put that as function argument?
-	const T epsilon = 0.001;
-	const unsigned int nbRows = parameters.rows()-1;
-	const unsigned int nbCols = parameters.cols()-1;
+	const T epsilon = static_cast<T>(0.001);
+	// Rotation block size (e.g. 3 × 3 for a 4 × 4 homogeneous matrix)
+	const unsigned int nbRows = parameters.rows() - 1;
+	const unsigned int nbCols = parameters.cols() - 1;
 
+	// Extract the rotation part
 	const TransformationParameters R(parameters.topLeftCorner(nbRows, nbCols));
-	
-	if(anyabs(1 - R.determinant()) > epsilon)
-		return false;
-	else
-		return true;
 
+	// 1) determinant must be close to +1 (reject reflections & scaling)
+	if (anyabs(static_cast<T>(1) - R.determinant()) > epsilon)
+		return false;
+
+	// 2) rotation must be orthonormal: Rᵀ R ≈ I
+	if ((R.transpose() * R - TransformationParameters::Identity(nbRows, nbCols)).norm() > epsilon)
+		return false;
+
+	// 3) bottom row must be [0 … 0 1]  (homogeneous form)
+	for (unsigned int c = 0; c < nbCols; ++c)
+		if (anyabs(parameters(nbRows, c)) > epsilon)
+			return false;
+
+	if (anyabs(parameters(nbRows, nbCols) - static_cast<T>(1)) > epsilon)
+		return false;
+
+	return true;
 }
 
 //! Force orthogonality of the rotation matrix
+//! Force orthogonality of the rotation matrix
 template<typename T>
-typename PointMatcher<T>::TransformationParameters TransformationsImpl<T>::RigidTransformation::correctParameters(const TransformationParameters& parameters) const
+typename PointMatcher<T>::TransformationParameters
+TransformationsImpl<T>::RigidTransformation::correctParameters(const TransformationParameters& parameters) const
 {
 	TransformationParameters ortho = parameters;
-	if(ortho.cols() == 4)
+
+	if(ortho.cols() == 4)		// 3-D homogeneous (4 × 4)
 	{
-		//const Eigen::Matrix<T, 3, 1> col0 = parameters.block(0, 0, 3, 1).normalized();
-		const Eigen::Matrix<T, 3, 1> col1 = parameters.block(0, 1, 3, 1).normalized();
-		const Eigen::Matrix<T, 3, 1> col2 = parameters.block(0, 2, 3, 1).normalized();
+		typedef Eigen::Matrix<T, 3, 1> Vec3;
+		const T tiny = static_cast<T>(1e-6);
 
-		const Eigen::Matrix<T, 3, 1> newCol0 = col1.cross(col2);
-		const Eigen::Matrix<T, 3, 1> newCol1 = col2.cross(newCol0);
-		const Eigen::Matrix<T, 3, 1> newCol2 = col2;
+		// Take the last two columns as reference axes
+		Vec3 col1 = parameters.block(0, 1, 3, 1);	// ŷ
+		Vec3 col2 = parameters.block(0, 2, 3, 1);	// ẑ
 
-		ortho.block(0, 0, 3, 1) = newCol0;
-		ortho.block(0, 1, 3, 1) = newCol1;
-		ortho.block(0, 2, 3, 1) = newCol2;
+		if(col1.squaredNorm() < tiny || col2.squaredNorm() < tiny)
+			throw TransformationError("RigidTransformation: Degenerate rotation block.");
+
+		col1.normalize();
+		col2.normalize();
+
+		// Re-orthonormalise with a right-handed Gram–Schmidt
+		Vec3 col0 = col1.cross(col2);				// x̂ = ŷ × ẑ
+		if(col0.squaredNorm() < tiny)
+			throw TransformationError("RigidTransformation: Rotation columns are colinear.");
+		col0.normalize();
+
+		col1 = col2.cross(col0);					// ŷ = ẑ × x̂
+		col1.normalize();
+
+		ortho.block(0, 0, 3, 1) = col0;
+		ortho.block(0, 1, 3, 1) = col1;
+		ortho.block(0, 2, 3, 1) = col2;				// already unit length
 	}
-	else if(ortho.cols() == 3)
+	else if(ortho.cols() == 3)	// 2-D (3 × 3 homogeneous or plain 2 × 2)
 	{
-		const T epsilon = 0.001;
+		const T epsilon = static_cast<T>(0.001);
 
-		// R = [ a b]
-		//     [-b a]
-		if(anyabs(parameters(0,0) - parameters(1,1)) > epsilon || anyabs(parameters(1,0) + parameters(0,1)) > epsilon)
-		{
+		// Elements of the 2 × 2 block
+		T a = parameters(0,0);
+		T b = parameters(0,1);
+		T c = parameters(1,0);
+		T d = parameters(1,1);
+
+		const T det = a*d - b*c;
+		if(det <= T(0))
 			throw TransformationError("RigidTransformation: Error, only proper rigid transformations are supported.");
-		}
-		
-		// mean of a and b
-		T a = (parameters(0,0) + parameters(1,1))/2; 	
-		T b = (-parameters(1,0) + parameters(0,1))/2;
-		T sum = sqrt(pow(a,2) + pow(b,2));
 
-		a = a/sum;
-		b = b/sum;
+		// Average-and-renormalise trick (ensures orthogonality & det = +1)
+		T aBar = (a + d) / 2;
+		T bBar = (-c + b) / 2;
+		const T norm = std::sqrt(aBar*aBar + bBar*bBar);
 
-		ortho(0,0) =  a; ortho(0,1) = b;
-		ortho(1,0) = -b; ortho(1,1) = a;
+		if(norm < epsilon)
+			throw TransformationError("RigidTransformation: Degenerate 2-D rotation.");
+
+		aBar /= norm;
+		bBar /= norm;
+
+		ortho(0,0) =  aBar; ortho(0,1) =  bBar;
+		ortho(1,0) = -bBar; ortho(1,1) =  aBar;
 	}
-
 
 	return ortho;
 }
+
 
 template struct TransformationsImpl<float>::RigidTransformation;
 template struct TransformationsImpl<double>::RigidTransformation;

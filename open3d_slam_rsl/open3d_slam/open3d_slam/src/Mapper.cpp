@@ -34,35 +34,35 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
   // `updates` with default parameters
   update(params_);
-  pmPointCloudFilter_ = std::make_shared<open3d_conversions::PmPointCloudFilters>();
+  // pmPointCloudFilter_ = std::make_shared<open3d_conversions::PmPointCloudFilters>();
 
-  // These filters are currently not used.
-  {
-    auto RemoveNaNDataPointsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create("RemoveNaNDataPointsFilter");
-    pmPointCloudFilter_->emplace_back(std::move(RemoveNaNDataPointsFilter));
+  // // These filters are currently not used.
+  // {
+  //   auto RemoveNaNDataPointsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create("RemoveNaNDataPointsFilter");
+  //   pmPointCloudFilter_->emplace_back(std::move(RemoveNaNDataPointsFilter));
 
-    auto surfaceNormalsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
-        "SurfaceNormalDataPointsFilter", {{"knn", PointMatcherSupport::toParam(10)},
-                                          {"epsilon", PointMatcherSupport::toParam(0.03)},
-                                          {"keepNormals", PointMatcherSupport::toParam(1)},
-                                          {"keepDensities", PointMatcherSupport::toParam(1)},
-                                          {"keepEigenValues", PointMatcherSupport::toParam(0)},
-                                          {"keepEigenVectors", PointMatcherSupport::toParam(0)},
-                                          {"keepMatchedIds", PointMatcherSupport::toParam(0)}});
-    pmPointCloudFilter_->emplace_back(std::move(surfaceNormalsFilter));
+  //   auto surfaceNormalsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
+  //       "SurfaceNormalDataPointsFilter", {{"knn", PointMatcherSupport::toParam(10)},
+  //                                         {"epsilon", PointMatcherSupport::toParam(0.03)},
+  //                                         {"keepNormals", PointMatcherSupport::toParam(1)},
+  //                                         {"keepDensities", PointMatcherSupport::toParam(1)},
+  //                                         {"keepEigenValues", PointMatcherSupport::toParam(0)},
+  //                                         {"keepEigenVectors", PointMatcherSupport::toParam(0)},
+  //                                         {"keepMatchedIds", PointMatcherSupport::toParam(0)}});
+  //   pmPointCloudFilter_->emplace_back(std::move(surfaceNormalsFilter));
 
-    auto ObservationDirectionDataPointsFilter =
-        open3d_conversions::PM::get().DataPointsFilterRegistrar.create("ObservationDirectionDataPointsFilter");
-    pmPointCloudFilter_->emplace_back(std::move(ObservationDirectionDataPointsFilter));
+  //   auto ObservationDirectionDataPointsFilter =
+  //       open3d_conversions::PM::get().DataPointsFilterRegistrar.create("ObservationDirectionDataPointsFilter");
+  //   pmPointCloudFilter_->emplace_back(std::move(ObservationDirectionDataPointsFilter));
 
-    auto OrientNormalsDataPointsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
-        "OrientNormalsDataPointsFilter", {{"towardCenter", PointMatcherSupport::toParam(true)}});
-    pmPointCloudFilter_->emplace_back(std::move(OrientNormalsDataPointsFilter));
+  //   auto OrientNormalsDataPointsFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
+  //       "OrientNormalsDataPointsFilter", {{"towardCenter", PointMatcherSupport::toParam(true)}});
+  //   pmPointCloudFilter_->emplace_back(std::move(OrientNormalsDataPointsFilter));
 
-    auto maxDensityFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
-        "MaxDensityDataPointsFilter", {{"maxDensity", PointMatcherSupport::toParam(8000)}});
-    pmPointCloudFilter_->emplace_back(std::move(maxDensityFilter));
-  }
+  //   auto maxDensityFilter = open3d_conversions::PM::get().DataPointsFilterRegistrar.create(
+  //       "MaxDensityDataPointsFilter", {{"maxDensity", PointMatcherSupport::toParam(8000)}});
+  //   pmPointCloudFilter_->emplace_back(std::move(maxDensityFilter));
+  // }
 
   // ANYmal-D base -> lidar
   // Eigen::Isometry3d calibrationIsometry = Eigen::Translation3d(-0.31, -0.0, -0.1585) * Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ());
@@ -234,11 +234,12 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     return true;
   }
 
-  bool isOdomOkay = odomToRangeSensorBuffer_.has(timestamp);
-  if (!isOdomOkay) {
-    std::cerr << "WARNING: odomToRangeSensorBuffer_ DOES NOT HAVE THE DESIRED TRANSFORM! \n";
-    std::cerr << "Going to attempt the scan to map refinement anyway. \n";
-  }
+  bool isOdomOkay = true;
+  // odomToRangeSensorBuffer_.has(timestamp);
+  // if (!isOdomOkay) {
+  //   std::cerr << "WARNING: odomToRangeSensorBuffer_ DOES NOT HAVE THE DESIRED TRANSFORM! \n";
+  //   std::cerr << "Going to attempt the scan to map refinement anyway. \n";
+  // }
 
   checkTransformChainingAndPrintResult(isCheckTransformChainingAndPrintResult);
 
@@ -256,14 +257,24 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
     Transform odometryMotion = odomToRangeSensorPrev.inverse() * odomToRangeSensor;
     odometryMotionMemory_ = odometryMotion;
 
-    // Apply the calculated odometry motion to the previous scan2map refined pose.
-    mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
-
-    if (odometryMotion.translation().norm() == 0.0) {
+    // Check for unrealistic odometry motion (zero or too large)
+    double odomMotionNorm = odometryMotion.translation().norm();
+    if (odomMotionNorm == 0.0) {
       std::cout << " Odometry MOTION SHOULDNT BE PERFECTLY 0. "
                 << "\033[92m" << asString(odometryMotion) << " \n"
                 << "\033[0m";
+      odometryMotion.setIdentity();
     }
+    // else if ((odomMotionNorm > 0.5) && (toSecondsSinceFirstMeasurement(timestamp) > 10)) {  // threshold can be adjusted as needed
+    //   std::cout << " Odometry MOTION IS UNREALISTICALLY LARGE: "
+    //             << "\033[91m" << odomMotionNorm << " m, resetting to identity.\n"
+    //             << "\033[0m";
+    //   odometryMotion.setIdentity();
+    //   odometryMotionMemory_ = odometryMotion;
+    // }
+
+    // Apply the calculated odometry motion to the previous scan2map refined pose.
+    mapToRangeSensorEstimate = mapToRangeSensorPrev_ * odometryMotion;
 
     /*int64_t uts_timestamp = toUniversal(timestamp);
     int64_t ns_since_unix_epoch = (uts_timestamp - kUtsEpochOffsetFromUnixEpochInSeconds * 10000000ll) * 100ll;
@@ -339,6 +350,15 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
         referenceInitTimer_.startStopwatch();
 
         lastReferenceInitializationTimestamp_ = timestamp;
+        std::cout << "\033[1;94m"
+                  << "\n\n\n\n\n"
+                  << "########################################################################################################\n"
+                  << "#                                                                                                #\n"
+                  << "#                              SETTING INIT REFERENCE CLOUD!                                     #\n"
+                  << "#                                                                                                #\n"
+                  << "########################################################################################################\n"
+                  << "\n\n\n\n\n"
+                  << "\033[0m";
 
         if (!icp_.initReference(activeSubmapPm_.dataPoints_)) {
           std::cout << "Failed to initialize reference cloud. Exitting. " << std::endl;
@@ -413,6 +433,17 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   // Pass the calculated transform to o3d transform.
   Transform correctedTransform_o3d;
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
+
+  // Calculate the difference between the estimate and the corrected transform.
+  Transform diffTransform = mapToRangeSensorEstimate.inverse() * correctedTransform_o3d;
+  double diffNorm = diffTransform.translation().norm();
+
+  // If the norm exceeds 40cm, use the estimate instead of the corrected transform.
+  if (diffNorm > 0.4 && mapToRangeSensorEstimate.translation().norm() > 116.0) {
+    std::cout << "Warning: ICP correction too large (" << diffNorm << " m) and robot is far from origin ("
+              << mapToRangeSensorEstimate.translation().norm() << " m), using estimate instead." << std::endl;
+    correctedTransform_o3d = mapToRangeSensorPrev_;
+  }
 
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";

@@ -10,15 +10,19 @@ referenceDataPointsFilters:
 
 matcher:
   KDTreeMatcher:
-    knn: 1              # 1
-    maxDist: 0.5        # 0.5
+    knn: 3              # 1
+    maxDist: 0.25       # 0.5
     epsilon: 0.01       # 0.01
 
 outlierFilters:
-#  - MaxDistOutlierFilter:
-#     maxDist: 1.0
-  - TrimmedDistOutlierFilter:
-     ratio: 0.90         # 0.9
+  # - RobustOutlierFilter:
+  #     robustFct: gm   # huber, cauchy, tukey, welsch, sc, gm, l1, l2
+  #     scaleEstimator: mad    #std, mad, berg
+  #     tuning: 4.0      # gm 4 too good, cauchy 1.0 while Trim is open
+  - MaxDistOutlierFilter:
+      maxDist: 1.0
+  # - TrimmedDistOutlierFilter:
+  #    ratio: 0.95         # 0.9
   - SurfaceNormalOutlierFilter:
      maxAngle: 1.57     # 1.57
 
@@ -48,11 +52,11 @@ ceresDegeneracyAnalysis:
     regularizationWeight: 500.0 # you need to set  .0  as double
 
 degeneracyAwareness:
-  OptimizedEqualityConstraints:
-    enoughInformationThreshold: 250   #new 250  300
-    insufficientInformationThreshold: 180  #new 180 150
-    point2NormalMinimalAlignmentAngleThreshold: 80
-    point2NormalStrongAlignmentAngleThreshold: 45
+  # OptimizedEqualityConstraints:
+  #   enoughInformationThreshold: 350   #new 250  300
+  #   insufficientInformationThreshold: 280  #new 180 150
+  #   point2NormalMinimalAlignmentAngleThreshold: 80
+  #   point2NormalStrongAlignmentAngleThreshold: 45
   #EqualityConstraints:
   #  highInformationThreshold: 250   ##       RUMLANG GICIK     
   #  enoughInformationThreshold: 180  # was 150 17 sept when was 250 it crasahed. investigate
@@ -81,13 +85,13 @@ degeneracyAwareness:
   #  point2NormalStrongAlignmentAngleThreshold: 45
   #  inequalityboundmultiplier: 8
 
-  #None:
+  None:
 
 transformationCheckers:
   - DifferentialTransformationChecker:
       minDiffRotErr: 0.001    # 0.001
-      minDiffTransErr: 0.008   # 0.01
-      smoothLength: 3         # 3
+      minDiffTransErr: 0.01   # 0.01
+      smoothLength: 5         # 3
   - CounterTransformationChecker:
       maxIterationCount: 30   # 30 
 #  - BoundTransformationChecker:
