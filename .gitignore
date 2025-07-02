@@ -6,3 +6,5 @@ open3d_slam_rsl/ros/open3d_slam_ros/launch/__pycache__/
 *.pcd
 *.ply
 *.vscode
+venv/
+documentation/

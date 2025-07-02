@@ -57,7 +57,7 @@ def generate_launch_description():
         DeclareLaunchArgument('pose_stamped_topic', default_value='no_pose_stamped_topic'),
         DeclareLaunchArgument('pose_stamped_with_covariance_topic', default_value='empty'),
         DeclareLaunchArgument('launch_prefix', default_value=''),
-        DeclareLaunchArgument('launch_rviz', default_value='true   '),
+        DeclareLaunchArgument('launch_rviz', default_value='false   '),
         DeclareLaunchArgument('distance_cutoff', default_value='0.2'),
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('rviz_config', default_value='/opt/ros/jazzy/share/rviz2/rviz/default_config.rviz'),

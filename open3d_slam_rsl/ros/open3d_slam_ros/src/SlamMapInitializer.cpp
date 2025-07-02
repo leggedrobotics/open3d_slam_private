@@ -16,10 +16,10 @@
 #include "open3d_slam/output.hpp"
 #include "open3d_slam/time.hpp"
 
+#include <boost/filesystem.hpp>
 #include "open3d_slam_ros/SlamMapInitializer.hpp"
 #include "open3d_slam_ros/SlamWrapperRos.hpp"
 #include "open3d_slam_ros/helpers_ros.hpp"
-#include <boost/filesystem.hpp>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
@@ -38,19 +38,19 @@ SlamMapInitializer::~SlamMapInitializer() {
 }
 
 std::string SlamMapInitializer::get_map_file_path(const std::string& package, const std::string& map_name) {
-    // 1. Try installed share directory
-    std::string installed_path = ament_index_cpp::get_package_share_directory(package) + "/data/" + map_name;
-    if (boost::filesystem::exists(installed_path)) {
-        return installed_path;
-    }
-    // 2. Try source tree (relative to CMakeLists.txt or known dev path)
-    // You must know your repo layout for this to work. Example:
-    std::string dev_path = std::string(PROJECT_SOURCE_DIR) + "/data/" + map_name; // If you define PROJECT_SOURCE_DIR
-    if (boost::filesystem::exists(dev_path)) {
-      return dev_path;
-    }
-    // 3. Optionally: try cwd or error
-    throw std::runtime_error("Map file not found in install or source: " + map_name);
+  // 1. Try installed share directory
+  std::string installed_path = ament_index_cpp::get_package_share_directory(package) + "/data/" + map_name;
+  if (boost::filesystem::exists(installed_path)) {
+    return installed_path;
+  }
+  // 2. Try source tree (relative to CMakeLists.txt or known dev path)
+  // You must know your repo layout for this to work. Example:
+  std::string dev_path = std::string(PROJECT_SOURCE_DIR) + "/data/" + map_name;  // If you define PROJECT_SOURCE_DIR
+  if (boost::filesystem::exists(dev_path)) {
+    return dev_path;
+  }
+  // 3. Optionally: try cwd or error
+  throw std::runtime_error("Map file not found in install or source: " + map_name);
 }
 
 void SlamMapInitializer::initialPoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
@@ -74,7 +74,7 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
   if (mapInitializerParams_.pcdFilePath_.empty()) {
     throw std::runtime_error("Error: mapInitializerParams_.pcdFilePath_ is empty. Please provide a valid PCD file path.");
   }
-  
+
   std::string map_name = mapInitializerParams_.pcdFilePath_;
   std::string pcdFile = get_map_file_path("open3d_slam_ros", map_name);
 
@@ -97,12 +97,12 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
     initializeSlamSrv_ = nh_->create_service<std_srvs::srv::Trigger>(
         "initialize_slam", std::bind(&SlamMapInitializer::initSlamCallback, this, std::placeholders::_1, std::placeholders::_2));
     cloudPub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("aligned_cloud_preview", 1);
-    std::string cloudTopic = nh_->declare_parameter<std::string>("cloud_topic", "");
+    std::string cloudTopic = nh_->get_parameter("cloud_topic").as_string();
     std::cout << "Initializer subscribing to " << cloudTopic << std::endl;
     cloudSub_ = nh_->create_subscription<sensor_msgs::msg::PointCloud2>(
         cloudTopic, 1, std::bind(&SlamMapInitializer::pointcloudCallback, this, std::placeholders::_1));
-    initWorker_ = std::thread([this]() { initializeWorker(); });
-    std::cout << "started interactive marker worker \n";
+    // initWorker_ = std::thread([this]() { initializeWorker(); });
+    // std::cout << "started interactive marker worker \n";
   } else {
     std::cout << "Finished setting initial map! \n";
   }
