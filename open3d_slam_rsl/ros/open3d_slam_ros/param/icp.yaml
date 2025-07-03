@@ -11,7 +11,7 @@ referenceDataPointsFilters:
 matcher:
   KDTreeMatcher:
     knn: 7              # 1
-    maxDist: 0.5       # 0.5
+    maxDist: 0.4       # 0.5
     epsilon: 0.01       # 0.01
 
 outlierFilters:
@@ -20,7 +20,7 @@ outlierFilters:
   #     scaleEstimator: mad    #std, mad, berg
   #     tuning: 4.0      # gm 4 too good, cauchy 1.0 while Trim is open
   - MaxDistOutlierFilter:
-      maxDist: 0.5
+      maxDist: 0.4
   # - TrimmedDistOutlierFilter:
   #    ratio: 0.95         # 0.9
   # - SurfaceNormalOutlierFilter:
