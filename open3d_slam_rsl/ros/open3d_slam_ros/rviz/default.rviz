@@ -5,7 +5,9 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /RegisteredCloud1/Autocompute Value Bounds1
+        - /RobotPathLive(blue)1
         - /Scan2Map1/Shape1
+        - /LiDAR_frame1
       Splitter Ratio: 0.7029411792755127
     Tree Height: 782
   - Class: rviz/Selection
@@ -26,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Last Cloud
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -147,8 +149,8 @@ Visualization Manager:
     - Alpha: 0.800000011920929
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 22.618499755859375
-        Min Value: -13.750499725341797
+        Max Value: 5.264500141143799
+        Min Value: -10.268400192260742
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -364,13 +366,13 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 32; 74; 135
+      Color: 239; 41; 41
       Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.009999999776482582
       Line Style: Billboards
-      Line Width: 0.004999999888241291
+      Line Width: 0.05000000074505806
       Name: RobotPathLive(blue)
       Offset:
         X: 0
@@ -434,7 +436,7 @@ Visualization Manager:
       Length: 0.5
       Name: LiDAR_frame
       Radius: 0.10000000149011612
-      Reference Frame: lidar
+      Reference Frame: livox
       Value: true
     - Alpha: 1
       Class: rviz/Axes
@@ -480,7 +482,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.9181050062179565
+      Distance: 28.5887393951416
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -488,17 +490,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 0.7511192560195923
+        Y: -1.0511497259140015
+        Z: -0.7636538147926331
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.264797568321228
+      Pitch: 1.5597970485687256
       Target Frame: livox
-      Yaw: 3.375397205352783
+      Yaw: 1.615387201309204
     Saved: ~
 Window Geometry:
   Displays:

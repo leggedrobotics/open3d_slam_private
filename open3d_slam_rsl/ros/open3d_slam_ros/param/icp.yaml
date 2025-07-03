@@ -10,8 +10,8 @@ referenceDataPointsFilters:
 
 matcher:
   KDTreeMatcher:
-    knn: 3              # 1
-    maxDist: 0.25       # 0.5
+    knn: 7              # 1
+    maxDist: 0.5       # 0.5
     epsilon: 0.01       # 0.01
 
 outlierFilters:
@@ -20,11 +20,11 @@ outlierFilters:
   #     scaleEstimator: mad    #std, mad, berg
   #     tuning: 4.0      # gm 4 too good, cauchy 1.0 while Trim is open
   - MaxDistOutlierFilter:
-      maxDist: 1.0
+      maxDist: 0.5
   # - TrimmedDistOutlierFilter:
   #    ratio: 0.95         # 0.9
-  - SurfaceNormalOutlierFilter:
-     maxAngle: 1.57     # 1.57
+  # - SurfaceNormalOutlierFilter:
+  #    maxAngle: 1.57     # 1.57
 
 errorMinimizer:
   PointToPlaneErrorMinimizer
@@ -91,12 +91,12 @@ transformationCheckers:
   - DifferentialTransformationChecker:
       minDiffRotErr: 0.001    # 0.001
       minDiffTransErr: 0.01   # 0.01
-      smoothLength: 5         # 3
+      smoothLength: 3         # 3
   - CounterTransformationChecker:
       maxIterationCount: 30   # 30 
-#  - BoundTransformationChecker:
-#      maxRotationNorm: 0.80
-#      maxTranslationNorm: 5.0
+  - BoundTransformationChecker:
+      maxRotationNorm: 0.80
+      maxTranslationNorm: 15.0
 
 inspector:
 #  VTKFileInspector

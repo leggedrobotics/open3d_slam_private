@@ -435,15 +435,15 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   correctedTransform_o3d.matrix() = correctedTransform.matrix().cast<double>();
 
   // Calculate the difference between the estimate and the corrected transform.
-  Transform diffTransform = mapToRangeSensorEstimate.inverse() * correctedTransform_o3d;
-  double diffNorm = diffTransform.translation().norm();
+  // Transform diffTransform = mapToRangeSensorEstimate.inverse() * correctedTransform_o3d;
+  // double diffNorm = diffTransform.translation().norm();
 
-  // If the norm exceeds 40cm, use the estimate instead of the corrected transform.
-  if (diffNorm > 0.4 && mapToRangeSensorEstimate.translation().norm() > 116.0) {
-    std::cout << "Warning: ICP correction too large (" << diffNorm << " m) and robot is far from origin ("
-              << mapToRangeSensorEstimate.translation().norm() << " m), using estimate instead." << std::endl;
-    correctedTransform_o3d = mapToRangeSensorPrev_;
-  }
+  // // If the norm exceeds 40cm, use the estimate instead of the corrected transform.
+  // if (diffNorm > 0.4 && mapToRangeSensorEstimate.translation().norm() > 116.0) {
+  //   std::cout << "Warning: ICP correction too large (" << diffNorm << " m) and robot is far from origin ("
+  //             << mapToRangeSensorEstimate.translation().norm() << " m), using estimate instead." << std::endl;
+  //   correctedTransform_o3d = mapToRangeSensorPrev_;
+  // }
 
   // std::cout << "preeIcp: " << asString(mapToRangeSensorEstimate) << "\n";
   // std::cout << "postIcp xicp: " << asString(correctedTransform_o3d) << "\n\n";
