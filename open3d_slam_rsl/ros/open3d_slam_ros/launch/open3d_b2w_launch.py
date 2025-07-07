@@ -24,7 +24,7 @@ def generate_launch_description():
 
     declared_args = [
         DeclareLaunchArgument('launch_prefix', default_value='', description='gdb -ex run --args'),
-        DeclareLaunchArgument('launch_rviz', default_value='true'),
+        DeclareLaunchArgument('launch_rviz', default_value='false'),
         DeclareLaunchArgument('cloud_topic', default_value='/rslidar/points'), #/dlio/odom_node/pointcloud/deskewed #'/pointcloud #/rslidar/points
         DeclareLaunchArgument('odometry_topic', default_value='/graph_msf/est_odometry_odom_imu'), #/graph_msf/est_odometry_odom_imu /dlio/odom_node/odom
         DeclareLaunchArgument('assumed_external_odometry_tracked_frame', default_value='imu'), #imu_link #base_link

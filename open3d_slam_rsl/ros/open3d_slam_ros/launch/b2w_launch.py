@@ -59,7 +59,7 @@ def generate_launch_description():
         DeclareLaunchArgument('launch_prefix', default_value=''),
         DeclareLaunchArgument('launch_rviz', default_value='false   '),
         DeclareLaunchArgument('distance_cutoff', default_value='0.2'),
-        DeclareLaunchArgument('use_sim_time', default_value='true'),
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('rviz_config', default_value='/opt/ros/jazzy/share/rviz2/rviz/default_config.rviz'),
         # Arguments for smb_estimator_graph_ros2
         DeclareLaunchArgument('imu_topic_name', default_value='/imu_sensor_broadcaster/imu', description='IMU topic name'),
