@@ -47,6 +47,7 @@ find_package(nav_msgs      REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(small_gicp    REQUIRED)
 find_package(rclcpp        REQUIRED)  # Added for ROS 2 message types
+find_package(Open3D        REQUIRED)
 
 if(OpenMP_CXX_FOUND)
   add_compile_options(${OpenMP_CXX_FLAGS})
@@ -68,11 +69,18 @@ target_include_directories(${PROJECT_NAME}
     $<$<BOOL:${OpenMP_CXX_INCLUDE_DIRS}>:${OpenMP_CXX_INCLUDE_DIRS}>
 )
 
+# Embed shared library install locations as RPATH to find at runtime
+set_target_properties(${PROJECT_NAME} PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE
+)
+
 # --------------------------------------------------------------------------- #
 # 4. Linking with libraries (use keyword signature consistently)
 # --------------------------------------------------------------------------- #
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
+    ${Open3D_LIBRARIES}
     small_gicp::small_gicp
     yaml-cpp
   PRIVATE
@@ -92,6 +100,7 @@ ament_target_dependencies(${PROJECT_NAME}
     yaml-cpp
     small_gicp
     OpenMP  # Add OpenMP as a dependency here for `open3d_slam` only
+    Open3D
 )
 
 # --------------------------------------------------------------------------- #
@@ -110,7 +119,7 @@ ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(
   open3d_conversions nav_msgs geometry_msgs
-  Eigen3 Boost yaml-cpp small_gicp rclcpp OpenMP
+  Eigen3 Boost yaml-cpp small_gicp rclcpp OpenMP Open3D
 )
 
 ament_package()

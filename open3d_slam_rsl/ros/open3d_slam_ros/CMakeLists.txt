@@ -118,6 +118,10 @@ ament_target_dependencies(mapping_node
 )
 target_link_libraries(mapping_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
 target_link_libraries(mapping_node OpenMP::OpenMP_CXX)
+set_target_properties(mapping_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE
+)
 
 add_executable(airy_processing_node src/airy_processing_node.cpp)
 ament_target_dependencies(airy_processing_node
@@ -130,6 +134,10 @@ ament_target_dependencies(airy_processing_node
 )
 target_link_libraries(airy_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
 target_link_libraries(airy_processing_node OpenMP::OpenMP_CXX)
+set_target_properties(airy_processing_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE
+)
 
 add_executable(robosense_processing_node src/robosense_processing_node.cpp)
 ament_target_dependencies(robosense_processing_node
@@ -142,6 +150,10 @@ ament_target_dependencies(robosense_processing_node
 )
 target_link_libraries(robosense_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
 target_link_libraries(robosense_processing_node OpenMP::OpenMP_CXX)
+set_target_properties(robosense_processing_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE
+)
 
 # add_executable(propagator_processing_node src/propagator_processing_node.cpp)
 # ament_target_dependencies(propagator_processing_node
@@ -154,6 +166,10 @@ target_link_libraries(robosense_processing_node OpenMP::OpenMP_CXX)
 # )
 # target_link_libraries(propagator_processing_node ${PROJECT_NAME} yaml-cpp ${GLOG_LIBRARIES} -lglog)
 # target_link_libraries(propagator_processing_node OpenMP::OpenMP_CXX)
+# set_target_properties(propagator_processing_node PROPERTIES
+#   BUILD_WITH_INSTALL_RPATH TRUE
+#   INSTALL_RPATH_USE_LINK_PATH TRUE
+# )
 
 # ---------------------------------------------------------------------------
 # 1-f  Installation
