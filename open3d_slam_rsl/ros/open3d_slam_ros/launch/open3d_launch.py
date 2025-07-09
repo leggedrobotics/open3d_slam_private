@@ -26,15 +26,15 @@ def generate_launch_description():
         DeclareLaunchArgument('launch_prefix', default_value='', description='gdb -ex run --args'),
         DeclareLaunchArgument('launch_rviz', default_value='true'),
         DeclareLaunchArgument('cloud_topic', default_value='/lidar/point_cloud'), #/dlio/odom_node/pointcloud/deskewed #'/pointcloud #/rslidar/points
-        DeclareLaunchArgument('odometry_topic', default_value='/graph_msf/est_odometry_odom_imu'), #/graph_msf/est_odometry_odom_imu /dlio/odom_node/odom
-        DeclareLaunchArgument('assumed_external_odometry_tracked_frame', default_value='imu_link'), #imu_link #base_link
+        DeclareLaunchArgument('odometry_topic', default_value='/dlio/odom_node/odom'), #/graph_msf/est_odometry_odom_imu /dlio/odom_node/odom
+        DeclareLaunchArgument('assumed_external_odometry_tracked_frame', default_value='imu'), #imu_link #base_link
         DeclareLaunchArgument('parameter_filename', default_value='param_b2w.lua'),
         DeclareLaunchArgument('pose_stamped_topic', default_value='no_pose_stamped_topic'),
         DeclareLaunchArgument('pose_stamped_with_covariance_topic', default_value='empty'),
         DeclareLaunchArgument('parameter_folder_path',default_value=param_dir),
         DeclareLaunchArgument('map_saving_folder', default_value= default_map_saving_folder),
         DeclareLaunchArgument('num_accumulated_range_data', default_value='1'),
-        DeclareLaunchArgument('is_read_from_rosbag', default_value='false'),
+        DeclareLaunchArgument('is_read_from_rosbag', default_value='false'),    
         DeclareLaunchArgument('rosbag_filepath', default_value=''),
         DeclareLaunchArgument('use_syncronized_poses_to_replay', default_value='false'),
         DeclareLaunchArgument('republish_tf_topic', default_value='true'),
