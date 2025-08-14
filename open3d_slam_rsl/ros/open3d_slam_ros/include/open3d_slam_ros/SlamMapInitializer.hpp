@@ -56,6 +56,7 @@ class SlamMapInitializer {
   std::string interactiveMarkerName_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloudSub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloudPub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr preloadCloudPub_;
 };
 
 }  // namespace o3d_slam
