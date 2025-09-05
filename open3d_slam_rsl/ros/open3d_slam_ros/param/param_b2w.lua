@@ -5,11 +5,11 @@ params = deepcopy(DEFAULT_PARAMETERS)
 
 
 --ScanToScan ODOMETRY
-params.odometry.scan_processing.voxel_size = 0.1
+params.odometry.scan_processing.voxel_size = 0.2
 params.odometry.scan_processing.downsampling_ratio = 1.0
 
 --Advanced Options.
-params.odometry.use_odometry_topic_instead_of_scan_to_scan = true --Uses Odometry topic instead of Scan2Scan registration.
+params.odometry.use_odometry_topic_instead_of_scan_to_scan = false --Uses Odometry topic instead of Scan2Scan registration.
 params.odometry.use_IMU_for_attitude_initialization = false --Uses IMU msgs to initialize gravity aligned attitude.
 
 --MAPPER_LOCALIZER
@@ -36,12 +36,12 @@ params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_peri
 params.map_initializer.pcd_file_package = "open3d_slam_ros"
 params.map_initializer.pcd_file_path = "ML_Hall_Small.pcd"
 params.map_initializer.is_initialize_interactively = true
-params.map_initializer.init_pose.x = 6.138760
-params.map_initializer.init_pose.y = -0.344698
-params.map_initializer.init_pose.z = 0.013819
-params.map_initializer.init_pose.roll = 0.0
-params.map_initializer.init_pose.pitch = 0.0
-params.map_initializer.init_pose.yaw = -90.0
+-- params.map_initializer.init_pose.x = -5.0
+-- params.map_initializer.init_pose.y = 1.0
+-- params.map_initializer.init_pose.z = -0.5
+-- params.map_initializer.init_pose.roll = -5.0
+-- params.map_initializer.init_pose.pitch = 0.0
+-- params.map_initializer.init_pose.yaw = 0.0
 
 --SUBMAP
 params.submap.submap_size = 1.0 --meters
