@@ -86,43 +86,6 @@ void SlamMapInitializer::initialize(const MapInitializingParameters& params) {
     std::cerr << "[Error] Initialization pointcloud not loaded" << std::endl;
   }
 
-auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local();
-preloadCloudPub_ = nh_->create_publisher<sensor_msgs::msg::PointCloud2>("preloaded_cloud", qos);
-
-open3d::geometry::PointCloud temp;
-temp.points_ = raw_map.points_;
-auto filtered = temp.VoxelDownSample(0.2);
-
-sensor_msgs::msg::PointCloud2 msg;
-msg.header.frame_id = slamPtr_->frames_.mapFrame;
-msg.header.stamp = nh_->get_clock()->now();   // <-- FIX timestamp
-msg.height = 1;
-msg.width = filtered->points_.size();
-msg.is_dense = false;
-msg.is_bigendian = false;
-msg.point_step = 16;
-msg.row_step = msg.width * msg.point_step;
-
-msg.fields.resize(4);
-msg.fields[0].name = "x"; msg.fields[0].offset = 0;  msg.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32; msg.fields[0].count = 1;
-msg.fields[1].name = "y"; msg.fields[1].offset = 4;  msg.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32; msg.fields[1].count = 1;
-msg.fields[2].name = "z"; msg.fields[2].offset = 8;  msg.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32; msg.fields[2].count = 1;
-msg.fields[3].name = "intensity"; msg.fields[3].offset = 12; msg.fields[3].datatype = sensor_msgs::msg::PointField::FLOAT32; msg.fields[3].count = 1;
-
-msg.data.resize(msg.row_step);
-float *data_ptr = reinterpret_cast<float *>(msg.data.data());
-for (const auto &p : filtered->points_) {
-    *data_ptr++ = static_cast<float>(p(0));
-    *data_ptr++ = static_cast<float>(p(1));
-    *data_ptr++ = static_cast<float>(p(2));
-    *data_ptr++ = 0.0f;
-}
-
-preloadCloudPub_->publish(msg);
-
-  
-
-
   Transform initPose = params.initialPose_;
   slamPtr_->setInitialMap(raw_map);
   slamPtr_->setInitialTransform(initPose.matrix());
