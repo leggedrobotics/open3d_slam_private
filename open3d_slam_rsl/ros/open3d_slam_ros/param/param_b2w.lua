@@ -36,12 +36,12 @@ params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_peri
 params.map_initializer.pcd_file_package = "open3d_slam_ros"
 params.map_initializer.pcd_file_path = "ML_Hall_Small.pcd"
 params.map_initializer.is_initialize_interactively = true
-params.map_initializer.init_pose.x = 8.838822
-params.map_initializer.init_pose.y = 10.921442
-params.map_initializer.init_pose.z = -0.342999
+params.map_initializer.init_pose.x = 6.175025
+params.map_initializer.init_pose.y = -0.621058
+params.map_initializer.init_pose.z = -0.347984
 params.map_initializer.init_pose.roll = 0.0
 params.map_initializer.init_pose.pitch = 0.0
-params.map_initializer.init_pose.yaw = 180.0
+params.map_initializer.init_pose.yaw = -90
 
 --SUBMAP
 params.submap.submap_size = 20.0 --meters
