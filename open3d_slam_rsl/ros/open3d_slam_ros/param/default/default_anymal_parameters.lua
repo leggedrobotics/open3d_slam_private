@@ -48,11 +48,13 @@ params.odometry.scan_processing.downsampling_ratio = 1.0
 ----------------------------------------------------------------------
 
 -- Disable merging scans into the map initially
-params.mapper_localizer.is_merge_scans_into_map = false
+params.mapper_localizer.is_merge_scans_into_map = true
 
 -- Location of initial PCD map (for bootstrapping)
-params.map_initializer.pcd_file_package = "rsl_seam_examples"
-params.map_initializer.pcd_file_path = "/data/<mission>.pcd"
+params.map_initializer.pcd_file_package = "open3d_slam_ros"
+params.map_initializer.pcd_file_path = "data/tunnel.pcd"  -- MAXIMUM FIND ME
+-- params.map_initializer.pcd_file_path = "data/plant-f1.pcd" -- MAXIMUM FIND ME
+-- params.map_initializer.pcd_file_path = "data/frei_cad_map.pcd"
 
 -- Start pose for map initialization (manual/static)
 params.map_initializer.is_initialize_interactively = true
@@ -64,7 +66,7 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 0.0
 
 -- Whether to use the map initializer output at all
-params.mapper_localizer.is_use_map_initialization = false
+params.mapper_localizer.is_use_map_initialization = false -- true for localization, false for mapping MAXIMUM FIND ME
 
 ----------------------------------------------------------------------
 --                        DENSE MAP BUILDER
@@ -105,7 +107,7 @@ params.mapper_localizer.scan_to_map_registration.icp.reference_cloud_seting_peri
 params.saving.save_map = true
 
 -- Do not save individual submaps
-params.saving.save_submaps = true
+params.saving.save_submaps = false
 
 ----------------------------------------------------------------------
 --                        PLACE RECOGNITION
@@ -159,7 +161,7 @@ params.map_builder.scan_cropping.cropping_radius_max = 60.0
 params.map_builder.scan_cropping.cropping_radius_min = 2.0
 
 -- Map voxel size
-params.map_builder.map_voxel_size = 0.2
+params.map_builder.map_voxel_size = 0.05
 
 -- Periodic carving of free space
 params.map_builder.space_carving.carve_space_every_n_scans = 10
