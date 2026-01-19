@@ -52,7 +52,7 @@ params.mapper_localizer.is_merge_scans_into_map = false
 
 -- Location of initial PCD map (for bootstrapping)
 params.map_initializer.pcd_file_package = "rsl_seam_examples"
-params.map_initializer.pcd_file_path = "/data/<mission>.pcd"
+params.map_initializer.pcd_file_path = "/home/integration/data/ML_Hall.pcd"
 
 -- Start pose for map initialization (manual/static)
 params.map_initializer.is_initialize_interactively = true
@@ -64,7 +64,7 @@ params.map_initializer.init_pose.pitch = 0.0
 params.map_initializer.init_pose.yaw = 0.0
 
 -- Whether to use the map initializer output at all
-params.mapper_localizer.is_use_map_initialization = false
+params.mapper_localizer.is_use_map_initialization = true
 
 ----------------------------------------------------------------------
 --                        DENSE MAP BUILDER
