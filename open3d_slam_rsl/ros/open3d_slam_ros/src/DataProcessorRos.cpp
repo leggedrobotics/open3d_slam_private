@@ -54,30 +54,30 @@ std::shared_ptr<SlamWrapper> DataProcessorRos::getSlamPtr() {
 }
 
 void DataProcessorRos::accumulateAndProcessRangeData(const PointCloud& cloud, const Time& timestamp) {
-  const size_t minNumCloudsReceived = magic::skipFirstNPointClouds;
-  if (numPointCloudsReceived_ < minNumCloudsReceived) {
-    ++numPointCloudsReceived_;
-    return;
-    // somehow the first cloud can be missing a lot of points when running with ouster os-128 on the robot
-    // if we skip that first measurement, it all works okay
-    // we skip first five, just to be extra safe
-  }
+  // const size_t minNumCloudsReceived = magic::skipFirstNPointClouds;
+  // if (numPointCloudsReceived_ < minNumCloudsReceived) {
+  //   ++numPointCloudsReceived_;
+  //   return;
+  //   // somehow the first cloud can be missing a lot of points when running with ouster os-128 on the robot
+  //   // if we skip that first measurement, it all works okay
+  //   // we skip first five, just to be extra safe
+  // }
 
-  accumulatedCloud_ += cloud;
-  ++numAccumulatedRangeDataCount_;
-  if (numAccumulatedRangeDataCount_ < numAccumulatedRangeDataDesired_) {
-    return;
-  }
+  // accumulatedCloud_ += cloud;
+  // ++numAccumulatedRangeDataCount_;
+  // if (numAccumulatedRangeDataCount_ < numAccumulatedRangeDataDesired_) {
+  //   return;
+  // }
 
-  if (accumulatedCloud_.IsEmpty()) {
-    std::cout << "Trying to insert and empyt cloud!!! Skipping the measurement \n";
-    return;
-  }
+  // if (accumulatedCloud_.IsEmpty()) {
+  //   std::cout << "Trying to insert and empyt cloud!!! Skipping the measurement \n";
+  //   return;
+  // }
 
-  processMeasurement(accumulatedCloud_, timestamp);
+  processMeasurement(cloud, timestamp);
 
-  numAccumulatedRangeDataCount_ = 0;
-  accumulatedCloud_.Clear();
+  // numAccumulatedRangeDataCount_ = 0;
+  // accumulatedCloud_.Clear();
 }
 
 void DataProcessorRos::processOdometryData(const Transform& transform, const Time& timestamp) {

@@ -170,22 +170,21 @@ class SlamWrapper {
   void attemptLoopClosuresIfReady();
   void updateSubmapsAndTrajectory();
   void denseMapWorker();
+  void analyzeBufferedMeasurements();
 
  protected:
   // buffers
   CircularBuffer<RegisteredPointCloud> registeredCloudBuffer_;
   CircularBuffer<ScanToMapRegistrationBestGuess> registrationBestGuessBuffer_;
 
-  CircularBuffer<TimestampedPointCloud> odometryBuffer_, mappingBuffer_;
+  CircularBuffer<TimestampedPointCloud> odometryBuffer_;
+  CircularBuffer<TimestampedPointCloud> mappingBuffer_;
   ThreadSafeBuffer<TimestampedSubmapId> loopClosureCandidates_;
+
+  uint64_t measCounter_ = 0;
 
   // parameters
   SlamParameters params_;
-  //	MapperParameters mapperParams_;
-  //	OdometryParameters odometryParams_;
-  //	VisualizationParameters visualizationParameters_;
-  //	SavingParameters savingParameters_;
-  //	ConstantVelocityMotionCompensationParameters motionCompensationParameters_;
   std::string folderPath_;
 
   // modules

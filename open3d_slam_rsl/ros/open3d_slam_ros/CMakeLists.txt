@@ -5,8 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 ## Source: https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
 #add_compile_options(-Wall -Wextra -Wpedantic -O3)
-add_compile_options(-O3)
-
+add_compile_options(-std=c++17 -O3 -mtune=native -flto -funroll-loops -fopenmp -fopt-info-vec-optimized -fno-math-errno)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SRC_FILES
@@ -16,6 +15,7 @@ set(SRC_FILES
   src/OnlineRangeDataProcessorRos.cpp
   src/creators.cpp
   src/DataProcessorRos.cpp
+  src/AiryProcessorRos.cpp
   src/RosbagRangeDataProcessorRos.cpp
   src/Color.cpp
   src/ImuBuffer.cpp
@@ -48,11 +48,13 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
 #find_package(gflags REQUIRED)
 find_package(Glog REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(OpenMP QUIET)
-if (OpenMP_FOUND)
-  add_compile_options("${OpenMP_CXX_FLAGS}")
-  add_definitions(-Dopen3d_slam_ros_OPENMP_FOUND=${OpenMP_FOUND})
-endif ()
+find_package(OpenMP REQUIRED)
+message(STATUS "OpenMP found: ${OpenMP_CXX_FLAGS}")
+
+# Add OpenMP compile options and definitions
+add_compile_options(${OpenMP_CXX_FLAGS})
+add_definitions(-Dopen3d_slam_ros_OPENMP_FOUND=1)
+
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_PACKAGE_DEPENDENCIES}
   )
@@ -104,27 +106,31 @@ target_link_libraries(mapping_node
   ${gflags_LIBRARIES}
   ${GLOG_LIBRARIES}
   ${PROJECT_NAME}
+  ${OpenMP_CXX_LIBRARIES}
   )
 
-find_package(cmake_clang_tools QUIET)
-if(cmake_clang_tools_FOUND)
-  message(STATUS "Run clang tooling for target " mapping_node)
-  add_clang_tooling(
-    TARGETS mapping_node
-    SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
-    CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
-    CF_FIX
-    #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
-  )
-endif(cmake_clang_tools_FOUND)
+  add_executable(airy_processing_node
+  src/airy_processing_node.cpp)
 
-add_executable(adjacency_graph_example_node
-  src/adjacency_graph_example_node.cpp
-  )
-
-target_link_libraries(adjacency_graph_example_node
+target_link_libraries(airy_processing_node
   ${catkin_LIBRARIES}
+  ${gflags_LIBRARIES}
+  ${GLOG_LIBRARIES}
   ${PROJECT_NAME}
+  ${OpenMP_CXX_LIBRARIES}
   )
+target_compile_definitions(airy_processing_node PRIVATE EIGEN_DONT_PARALLELIZE)
 
 
+# find_package(cmake_clang_tools QUIET)
+# if(cmake_clang_tools_FOUND)
+#   message(STATUS "Run clang tooling for target " mapping_node)
+#   message(STATUS "Run clang tooling for target " airy_processing_node)
+#   add_clang_tooling(
+#     TARGETS mapping_node airy_processing_node
+#     SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
+#     CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+#     CF_FIX
+#     #CT_ATTACH_TO_ALL # Uncomment to attach to all targets during build, takes time
+#   )
+# endif(cmake_clang_tools_FOUND)

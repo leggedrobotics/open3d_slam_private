@@ -6,11 +6,13 @@
  */
 
 #include "open3d_slam/Submap.hpp"
+#include <Eigen/Core>
 #include "open3d_slam/assert.hpp"
 #include "open3d_slam/helpers.hpp"
 #include "open3d_slam/magic.hpp"
 #include "open3d_slam/typedefs.hpp"
 
+#include <omp.h>
 #include <algorithm>
 #include <iostream>
 #include <numeric>
@@ -36,11 +38,15 @@ size_t Submap::getParentId() const {
   return parentId_;
 }
 
-bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& mapToRangeSensor, const Time& time,
-                        bool isPerformCarving) {
-  if (preProcessedScan.IsEmpty()) {
-    return true;
+o3d_slam::Submap::~Submap() {
+  if (voxelizationFuture_.valid()) {
+    voxelizationFuture_.wait();  // Wait for async voxelization to complete
   }
+}
+
+bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& mapToRangeSensor, const Time& time,
+                        bool /*isPerformCarving*/) {
+  if (preProcessedScan.IsEmpty()) return true;
 
   mapToRangeSensor_ = mapToRangeSensor;
 
@@ -51,33 +57,7 @@ bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcesse
     return true;
   }
 
-  auto transformedCloud = o3d_slam::transform(mapToRangeSensor.matrix(), preProcessedScan);
-
-  if (params_.isCarvingEnabled_ && isPerformCarving) {
-    carvingStatisticsTimer_.startStopwatch();
-
-    {
-      std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
-      carve(rawScan, mapToRangeSensor, *mapBuilderCropper_, params_.mapBuilder_.carving_, &mapCloud_);
-    }
-
-    const double timeMeasurement = carvingStatisticsTimer_.elapsedMsecSinceStopwatchStart();
-    carvingStatisticsTimer_.addMeasurementMsec(timeMeasurement);
-
-    // TODO [TT] double check if carving works as intended.
-    if (params_.isPrintTimingStatistics_) {
-      std::cout << "Space carving took: "
-                << "\033[92m" << timeMeasurement << " msec"
-                << " \n"
-                << "\033[0m";
-    }
-
-    // if (nScansInsertedMap_ % 100 == 1) {
-    //  std::cout << "Space carving timing stats: Avg execution time: " << carvingStatisticsTimer_.getAvgMeasurementMsec()
-    //            << " msec , frequency: " << 1e3 / carvingStatisticsTimer_.getAvgMeasurementMsec() << " Hz \n";
-    //  carvingStatisticsTimer_.reset();
-    //}
-  }
+  const auto transformedCloud = o3d_slam::transform(mapToRangeSensor.matrix(), preProcessedScan);
 
   {
     std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
@@ -85,11 +65,56 @@ bool Submap::insertScan(const PointCloud& rawScan, const PointCloud& preProcesse
     mapBuilderCropper_->setPose(mapToRangeSensor);
   }
 
-  // voxelizeAndCropTimer.startStopwatch();
-  // TODO(TT) We voxelize the whole map each time we add a scan. This is not optimal. Maybe we can do this only once in a while.
-  voxelizeInsideCroppingVolume(*mapBuilderCropper_, params_.mapBuilder_, &mapCloud_);
-  // const double croppertimeMeasurement = voxelizeAndCropTimer.elapsedMsecSinceStopwatchStart();
-  // std::cout << "Voxelization and cropping took: " << "\033[92m" << croppertimeMeasurement << " msec" << " \n" << "\033[0m";
+  // // Print the state of carvingEnabled and its components in a bright orange block
+  // std::cout << "\033[38;5;208m[Carving Status]\n"
+  //           << "  params_.isCarvingEnabled_: " << (params_.isCarvingEnabled_ ? "true" : "false") << "\n"
+  //           << "  nScansInsertedMap_: " << nScansInsertedMap_ << "\n"
+  //           << "  carveSpaceEveryNscans_: " << params_.mapBuilder_.carving_.carveSpaceEveryNscans_ << "\n"
+  //           << "  (nScansInsertedMap_ % carveSpaceEveryNscans_ == 0): "
+  //           << ((nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0) ? "true" : "false") << "\n"
+  //           << "  carvingEnabled: "
+  //           << ((params_.isCarvingEnabled_ && (nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0)) ? "true"
+  //                                                                                                                              : "false")
+  //           << "\033[0m" << std::endl;
+
+  const bool carvingEnabled = params_.isCarvingEnabled_ && (nScansInsertedMap_ % params_.mapBuilder_.carving_.carveSpaceEveryNscans_ == 0);
+
+  if (carvingEnabled) {
+    carvingStatisticsTimer_.startStopwatch();
+    {
+      std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
+      carve(rawScan, mapToRangeSensor, *mapBuilderCropper_, params_.mapBuilder_.carving_, &mapCloud_);
+    }
+    const double elapsedMs = carvingStatisticsTimer_.elapsedMsecSinceStopwatchStart();
+    carvingStatisticsTimer_.addMeasurementMsec(elapsedMs);
+    if (params_.isPrintTimingStatistics_) {
+      std::cout << "Space carving took: \033[92m" << elapsedMs << " ms\033[0m\n";
+    }
+  }
+
+  const int voxelizeEvery = std::max(1, voxelizeEveryNscans_);
+  if (nScansInsertedMap_ % voxelizeEvery == 0) {
+    bool expected = false;
+    if (voxelizationRunning_.compare_exchange_strong(expected, true)) {
+      PointCloudPtr mapCopy;
+      {
+        std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
+        mapCopy = std::make_shared<PointCloud>(mapCloud_);
+      }
+
+      auto cropperCopy = *mapBuilderCropper_;
+      auto voxelParams = params_.mapBuilder_;
+
+      voxelizationFuture_ = std::async(std::launch::async, [this, mapCopy, cropperCopy, voxelParams]() mutable {
+        auto voxelized = voxelizeWithinCroppingVolume(voxelParams.mapVoxelSize_, cropperCopy, *mapCopy);
+        {
+          std::lock_guard<std::mutex> lck(mapPointCloudMutex_);
+          mapCloud_ = std::move(*voxelized);
+        }
+        voxelizationRunning_ = false;
+      });
+    }
+  }
 
   ++nScansInsertedMap_;
   return true;
@@ -129,7 +154,7 @@ void Submap::transform(const Transform& T) {
 
 void Submap::carve(const PointCloud& rawScan, const Transform& mapToRangeSensor, const CroppingVolume& cropper,
                    const SpaceCarvingParameters& params, PointCloud* map) {
-  if (map->points_.empty() || !(nScansInsertedMap_ % params.carveSpaceEveryNscans_ == 1)) {
+  if (map->points_.empty() || !(nScansInsertedMap_ % params.carveSpaceEveryNscans_ == 0)) {
     return;
   }
   //	Timer timer("carving");
@@ -139,7 +164,7 @@ void Submap::carve(const PointCloud& rawScan, const Transform& mapToRangeSensor,
   auto idxsToRemove = std::move(getIdxsOfCarvedPoints(*scan, *map, mapToRangeSensor.translation(), wideCroppedIdxs, params));
   toRemove_ = std::move(*(map->SelectByIndex(idxsToRemove)));
   scanRef_ = std::move(*scan);
-  //	std::cout << "Would remove: " << idxsToRemove.size() << std::endl;
+  std::cout << "\033[91mWould remove: " << idxsToRemove.size() << "\033[0m" << std::endl;
   removeByIds(idxsToRemove, map);
 }
 
@@ -235,7 +260,6 @@ void Submap::update(const MapperParameters& p) {
   denseMapCropper_ = croppingVolumeFactory(p.denseMapBuilder_.cropper_);
   denseMap_ = std::move(VoxelizedPointCloud(Eigen::Vector3d::Constant(p.denseMapBuilder_.mapVoxelSize_)));
 
-  // todo remove magic
   voxelMap_ =
       std::move(VoxelMap(Eigen::Vector3d::Constant(magic::voxelExpansionFactorAdjacencyBasedRevisiting * p.mapBuilder_.mapVoxelSize_)));
 }
@@ -282,7 +306,54 @@ const Submap::Feature& Submap::getFeatures() const {
 void Submap::computeSubmapCenter() {
   auto mapCopy = getMapPointCloudCopy();
   submapCenter_ = mapCopy.GetCenter();
+  // submapCenter_ = ComputeCenterCustom(mapCopy.points_);
+
   isCenterComputed_ = true;
+}
+
+Eigen::Vector3d Submap::ComputeCenterCustom(const std::vector<Eigen::Vector3d>& points) {
+  if (points.empty()) return Eigen::Vector3d::Zero();
+
+  const size_t N = points.size();
+  Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+
+  int n_threads = 1;
+#pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+#pragma omp single
+    n_threads = omp_get_num_threads();
+  }
+
+  std::vector<Eigen::Vector3d> local_sums(n_threads, Eigen::Vector3d::Zero());
+
+#pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+    Eigen::Vector3d& local_sum = local_sums[tid];
+
+#pragma omp for schedule(static)
+    for (int i = 0; i < static_cast<int>(N); ++i) {
+      local_sum += points[i];
+    }
+  }
+
+  for (int i = 0; i < n_threads; ++i) {
+    sum += local_sums[i];
+  }
+
+  return sum / static_cast<double>(N);
+}
+
+Eigen::Vector3d Submap::ComputeCenterSIMD(const std::vector<Eigen::Vector3d>& points) {
+  if (points.empty()) return Eigen::Vector3d::Zero();
+
+  // Map the raw data into a Matrix3Xd
+  const double* raw_ptr = reinterpret_cast<const double*>(points.data());
+  Eigen::Map<const Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::ColMajor>> mat(raw_ptr, 3, points.size());
+
+  // Sum columns and divide
+  return mat.rowwise().mean();
 }
 
 }  // namespace o3d_slam

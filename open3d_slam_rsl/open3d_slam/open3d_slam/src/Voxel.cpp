@@ -124,7 +124,11 @@ void VoxelMap::insertCloud(const std::string& layer, const open3d::geometry::Poi
   for (size_t i = 0; i < idxs.size(); ++i) {
     const size_t idx = idxs[i];
     const auto voxelIdx = getKey(cloud.points_[idx]);
+    auto& voxel = voxels_[voxelIdx];
     voxels_[voxelIdx].idxs_[layer].emplace_back(idx);
+    if (cloud.HasNormals()) {
+      voxel.accumulateNormal(cloud.normals_[idx]);
+    }
   }
 }
 void VoxelMap::insertCloud(const std::string& layer, const open3d::geometry::PointCloud& cloud) {

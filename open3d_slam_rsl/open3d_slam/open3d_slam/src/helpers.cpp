@@ -17,6 +17,11 @@
 #include <open3d/geometry/KDTreeFlann.h>
 #include <open3d/pipelines/registration/Registration.h>
 #include <open3d/utility/Eigen.h>
+#include <tbb/blocked_range.h>
+#include <tbb/concurrent_unordered_map.h>
+#include <tbb/parallel_reduce.h>
+#include <algorithm>  // Required for std::transform
+#include <execution>  // Required for parallel STL
 
 #ifdef open3d_slam_OPENMP_FOUND
 #include <omp.h>
@@ -62,6 +67,15 @@ class AccumulatedPoint {
   Eigen::Matrix3d GetAverageCovariance() const {
     // Call NormalizeNormals() afterwards if necessary
     return covariance_ / double(num_of_points_);
+  }
+
+  void Merge(const AccumulatedPoint& other) {
+    point_ += other.point_;
+    normal_ += other.normal_;
+    // For color: keep latest, or weighted average. Here: keep if other has any points
+    if (other.num_of_points_ > 0) color_ = other.color_;  // You can change logic if you want sum/mean.
+    covariance_ += other.covariance_;
+    num_of_points_ += other.num_of_points_;
   }
 
  public:
@@ -114,77 +128,146 @@ void voxelize(double voxelSize, open3d::geometry::PointCloud* pcl) {
   return;
 }
 
+Eigen::Vector3d getColorFromIndex(size_t idx, size_t total) {
+  // Evenly spaced HSV, convert to RGB
+  double h = (static_cast<double>(idx) / std::max(total, size_t(1)));
+  double s = 0.85, v = 0.85;
+
+  // HSV to RGB
+  double r, g, b;
+  int i = int(h * 6);
+  double f = h * 6 - i;
+  double p = v * (1 - s);
+  double q = v * (1 - f * s);
+  double t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0:
+      r = v, g = t, b = p;
+      break;
+    case 1:
+      r = q, g = v, b = p;
+      break;
+    case 2:
+      r = p, g = v, b = t;
+      break;
+    case 3:
+      r = p, g = q, b = v;
+      break;
+    case 4:
+      r = t, g = p, b = v;
+      break;
+    case 5:
+      r = v, g = p, b = q;
+      break;
+  }
+  return Eigen::Vector3d(r, g, b);
+}
+
 std::shared_ptr<open3d::geometry::PointCloud> voxelizeWithinCroppingVolume(double voxel_size, const CroppingVolume& croppingVolume,
                                                                            const open3d::geometry::PointCloud& cloud) {
   using namespace open3d::geometry;
+  using Vec3i = Eigen::Vector3i;
+  using PointCloudPtr = std::shared_ptr<PointCloud>;
+
+  constexpr size_t parallelThreshold = 10000;  // auto-tuning threshold
   PointCloudPtr output = std::make_shared<PointCloud>();
+
   if (voxel_size <= 0.0) {
     *output = cloud;
     return output;
   }
 
-  const Eigen::Vector3d voxelSize = Eigen::Vector3d(voxel_size, voxel_size, voxel_size);
+  const Eigen::Vector3d voxelSize = Eigen::Vector3d::Constant(voxel_size);
   const InverseVoxelSize invVoxelSize = fromVoxelSize(voxelSize);
-  //	const auto voxelBounds = computeVoxelBounds(cloud, voxelSize);
-  //	const Eigen::Vector3d voxelMinBound = voxelBounds.first;
-  //	const Eigen::Vector3d voxelMaxBound = voxelBounds.second;
-  //	if (voxel_size * std::numeric_limits<int>::max() < (voxelMaxBound - voxelMinBound).maxCoeff()) {
-  //		throw std::runtime_error("[VoxelDownSample] voxel_size is too small.");
-  //	}
-  std::unordered_map<Eigen::Vector3i, AccumulatedPoint, EigenVec3iHash> voxelindex_to_accpoint;
 
   const bool has_normals = cloud.HasNormals();
   const bool has_colors = cloud.HasColors();
   const bool has_covariances = cloud.HasCovariances();
+
   output->points_.reserve(cloud.points_.size());
-  if (has_colors) {
-    output->colors_.reserve(cloud.points_.size());
-  }
-  if (has_normals) {
-    output->normals_.reserve(cloud.points_.size());
-  }
+  if (has_normals) output->normals_.reserve(cloud.points_.size());
+  if (has_colors) output->colors_.reserve(cloud.points_.size());
+  if (has_covariances) output->covariances_.reserve(cloud.points_.size());
 
-  if (has_covariances) {
-    output->covariances_.reserve(cloud.points_.size());
-  }
+  if (cloud.points_.size() < parallelThreshold) {
+    std::unordered_map<Vec3i, AccumulatedPoint, o3d_slam::EigenVec3iHash> voxel_map;
 
-  voxelindex_to_accpoint.reserve(cloud.points_.size());
-
-  // Are these loops paralizeable? (seems not)
-  //#pragma omp parallel for num_threads(16)
-  for (size_t i = 0; i < cloud.points_.size(); i++) {
-    // This assumes the volume we are operating with is already voxelized and hence `finds` and adds the point accordingly.
-    if (croppingVolume.isWithinVolume(cloud.points_[i])) {
-      // This is the actual voxelization. Give arbitrary index based on the point position and assign points to similar volumes.
-      const Eigen::Vector3i voxelIdx = getVoxelIdx(cloud.points_[i], invVoxelSize);
-      voxelindex_to_accpoint[voxelIdx].AddPoint(cloud, i);
-
-    } else {
-      // If the points are not within the voxel, this means the point is new.
-      output->points_.emplace_back(std::move(cloud.points_[i]));
-      if (has_normals) {
-        output->normals_.emplace_back(std::move(cloud.normals_[i]));
-      }
-      if (has_colors) {
-        output->colors_.emplace_back(std::move(cloud.colors_[i]));
-      }
-      if (has_covariances) {
-        output->covariances_.emplace_back(std::move(cloud.covariances_[i]));
+    for (size_t i = 0; i < cloud.points_.size(); ++i) {
+      const auto& pt = cloud.points_[i];
+      if (croppingVolume.isWithinVolume(pt)) {
+        const Vec3i voxelIdx = getVoxelIdx(pt, invVoxelSize);
+        voxel_map[voxelIdx].AddPoint(cloud, static_cast<int>(i));
+      } else {
+        output->points_.emplace_back(pt);
+        if (has_normals) output->normals_.emplace_back(cloud.normals_[i]);
+        if (has_colors) output->colors_.emplace_back(cloud.colors_[i]);
+        if (has_covariances) output->covariances_.emplace_back(cloud.covariances_[i]);
       }
     }
-  }
 
-  // Average over the points within a voxel.
-  for (auto accpoint : voxelindex_to_accpoint) {
-    output->points_.emplace_back(std::move(accpoint.second.GetAveragePoint()));
-    if (has_normals) {
-      output->normals_.emplace_back(std::move(accpoint.second.GetAverageNormal().normalized()));
+    for (const auto& kv : voxel_map) {
+      const auto& acc = kv.second;
+      output->points_.emplace_back(acc.GetAveragePoint());
+      if (has_normals) output->normals_.emplace_back(acc.GetAverageNormal().normalized());
+      if (has_colors) output->colors_.emplace_back(acc.GetAverageColor());
+      if (has_covariances) output->covariances_.emplace_back(acc.GetAverageCovariance());
     }
-    if (has_colors) {
-      output->colors_.emplace_back(std::move(accpoint.second.GetAverageColor()));
+
+  } else {
+    using VoxelMap = std::unordered_map<Vec3i, AccumulatedPoint, o3d_slam::EigenVec3iHash>;
+    const long N = static_cast<long>(cloud.points_.size());
+    int max_threads = omp_get_max_threads();
+
+    // Thread-local voxel maps and passthrough indices
+    std::vector<VoxelMap> thread_voxel_maps(max_threads);
+    std::vector<std::vector<size_t>> thread_passthrough_idxs(max_threads);
+
+#pragma omp parallel
+    {
+      int tid = omp_get_thread_num();
+      auto& voxel_map = thread_voxel_maps[tid];
+      auto& passthrough = thread_passthrough_idxs[tid];
+
+#pragma omp for schedule(static)
+      for (long i = 0; i < N; ++i) {
+        const auto& pt = cloud.points_[i];
+        if (croppingVolume.isWithinVolume(pt)) {
+          const Vec3i voxelIdx = getVoxelIdx(pt, invVoxelSize);
+          voxel_map[voxelIdx].AddPoint(cloud, static_cast<int>(i));
+        } else {
+          passthrough.push_back(i);
+        }
+      }
     }
-    if (has_covariances) {
-      output->covariances_.emplace_back(std::move(accpoint.second.GetAverageCovariance()));
+
+    // Merge thread-local voxel maps into a single map
+    VoxelMap merged_voxel_map;
+    for (auto& local_map : thread_voxel_maps) {
+      for (auto& kv : local_map) {
+        merged_voxel_map[kv.first].Merge(kv.second);  // Merge AccumulatedPoint logic
+      }
+    }
+
+    // Collect all passthrough indices
+    std::vector<size_t> passthrough_idxs;
+    size_t total_passthrough = 0;
+    for (const auto& v : thread_passthrough_idxs) total_passthrough += v.size();
+    passthrough_idxs.reserve(total_passthrough);
+    for (const auto& v : thread_passthrough_idxs) passthrough_idxs.insert(passthrough_idxs.end(), v.begin(), v.end());
+
+    // Output assembly (could parallelize this if needed)
+    for (const auto& kv : merged_voxel_map) {
+      const auto& acc = kv.second;
+      output->points_.emplace_back(acc.GetAveragePoint());
+      if (has_normals) output->normals_.emplace_back(acc.GetAverageNormal().normalized());
+      if (has_colors) output->colors_.emplace_back(acc.GetAverageColor());
+      if (has_covariances) output->covariances_.emplace_back(acc.GetAverageCovariance());
+    }
+    for (size_t i : passthrough_idxs) {
+      output->points_.emplace_back(cloud.points_[i]);
+      if (has_normals) output->normals_.emplace_back(cloud.normals_[i]);
+      if (has_colors) output->colors_.emplace_back(cloud.colors_[i]);
+      if (has_covariances) output->covariances_.emplace_back(cloud.covariances_[i]);
     }
   }
 
@@ -281,37 +364,41 @@ std::vector<size_t> getIdxsOfCarvedPoints(const open3d::geometry::PointCloud& sc
 }
 
 std::shared_ptr<open3d::geometry::PointCloud> transform(const Eigen::Matrix4d& T, const open3d::geometry::PointCloud& cloud) {
-  auto out = std::make_shared<open3d::geometry::PointCloud>();
-  const auto isIdentity = (T - Eigen::Matrix4d::Identity()).array().abs().maxCoeff() < 1e-4;
-  if (isIdentity) {
+  using namespace open3d::geometry;
+
+  auto out = std::make_shared<PointCloud>();
+  const bool is_identity = (T - Eigen::Matrix4d::Identity()).array().abs().maxCoeff() < 1e-4;
+  if (is_identity) {
     *out = cloud;
+    return out;
   }
 
-  out->points_.reserve(cloud.points_.size());
-  out->colors_ = cloud.colors_;
-  if (cloud.HasNormals()) {
-    out->normals_.reserve(cloud.points_.size());
-  }
-  if (cloud.HasCovariances()) {
-    out->covariances_.reserve(cloud.points_.size());
+  const bool has_normals = cloud.HasNormals();
+  const bool has_covariances = cloud.HasCovariances();
+  const bool has_colors = cloud.HasColors();
+
+  out->points_.resize(cloud.points_.size());
+  if (has_normals) out->normals_.resize(cloud.points_.size());
+  if (has_covariances) out->covariances_.resize(cloud.points_.size());
+  if (has_colors) out->colors_ = cloud.colors_;  // Direct copy (unchanged by transform)
+
+  const Eigen::Matrix3d R = T.block<3, 3>(0, 0);
+  const Eigen::Vector3d t = T.block<3, 1>(0, 3);
+
+  // Transform points
+  std::transform(std::execution::par_unseq, cloud.points_.begin(), cloud.points_.end(), out->points_.begin(),
+                 [&](const Eigen::Vector3d& p) { return R * p + t; });
+
+  // Normals
+  if (has_normals) {
+    std::transform(std::execution::par_unseq, cloud.normals_.begin(), cloud.normals_.end(), out->normals_.begin(),
+                   [&](const Eigen::Vector3d& n) { return (R * n).normalized(); });
   }
 
-  //#pragma omp critical
-  for (size_t i = 0; i < cloud.points_.size(); ++i) {
-    const auto& p = cloud.points_[i];
-    Eigen::Vector4d new_point = T * Eigen::Vector4d(p(0), p(1), p(2), 1.0);
-    Eigen::Vector3d xyz = new_point.head<3>() / new_point(3);
-    out->points_.emplace_back(std::move(xyz));
-    if (cloud.HasNormals()) {
-      const auto& n = cloud.normals_[i];
-      Eigen::Vector4d new_normal = T * Eigen::Vector4d(n(0), n(1), n(2), 0.0);
-      out->normals_.emplace_back(std::move(new_normal.head<3>()));
-    }
-    if (cloud.HasCovariances()) {
-      const auto& cov = cloud.covariances_[i];
-      const Eigen::Matrix3d R = T.block<3, 3>(0, 0);
-      out->covariances_.emplace_back(std::move(R * cov * R.transpose()));
-    }
+  // Covariances
+  if (has_covariances) {
+    std::transform(std::execution::par_unseq, cloud.covariances_.begin(), cloud.covariances_.end(), out->covariances_.begin(),
+                   [&](const Eigen::Matrix3d& cov) { return R * cov * R.transpose(); });
   }
 
   return out;
@@ -352,6 +439,57 @@ Eigen::Vector3d computeCenter(const open3d::geometry::PointCloud& cloud, const s
   }
   return center / static_cast<double>(idxs.size());
 }
+
+// Eigen::Vector3d computeCenter(const open3d::geometry::PointCloud& cloud, const std::vector<size_t>& idxs) {
+//   assert(!idxs.empty() && "Trying to compute center of an empty point set.");
+
+//   struct Accumulator {
+//     const open3d::geometry::PointCloud& cloud_;
+//     const std::vector<size_t>& idxs_;
+//     Eigen::Vector3d sum_;
+//     size_t count_;
+
+//     Accumulator(const open3d::geometry::PointCloud& cloud, const std::vector<size_t>& idxs)
+//         : cloud_(cloud), idxs_(idxs), sum_(Eigen::Vector3d::Zero()), count_(0) {}
+
+//     Accumulator(Accumulator& other, tbb::split) : cloud_(other.cloud_), idxs_(other.idxs_), sum_(Eigen::Vector3d::Zero()), count_(0) {}
+
+//     void operator()(const tbb::blocked_range<size_t>& range) {
+//       for (size_t i = range.begin(); i < range.end(); ++i) {
+//         sum_ += cloud_.points_[idxs_[i]];
+//         ++count_;
+//       }
+//     }
+
+//     void join(const Accumulator& rhs) {
+//       sum_ += rhs.sum_;
+//       count_ += rhs.count_;
+//     }
+//   };
+
+//   Accumulator body(cloud, idxs);
+//   tbb::parallel_reduce(tbb::blocked_range<size_t>(0, idxs.size()), body);
+
+//   return body.sum_ / static_cast<double>(body.count_);
+// }
+
+// Eigen::Vector3d computeCenter(const open3d::geometry::PointCloud& cloud, const std::vector<size_t>& idxs) {
+//   assert(!idxs.empty() && "You're trying to compute center of an empty pointcloud.");
+//   Eigen::Vector3d center(0.0, 0.0, 0.0);
+
+// #pragma omp parallel
+//   {
+//     Eigen::Vector3d local_center(0.0, 0.0, 0.0);
+// #pragma omp for schedule(static)
+//     for (int i = 0; i < static_cast<int>(idxs.size()); ++i) {
+//       local_center += cloud.points_[idxs[i]];
+//     }
+// #pragma omp critical
+//     center += local_center;
+//   }
+
+//   return center / static_cast<double>(idxs.size());
+// }
 
 double getMapVoxelSize(const MapBuilderParameters& p, double valueIfZero) {
   return std::abs(p.mapVoxelSize_) <= 1e-3 ? valueIfZero : p.mapVoxelSize_;

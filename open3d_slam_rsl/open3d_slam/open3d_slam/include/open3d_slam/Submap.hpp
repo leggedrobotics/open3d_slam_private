@@ -10,7 +10,10 @@
 #include <open3d/geometry/PointCloud.h>
 #include <open3d/pipelines/registration/Feature.h>
 #include <Eigen/Dense>
+#include <atomic>
+#include <future>
 #include <mutex>
+#include <thread>
 #include "open3d_slam/Parameters.hpp"
 #include "open3d_slam/Transform.hpp"
 #include "open3d_slam/Voxel.hpp"
@@ -32,7 +35,7 @@ class Submap {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   Submap(size_t id, size_t parentId);
-  ~Submap() = default;
+  ~Submap();
 
   void setParameters(const MapperParameters& mapperParams);
   bool insertScan(const PointCloud& rawScan, const PointCloud& preProcessedScan, const Transform& transform, const Time& time,
@@ -41,6 +44,7 @@ class Submap {
 
   const Transform& getMapToSubmapOrigin() const;
   Eigen::Vector3d getMapToSubmapCenter() const;
+  inline void setSubmapCenter(const Eigen::Vector3d& c) { submapCenter_ = c; }
   void setMapToSubmapOrigin(const Transform& T);
   const PointCloud& getMapPointCloud() const;
   PointCloud getMapPointCloudCopy() const;
@@ -51,6 +55,8 @@ class Submap {
   const Feature& getFeatures() const;
   const PointCloud& getSparseMapPointCloud() const;
   void computeSubmapCenter();
+  Eigen::Vector3d ComputeCenterCustom(const std::vector<Eigen::Vector3d>& points);
+  Eigen::Vector3d ComputeCenterSIMD(const std::vector<Eigen::Vector3d>& points);
   void computeFeatures();
   size_t getId() const;
   size_t getParentId() const;
@@ -90,6 +96,9 @@ class Submap {
   ColorRangeCropper colorCropper_;
   mutable std::mutex denseMapMutex_;
   mutable std::mutex mapPointCloudMutex_;
+  std::future<void> voxelizationFuture_;
+  std::atomic<bool> voxelizationRunning_ = false;
+  int voxelizeEveryNscans_ = 10;
 };
 
 }  // namespace o3d_slam

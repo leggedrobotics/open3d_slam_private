@@ -74,7 +74,7 @@ ICP_PARAMETERS = {
 
 SCAN_MATCHING_PARAMETERS = {
   icp = deepcopy(ICP_PARAMETERS),
-  cloud_registration_type = "GeneralizedIcp", -- options GeneralizedIcp, PointToPointIcp, PointToPlaneIcp
+  cloud_registration_type = "PointToPlaneIcp", -- options GeneralizedIcp, PointToPointIcp, PointToPlaneIcp
 }
 
 ODOMETRY_PARAMETERS = {
@@ -91,7 +91,7 @@ SUBMAP_PARAMETERS = {
   min_num_range_data = 10,
   adjacency_based_revisiting_min_fitness = 0.5,
   min_seconds_between_feature_computation = 5.0,
-  submaps_num_scan_overlap = 10,
+  submaps_num_scan_overlap = 50,
 }
 
 SPACE_CARVING_PARAMETERS = {
