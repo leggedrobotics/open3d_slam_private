@@ -121,7 +121,6 @@ void generateRegularizedOptimizationProblem(Matrix& augmentedA,
                                             const std::vector<int>& degenerateDirectionIndices,
                                             LocalizabilityParametersForErrorMinimization& localizabilityParametersForErrorMinimization, const int& nbConstraints);
 
-double lambdaObjective(const std::vector<double> &x, std::vector<double> &grad, void *solver);
 
 // Reads and assigns the degenerate indices for the matrix augmentation.
 template<typename T, typename LocalizabilityParametersForErrorMinimization>

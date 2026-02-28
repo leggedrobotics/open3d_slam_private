@@ -350,72 +350,6 @@ void PointMatcher<T>::ErrorMinimizer::setResiduals_d2(const std::vector<double>&
 }
 
 template<typename T>
-void PointMatcher<T>::ErrorMinimizer::setCurveEval_y1(const std::vector<double>& norms){
-
-	this->curveEval_y1 = norms;
-}
-
-template<typename T>
-void PointMatcher<T>::ErrorMinimizer::setCurveEval_y2(const std::vector<double>& norms){
-
-	this->curveEval_y2 = norms;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdas(){
-
-	return this->lambdas_;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdaAnalysisRegularizationNorms(){
-
-	return this->lambdaAnalysisRegularizationNorms_;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getLambdaAnalysisNorms(){
-
-	return this->lambdaAnalysisNorms_;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getRegNorms_d1(){
-
-	return this->regNorms_d1;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getRegNorms_d2(){
-
-	return this->regNorms_d2;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getResiduals_d1(){
-
-	return this->residuals_d1;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getResiduals_d2(){
-
-	return this->residuals_d2;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getCurveEval_y1(){
-
-	return this->curveEval_y1;
-}
-
-template<typename T>
-std::vector<double> PointMatcher<T>::ErrorMinimizer::getCurveEval_y2(){
-
-	return this->curveEval_y2;
-}
-
-template<typename T>
 typename PointMatcher<T>::ErrorMinimizer::VectorErrorElements PointMatcher<T>::ErrorMinimizer::getErrorElementVector(){
 	return this->vectorizedErrorElements_;
 }
@@ -502,9 +436,9 @@ typename PointMatcher<T>::Matrix PointMatcher<T>::ErrorMinimizer::crossProduct(c
 }
 
 template<typename T>
-void PointMatcher<T>::ErrorMinimizer::setCovarianceMatrixTurcan(const Matrix& A){
-	this->turcanCovariance_=A;
-	this->turcanCovarianceVectorMatrix_.emplace_back(A);
+void PointMatcher<T>::ErrorMinimizer::setCovarianceMatrixForAnalysis(const Matrix& A){
+	this->analysisCovariance_=A;
+	this->analysisCovarianceVectorMatrix_.emplace_back(A);
 }
 
 template<typename T>
@@ -518,13 +452,13 @@ typename PointMatcher<T>::VectorT PointMatcher<T>::ErrorMinimizer::getLagrangian
 }
 
 template<typename T>
-typename PointMatcher<T>::Matrix PointMatcher<T>::ErrorMinimizer::getCovarianceMatrixTurcan(){
-	return this->turcanCovariance_;
+typename PointMatcher<T>::Matrix PointMatcher<T>::ErrorMinimizer::getCovarianceMatrixForAnalysis(){
+	return this->analysisCovariance_;
 }
 
 template<typename T>
-typename PointMatcher<T>::VectorMatrix PointMatcher<T>::ErrorMinimizer::getCovarianceVectorMatrixTurcan(){
-	return this->turcanCovarianceVectorMatrix_;
+typename PointMatcher<T>::VectorMatrix PointMatcher<T>::ErrorMinimizer::getCovarianceVectorMatrixForAnalysis(){
+	return this->analysisCovarianceVectorMatrix_;
 }
 
 template<typename T>

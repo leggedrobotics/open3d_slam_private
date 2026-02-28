@@ -23,6 +23,12 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   visualization_msgs
 )
 
+find_package(PCL 1.10 EXACT REQUIRED PATHS /usr/include/pcl-1.10/ 
+  COMPONENTS
+    common
+    io
+)
+
 find_package(Boost REQUIRED)
 
 set(Ceres_DIR "/home/tutuna/.local/lib/cmake/Ceres")

@@ -1,10 +1,3 @@
-/*
- * RosbagRangeDataProcessorRos.hpp
- *
- *  Created on: Apr 21, 2022
- *      Author: jelavice
- */
-
 #pragma once
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -59,38 +52,15 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   void initialize() override;
   void startProcessing() override;
   void processMeasurement(const PointCloud& cloud, const Time& timestamp) override;
-
   void poseStampedCallback(const geometry_msgs::PoseStampedConstPtr& msg);
-
-  /**
-   * @brief Processes a buffer of SLAM inputs stored in memory.
-   *
-   * @param buffer  Buffer of SLAM inputs, FIFO.
-   */
   bool processBuffers(SlamInputsBuffer& buffer);
-
   void drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp);
-
   std::optional<visualization_msgs::Marker> generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& o3d_pc,
                                                                                    const ros::Time& timestamp,
                                                                                    const o3d_slam::RgbaColorMap::Values& color);
 
-  /**
-   * @brief Validates that essential topics required to run sequential evaluation are present in the bag file.
-   *
-   * @param bag               ROS bag file to analyze.
-   * @param mandatoryTopics   List of mandatory topics.
-   * @return true             If all mandatory topics are present in the data, false otherwise.
-   */
-  bool validateTopicsInRosbag(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics);
-
+  bool validateAnalysisTopic(const rosbag::Bag& bag, const std::vector<std::string>& mandatoryTopics);
   bool readCalibrationIfNeeded();
-
-  /*!
-   * @brief Run sequential SLAM.
-   * @return true If successful, false otherwise.
-   */
-  bool run();
 
   std::tuple<ros::WallDuration, ros::WallDuration, ros::WallDuration> usePairForRegistration();
 
@@ -102,7 +72,6 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
 
   //! Parameters.
   Parameters parameters_;
-
   nav_msgs::Path trackedPath_;
   nav_msgs::Path bestGuessPath_;
   std::ofstream poseFile_;
@@ -118,10 +87,6 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   o3d_slam::PointCloud lineStripToPointCloud(const visualization_msgs::MarkerArray& marker_array, const int num_samples);
 
   void calculateSurfaceNormals(o3d_slam::PointCloud& cloud);
-
-  void processRosbagForIMU();
-
-  void exportIMUData();
 
   void addToPathMsg(nav_msgs::PathPtr pathPtr, const std::string& frameName, const ros::Time& stamp, const Eigen::Vector3d& t,
                     const int maxBufferLength);
@@ -150,18 +115,15 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   //! Publishers.
   ros::Publisher clockPublisher_;
   ros::Publisher inputPointCloudPublisher_;
-
   ros::ServiceServer sleepServer_;
-
   sensor_msgs::PointCloud2 registeredCloud_;
 
   // GNSS Handler
   std::shared_ptr<o3d_slam::GnssHandler> gnssHandlerPtr_;
-
   nav_msgs::PathPtr measGnss_worldGnssPathPtr_;
 
   // Initialization
-  bool gpsInitialized_ = false;
+  bool gpsInitialized_{false};
 
   //! Tf2.
   tf2_ros::TransformBroadcaster transformBroadcaster_;
@@ -202,6 +164,7 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   bool isBagReadyToPlay_ = false;
 
   o3d_slam::RgbaColorMap colorMap_;
+  std::string package_path_ = "";
 
   geometry_msgs::Pose prePoseStamped_;
   DeeperICPLogs deeperICPLogs_;
@@ -209,12 +172,12 @@ class RosbagRangeDataProcessorRos : public DataProcessorRos {
   std::ofstream file_localizability;
   std::ofstream file_stats;
 
-  // rms::RMS rms;
+  // RMS from Petracek et al.
   std::shared_ptr<rms::RMS> rms;
   std::vector<float> rmsTimeVector_;
   float rmsTiming_{0.0f};
 
-  const std::unordered_map<int, std::vector<float>> arrowColors_ = {
+  const std::unordered_map<int, std::vector<float>> localizabilityArrorColors_ = {
       {0, {1, 1, 0.2, 1}},             // Yellow.
       {1, {1, 0.501, 0, 1}},           // Orange.
       {2, {1, 1, 1, 1}},               // White.
