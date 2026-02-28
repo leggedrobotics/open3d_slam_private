@@ -18,12 +18,15 @@
   <build_depend>eigen</build_depend>
   <build_depend>qpmad</build_depend>
   <build_depend>message_logger</build_depend>
+  <build_depend>open3d_catkin</build_depend>
+  
 
   <run_depend>boost</run_depend>
   <run_depend>libnabo</run_depend>
   <run_depend>eigen</run_depend>
   <run_depend>qpmad</run_depend>
   <run_depend>message_logger</run_depend>
+  <run_depend>open3d_catkin</run_depend>
 
   <test_depend>cmake_code_coverage</test_depend>
   <test_depend>gtest</test_depend>

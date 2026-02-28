@@ -31,8 +31,8 @@ set(SRC_FILES
   )
 
 set(CATKIN_PACKAGE_DEPENDENCIES
-  open3d_catkin
   libpointmatcher
+  open3d_catkin
   pointmatcher_ros
   open3d_conversions
   eigen_conversions
@@ -43,6 +43,10 @@ set(CATKIN_PACKAGE_DEPENDENCIES
 
 find_package(Eigen3 REQUIRED)
 find_package(Boost QUIET REQUIRED COMPONENTS serialization filesystem system program_options)
+set(Ceres_DIR "/home/tutuna/.local/lib/cmake/Ceres")
+find_package(Ceres EXACT 2.1.0 REQUIRED)
+set(CERES_INCLUDE_DIRS "/home/tutuna/.local/include/ceres")
+
 
 find_package(OpenMP QUIET)
 if (OpenMP_FOUND)
@@ -58,6 +62,7 @@ catkin_package(
   include
   ${EIGEN3_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
+  ${CERES_INCLUDE_DIRS}
   LIBRARIES
   ${PROJECT_NAME}
   CATKIN_DEPENDS
@@ -70,6 +75,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIR}
+  ${CERES_INCLUDE_DIRS}
   ${OpenMP_CXX_INCLUDE_DIRS}
 )
 
@@ -83,6 +89,7 @@ add_dependencies(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${CERES_LIBRARIES}
   yaml-cpp
   ${OpenMP_CXX_LIBRARIES}
   )

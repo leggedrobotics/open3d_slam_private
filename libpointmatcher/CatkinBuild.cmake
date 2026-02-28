@@ -15,6 +15,7 @@ set(CATKIN_PACKAGE_DEPENDENCIES
   libnabo
   message_logger
   qpmad
+  open3d_catkin
 )
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
@@ -24,7 +25,13 @@ find_package(catkin REQUIRED
     ${CATKIN_PACKAGE_DEPENDENCIES}
 )
 find_package(Eigen3 REQUIRED)
-find_package(Ceres REQUIRED)
+# export CMAKE_PREFIX_PATH="/home/tutuna/.local:$CMAKE_PREFIX_PATH"
+set(Ceres_DIR "/home/tutuna/.local/lib/cmake/Ceres")
+find_package(Ceres EXACT 2.1.0 REQUIRED)
+set(CERES_INCLUDE_DIRS "/home/tutuna/.local/include/ceres")
+
+
+
 find_package(Sophus REQUIRED)
 find_package(NLOPT REQUIRED)
 find_package(BSplineInterpolation REQUIRED)
@@ -44,6 +51,7 @@ catkin_package(
   LIBRARIES
     yaml_cpp_pm
     pointmatcher
+    /home/tutuna/open3d_slam_private_ws/src/open3d_slam_private/open3d_slam_rsl/open3d_catkin/tmp/fmt/lib/libfmt.a
   CATKIN_DEPENDS
     ${CATKIN_PACKAGE_DEPENDENCIES}
   DEPENDS

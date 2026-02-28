@@ -52,6 +52,9 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
 #list(APPEND LIBRARIES ".......so")
 
 #find_package(gflags REQUIRED)
+set(Ceres_DIR "/home/tutuna/.local/lib/cmake/Ceres")
+find_package(Ceres EXACT 2.1.0 REQUIRED)
+set(CERES_INCLUDE_DIRS "/home/tutuna/.local/include/ceres")
 find_package(Glog REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenMP QUIET)
@@ -66,6 +69,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS
   include
+  ${CERES_INCLUDE_DIRS}
   LIBRARIES
   yaml-cpp
   ${PROJECT_NAME}
@@ -82,6 +86,7 @@ include_directories(
   ${OpenMP_CXX_INCLUDE_DIRS}
   ${GLOG_INCLUDE_DIRS}
   ${gflags_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
 )
 
 add_definitions(-std=c++17)
@@ -97,6 +102,7 @@ add_dependencies(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${gflags_LIBRARIES}
+  ${CERES_LIBRARIES}
   ${GLOG_LIBRARIES}
   yaml-cpp
   ${OpenMP_CXX_LIBRARIES}
@@ -109,6 +115,7 @@ target_link_libraries(mapping_node
   ${catkin_LIBRARIES}
   ${gflags_LIBRARIES}
   ${GLOG_LIBRARIES}
+  ${CERES_LIBRARIES}
   ${PROJECT_NAME}
   )
 

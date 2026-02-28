@@ -25,13 +25,22 @@ set(CATKIN_PACKAGE_DEPENDENCIES
 
 find_package(Boost REQUIRED)
 
+set(Ceres_DIR "/home/tutuna/.local/lib/cmake/Ceres")
+find_package(Ceres EXACT 2.1.0 REQUIRED)
+set(CERES_INCLUDE_DIRS "/home/tutuna/.local/include/ceres")
+
+message(STATUS "Ceres found: ${CERES_FOUND}")
+message(STATUS "Ceres version: ${CERES_VERSION}")
+message(STATUS "Ceres include dirs: ${CERES_INCLUDE_DIRS}")
+message(STATUS "Ceres libraries: ${CERES_LIBRARIES}")
+
 # Find catkin macros and libraries
 find_package(catkin
   REQUIRED COMPONENTS
     ${CATKIN_PACKAGE_DEPENDENCIES}
 )
 
-find_package(PCL 1.10 REQUIRED
+find_package(PCL 1.10 EXACT REQUIRED
   COMPONENTS
     common
     io
@@ -41,6 +50,7 @@ find_package(PCL 1.10 REQUIRED
 catkin_package(
   INCLUDE_DIRS 
     include
+    ${CERES_INCLUDE_DIRS}
   LIBRARIES
     ${PROJECT_NAME}
   CATKIN_DEPENDS
@@ -71,11 +81,13 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   ${PCL_COMMON_INCLUDE_DIRS}
   ${PCL_IO_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
 )
 target_link_libraries(${PROJECT_NAME}
   ${PCL_COMMON_LIBRARIES}
   ${PCL_IO_LIBRARIES}
   ${catkin_LIBRARIES}
+  ${CERES_LIBRARIES}
 )
 
 #############

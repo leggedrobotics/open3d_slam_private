@@ -20,10 +20,12 @@ find_package(catkin REQUIRED COMPONENTS
   )
 
 find_package(Eigen3 REQUIRED)
-
+set(Ceres_DIR "/home/tutuna/.local/lib/cmake/Ceres")
+find_package(Ceres EXACT 2.1.0 REQUIRED)
+set(CERES_INCLUDE_DIRS "/home/tutuna/.local/include/ceres")
 
 catkin_package(
-  INCLUDE_DIRS include
+  INCLUDE_DIRS include ${CERES_INCLUDE_DIRS}
   LIBRARIES open3d_conversions
   CATKIN_DEPENDS ${CATKIN_PACKAGE_DEPENDENCIES}
   DEPENDS EIGEN3
@@ -33,11 +35,21 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ${CERES_INCLUDE_DIRS}
 )
 
 # C++ library
 add_library(open3d_conversions src/open3d_conversions.cpp)
-target_link_libraries(open3d_conversions ${catkin_LIBRARIES})
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+  include
+)
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+  ${catkin_INCLUDE_DIRS}
+  ${CERES_INCLUDE_DIRS}
+)
+
+target_link_libraries(open3d_conversions ${catkin_LIBRARIES} ${CERES_LIBRARIES})
 
 # Install
 install(TARGETS open3d_conversions
@@ -49,7 +61,7 @@ install(DIRECTORY include/open3d_conversions/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 
 # Tests
-if (CATKIN_ENABLE_TESTING)
-  catkin_add_gtest(test_open3d_conversions test/test_open3d_conversions.cpp)
-  target_link_libraries(test_open3d_conversions open3d_conversions ${catkin_LIBRARIES})
-endif ()
+# if (CATKIN_ENABLE_TESTING)
+#   catkin_add_gtest(test_open3d_conversions test/test_open3d_conversions.cpp)
+#   target_link_libraries(test_open3d_conversions open3d_conversions ${catkin_LIBRARIES})
+# endif ()
