@@ -49,6 +49,9 @@
   <arg name="parameter_folder_path" default="$(find open3d_slam_ros)/param/"/>
   <arg name="map_saving_folder" default="$(find open3d_slam_ros)/data/maps/"/>
   <arg name="num_accumulated_range_data" default="1"/>
+  <arg name="cloud_subscriber_queue_size" default="1"/>
+  <arg name="pose_subscriber_queue_size" default="10"/>
+  <arg name="print_end_to_end_latency" default="false"/>
 
   <!-- Replay Options -->
   <arg name="is_read_from_rosbag" default="false"/>
@@ -93,6 +96,12 @@
            value="$(arg parameter_filename)"/>
     <param name="num_accumulated_range_data"
            value="$(arg num_accumulated_range_data)"/>
+    <param name="cloud_subscriber_queue_size"
+           value="$(arg cloud_subscriber_queue_size)"/>
+    <param name="pose_subscriber_queue_size"
+           value="$(arg pose_subscriber_queue_size)"/>
+    <param name="print_end_to_end_latency"
+           value="$(arg print_end_to_end_latency)"/>
     <param name="is_read_from_rosbag" value="$(arg is_read_from_rosbag)"/>
     <param name="rosbag_filepath" value="$(arg rosbag_filepath)"/>
     <param name="map_saving_folder" value="$(arg map_saving_folder)"/>

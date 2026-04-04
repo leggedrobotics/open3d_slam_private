@@ -12,7 +12,9 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <mutex>
+#include <sstream>
 
 #include "open3d_conversions/open3d_conversions.h"
 #include "open3d_slam/Mapper.hpp"
@@ -64,9 +66,6 @@ SlamWrapperRos::~SlamWrapperRos() {
 void SlamWrapperRos::startWorkers() {
   tfWorker_ = std::thread([this]() { tfWorker(); });
   visualizationWorker_ = std::thread([this]() { visualizationWorker(); });
-  if (params_.odometry_.isPublishOdometryMsgs_) {
-    odomPublisherWorker_ = std::thread([this]() { odomPublisherWorker(); });
-  }
 
   BASE::startWorkers();
 }
@@ -91,7 +90,7 @@ void SlamWrapperRos::odomPublisherWorker() {
       return odomMsg;
     };
 
-    const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
+    const Time latestScanToMap = getLatestScanToMapRefinementTimestamp();
     const bool isScanToMapAlreadyPublished = latestScanToMap == prevPublishedTimeScanToMapOdom_;
     if (!isScanToMapAlreadyPublished && mapper_->hasProcessedMeasurements()) {
       const Transform T = mapper_->getMapToRangeSensor(latestScanToMap);
@@ -104,13 +103,12 @@ void SlamWrapperRos::odomPublisherWorker() {
       prevPublishedTimeScanToMapOdom_ = latestScanToMap;
     }
 
-    ros::spinOnce();
     r.sleep();
   }
 }
 
 void SlamWrapperRos::offlineTfWorker() {
-  const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
+  const Time latestScanToScan = getLatestScanToScanRegistrationTimestamp();
   const bool isAlreadyPublished = latestScanToScan == prevPublishedTimeScanToScan_;
   if ((!isAlreadyPublished) && (odometry_->hasProcessedMeasurements())) {
     const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
@@ -119,7 +117,7 @@ void SlamWrapperRos::offlineTfWorker() {
     prevPublishedTimeScanToScan_ = latestScanToScan;
   }
 
-  const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
+  const Time latestScanToMap = getLatestScanToMapRefinementTimestamp();
   const bool isScanToMapAlreadyPublished = latestScanToMap == prevPublishedTimeScanToMap_;
   if (!isScanToMapAlreadyPublished && mapper_->hasProcessedMeasurements()) {
     publishMapToOdomTf(latestScanToMap);
@@ -130,7 +128,7 @@ void SlamWrapperRos::offlineTfWorker() {
 void SlamWrapperRos::tfWorker() {
   ros::WallRate r(500.0);
   while (ros::ok()) {
-    const Time latestScanToScan = latestScanToScanRegistrationTimestamp_;
+    const Time latestScanToScan = getLatestScanToScanRegistrationTimestamp();
     const bool isAlreadyPublished = (latestScanToScan == prevPublishedTimeScanToScan_);
     if (!isAlreadyPublished && odometry_ && odometry_->hasProcessedMeasurements()) {
       const Transform T = odometry_->getOdomToRangeSensor(latestScanToScan);
@@ -139,45 +137,6 @@ void SlamWrapperRos::tfWorker() {
       prevPublishedTimeScanToScan_ = latestScanToScan;
     }
 
-    const Time latestScanToMap = latestScanToMapRefinementTimestamp_;
-
-    if (!isTimeValid(latestScanToMap)) {
-      ros::spinOnce();
-      r.sleep();
-      continue;
-    }
-    const bool isScanToMapAlreadyPublished = (latestScanToMap == prevPublishedTimeScanToMap_);
-    if (!isScanToMapAlreadyPublished && mapper_ && mapper_->hasProcessedMeasurements()) {
-      publishMapToOdomTf(latestScanToMap);
-      prevPublishedTimeScanToMap_ = latestScanToMap;
-
-      // TODO: We are  copying everytime. Instead we can get the latest values and appenmd to the previous path?
-      nav_msgs::Path trackedPathCopy;
-      nav_msgs::Path bestGuessPathCopy;
-      {
-        std::lock_guard<std::mutex> lock(mapper_->pathMutex_);
-        trackedPathCopy = mapper_->trackedPath_;
-        bestGuessPathCopy = mapper_->bestGuessPath_;
-      }
-
-      if ((trackedPathPub_.getNumSubscribers() > 0u || trackedPathPub_.isLatched()) && isPathValid(trackedPathCopy)) {
-        trackedPathCopy.header.stamp = o3d_slam::toRos(latestScanToMap);
-        trackedPathCopy.header.frame_id = frames_.mapFrame;
-        trackedPathPub_.publish(trackedPathCopy);
-      }
-
-      if ((bestGuessPathPub_.getNumSubscribers() > 0u || bestGuessPathPub_.isLatched()) && isPathValid(bestGuessPathCopy)) {
-        bestGuessPathCopy.header.stamp = o3d_slam::toRos(latestScanToMap);
-        bestGuessPathCopy.header.frame_id = frames_.mapFrame;
-        bestGuessPathPub_.publish(bestGuessPathCopy);
-      }
-
-      if (!trackedPathCopy.poses.empty() && !bestGuessPathCopy.poses.empty()) {
-        drawLinesBetweenPoses(trackedPathCopy, bestGuessPathCopy, toRos(latestScanToMap));
-      }
-    }
-
-    ros::spinOnce();
     r.sleep();
   }
 }
@@ -195,7 +154,7 @@ bool SlamWrapperRos::isPathValid(const nav_msgs::Path& path) const {
 }
 
 void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const nav_msgs::Path& path2, const ros::Time& stamp) {
-  if (!differenceLinePub_.getNumSubscribers() > 0u && !differenceLinePub_.isLatched()) {
+  if (differenceLinePub_.getNumSubscribers() == 0u && !differenceLinePub_.isLatched()) {
     return;
   }
 
@@ -236,8 +195,101 @@ void SlamWrapperRos::drawLinesBetweenPoses(const nav_msgs::Path& path1, const na
   differenceLinePub_.publish(line_list);
 }
 
+void SlamWrapperRos::handleCompletedMappingResult(const Time& timestamp, const Transform& correctedTransform,
+                                                  const Transform& bestGuessTransform) {
+  if (!isTimeValid(timestamp) || timestamp == prevPublishedTimeScanToMap_) {
+    return;
+  }
+
+  const ros::Time stamp = toRos(timestamp);
+  o3d_slam::publishTfTransform(correctedTransform.matrix(), stamp, frames_.mapFrame, "raw_rs_o3d", tfBroadcaster_.get());
+  o3d_slam::publishTfTransform(correctedTransform.matrix().inverse(), stamp, frames_.rangeSensorFrame, frames_.mapFrame,
+                               tfBroadcaster_.get());
+
+  if (params_.odometry_.isPublishOdometryMsgs_) {
+    geometry_msgs::TransformStamped transformMsg =
+        o3d_slam::toRos(correctedTransform.matrix(), stamp, frames_.mapFrame, frames_.rangeSensorFrame);
+
+    nav_msgs::Odometry odomMsg;
+    odomMsg.header = transformMsg.header;
+    odomMsg.child_frame_id = transformMsg.child_frame_id;
+    odomMsg.pose.pose.orientation = transformMsg.transform.rotation;
+    odomMsg.pose.pose.position.x = transformMsg.transform.translation.x;
+    odomMsg.pose.pose.position.y = transformMsg.transform.translation.y;
+    odomMsg.pose.pose.position.z = transformMsg.transform.translation.z;
+
+    publishIfSubscriberExists(transformMsg, scan2mapTransformPublisher_);
+    publishIfSubscriberExists(odomMsg, scan2mapOdomPublisher_);
+    prevPublishedTimeScanToMapOdom_ = timestamp;
+  }
+
+  const auto correctedPosePublishedWallTime = std::chrono::steady_clock::now();
+  CloudPipelineLatencyMeasurement latencyMeasurement;
+  const bool hasLatencyMeasurement =
+      consumeCloudPipelineLatencyMeasurement(timestamp, correctedPosePublishedWallTime, &latencyMeasurement);
+  if (isPrintCloudToPoseLatency_ && hasLatencyMeasurement) {
+    ingressToSlamEnqueueLatencyStats_.add(latencyMeasurement.ingressToSlamEnqueueMsec_);
+    slamEnqueueToPublishLatencyStats_.add(latencyMeasurement.slamEnqueueToPublishMsec_);
+    ingressToPublishLatencyStats_.add(latencyMeasurement.ingressToPublishMsec_);
+
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(3) << "[Latency] cloud->slam_enqueue: current="
+           << latencyMeasurement.ingressToSlamEnqueueMsec_ << " avg=" << ingressToSlamEnqueueLatencyStats_.average()
+           << " max=" << ingressToSlamEnqueueLatencyStats_.maxMsec_ << " ms | slam_enqueue->corrected_pose_publish: current="
+           << latencyMeasurement.slamEnqueueToPublishMsec_ << " avg=" << slamEnqueueToPublishLatencyStats_.average()
+           << " max=" << slamEnqueueToPublishLatencyStats_.maxMsec_ << " ms | cloud->corrected_pose_publish: current="
+           << latencyMeasurement.ingressToPublishMsec_ << " avg=" << ingressToPublishLatencyStats_.average()
+           << " max=" << ingressToPublishLatencyStats_.maxMsec_ << " ms | count=" << ingressToPublishLatencyStats_.count_;
+    ROS_INFO_STREAM(stream.str());
+  }
+
+  auto makePoseStamped = [this](const Transform& transform, const ros::Time& poseStamp) {
+    geometry_msgs::PoseStamped poseStamped;
+    const Eigen::Quaterniond rotation(transform.rotation());
+    poseStamped.header.stamp = poseStamp;
+    poseStamped.header.frame_id = frames_.mapFrame;
+    poseStamped.pose.position.x = transform.translation().x();
+    poseStamped.pose.position.y = transform.translation().y();
+    poseStamped.pose.position.z = transform.translation().z();
+    poseStamped.pose.orientation.w = rotation.w();
+    poseStamped.pose.orientation.x = rotation.x();
+    poseStamped.pose.orientation.y = rotation.y();
+    poseStamped.pose.orientation.z = rotation.z();
+    return poseStamped;
+  };
+
+  appendPoseToTrackedPath(makePoseStamped(correctedTransform, stamp));
+  appendPoseToBestGuessPath(makePoseStamped(bestGuessTransform, stamp));
+
+  nav_msgs::Path trackedPathCopy;
+  nav_msgs::Path bestGuessPathCopy;
+  {
+    std::lock_guard<std::mutex> lock(mapper_->pathMutex_);
+    trackedPathCopy = mapper_->trackedPath_;
+    bestGuessPathCopy = mapper_->bestGuessPath_;
+  }
+
+  if ((trackedPathPub_.getNumSubscribers() > 0u || trackedPathPub_.isLatched()) && isPathValid(trackedPathCopy)) {
+    trackedPathCopy.header.stamp = stamp;
+    trackedPathCopy.header.frame_id = frames_.mapFrame;
+    trackedPathPub_.publish(trackedPathCopy);
+  }
+
+  if ((bestGuessPathPub_.getNumSubscribers() > 0u || bestGuessPathPub_.isLatched()) && isPathValid(bestGuessPathCopy)) {
+    bestGuessPathCopy.header.stamp = stamp;
+    bestGuessPathCopy.header.frame_id = frames_.mapFrame;
+    bestGuessPathPub_.publish(bestGuessPathCopy);
+  }
+
+  if (!trackedPathCopy.poses.empty() && !bestGuessPathCopy.poses.empty()) {
+    drawLinesBetweenPoses(trackedPathCopy, bestGuessPathCopy, stamp);
+  }
+
+  prevPublishedTimeScanToMap_ = timestamp;
+}
+
 void SlamWrapperRos::offlineVisualizationWorker() {
-  const Time scanToScanTimestamp = latestScanToScanRegistrationTimestamp_;
+  const Time scanToScanTimestamp = getLatestScanToScanRegistrationTimestamp();
   ros::Time timestamp = toRos(scanToScanTimestamp);
   o3d_slam::publishSubmapCoordinateAxes(mapper_->getSubmaps(), frames_.mapFrame, timestamp, submapOriginsPub_);
 }
@@ -245,13 +297,13 @@ void SlamWrapperRos::offlineVisualizationWorker() {
 void SlamWrapperRos::visualizationWorker() {
   ros::WallRate r(20.0);
   while (ros::ok()) {
-    const Time scanToScanTimestamp = latestScanToScanRegistrationTimestamp_;
+    const Time scanToScanTimestamp = getLatestScanToScanRegistrationTimestamp();
     if (odometryInputPub_.getNumSubscribers() > 0 && isTimeValid(scanToScanTimestamp)) {
       const PointCloud odomInput = odometry_->getPreProcessedCloud();
       o3d_slam::publishCloud(odomInput, frames_.rangeSensorFrame, toRos(scanToScanTimestamp), odometryInputPub_);
     }
 
-    const Time scanToMapTimestamp = latestScanToMapRefinementTimestamp_;
+    const Time scanToMapTimestamp = getLatestScanToMapRefinementTimestamp();
     if (isTimeValid(scanToMapTimestamp)) {
       publishDenseMap(scanToMapTimestamp);
       publishMaps(scanToMapTimestamp);
@@ -261,21 +313,8 @@ void SlamWrapperRos::visualizationWorker() {
       }
     }
 
-    ros::spinOnce();
     r.sleep();
   }
-}
-
-bool SlamWrapperRos::readLibpointmatcherConfig(const std::string& path) {
-  // std::ifstream fileStream(
-  //     "/home/tutuna/new_release_open3d_slam_ws/src/open3d_slam_private/open3d_slam_rsl/ros/open3d_slam_ros/param/icp.yaml");
-  // if (!fileStream.good()) {
-  //   // ROS_ERROR_STREAM("Cannot load ICP configuration from " << path.c_str() << " .");
-  //   return false;
-  // }
-  // mapper_->icp_.loadFromYaml(fileStream);
-
-  return true;
 }
 
 void SlamWrapperRos::loadParametersAndInitialize() {
@@ -315,6 +354,7 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   bagReplayStartTime_ = nh_->param<double>("replay_start_time_as_second", 0.0);
   bagReplayEndTime_ = nh_->param<double>("replay_end_time_as_second", 8000.0);
   asyncOdometryTopic_ = nh_->param<std::string>("async_pose_topic", "/state_estimator/pose_in_odom");
+  isPrintCloudToPoseLatency_ = nh_->param<bool>("print_end_to_end_latency", false);
 
   frames_.rangeSensorFrame = "default";  // nh_->param<std::string>("tracked_sensor_frame", "default");
   frames_.assumed_external_odometry_tracked_frame = nh_->param<std::string>("assumed_external_odometry_tracked_frame", "default");
@@ -332,12 +372,6 @@ void SlamWrapperRos::loadParametersAndInitialize() {
   SlamParameters params;
   io_lua::loadParameters(paramFolderPath, paramFilename, &params_);
   BASE::loadParametersAndInitialize();
-
-  if (!readLibpointmatcherConfig(
-          "/home/tutuna/new_release_open3d_slam_ws/src/open3d_slam_private/open3d_slam_rsl/ros/open3d_slam_ros/param/icp.yaml")) {
-    std::cout << "Returning early couldnt load ICP params for libpointmatcher " << std::endl;
-    return;
-  }
 }
 
 bool SlamWrapperRos::saveMapCallback(open3d_slam_msgs::SaveMap::Request& req, open3d_slam_msgs::SaveMap::Response& res) {

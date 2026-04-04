@@ -35,12 +35,12 @@ Mapper::Mapper(const TransformInterpolationBuffer& odomToRangeSensorBuffer, std:
     : odomToRangeSensorBuffer_(odomToRangeSensorBuffer), submaps_(submaps) {
   // `updates` with default parameters
   update(params_);
-  double max_correspondence_distance = 0.4;
+  double max_correspondence_distance = 1.0;
   small_registration_.reduction.num_threads = 8;
   small_registration_.rejector.max_dist_sq = max_correspondence_distance * max_correspondence_distance;
   small_registration_.criteria.rotation_eps = 0.005 * M_PI / 180.0;  // 0.001;
   small_registration_.criteria.translation_eps = 1e-3;               // 0.0008;
-  small_registration_.optimizer.max_iterations = 30;
+  small_registration_.optimizer.max_iterations = 10;
   small_registration_.optimizer.verbose = false;
 
   base_max_corr_dist_ = static_cast<float>(max_correspondence_distance);
@@ -429,17 +429,19 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
   ProcessedScans processed;
   {
     ProfilerScopeGuard scope("scanPreprocessing", "/tmp/slam_profile.csv");
-    processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensor_, false);
+    processed = scan2MapReg_->processForScanMatchingAndMerging(rawScan, mapToRangeSensorEstimate, false);
   }
 
   Transform correctedTransform_o3d;
   {
+    const Transform registrationCenterPose = mapToRangeSensorEstimate;
+
     // Compute time since last reference update
     double passedTime =
         std::chrono::duration_cast<std::chrono::milliseconds>(timestamp - lastReferenceInitializationTimestamp_).count() / 1e3;
 
     // Compute relative motion since last reference update
-    Transform relative = lastReferenceInitializationPose_.inverse() * mapToRangeSensor_;
+    Transform relative = lastReferenceInitializationPose_.inverse() * registrationCenterPose;
     double translation = relative.translation().norm();
     double rotation = Eigen::AngleAxisd(relative.linear()).angle();
 
@@ -461,15 +463,32 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
         if (submaps_->getNumSubmaps() == 1) {
           // Only one submap, crop from the active submap
-          mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_, false);
+          mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), registrationCenterPose, false);
+          if (mapPatch->IsEmpty()) {
+            std::cerr << "[Mapper] Estimated-pose crop for the active submap was empty. Retrying with the previous refined pose.\n";
+            mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), mapToRangeSensor_, false);
+          }
+          if (mapPatch->IsEmpty()) {
+            std::cerr << "[Mapper] Active-submap crop remained empty. Falling back to the full active submap.\n";
+            mapPatch = scan2MapReg_->cropSubmap(submaps_->getActiveSubmap(), registrationCenterPose, true);
+          }
         } else {
           size_t active = submaps_->activeSubmapIdx_;
-          std::vector<size_t> nbrs = submaps_->findKClosestSubmaps(mapToRangeSensor_,
+          std::vector<size_t> nbrs = submaps_->findKClosestSubmaps(registrationCenterPose,
                                                                    /*k=*/2,  // number of neighbours you want
                                                                    active);  // <-- exclude only for search
 
           nbrs.push_back(active);
-          mapPatch = submaps_->getCachedCompositeSubmapFromMulti(nbrs);
+          const PointCloudPtr compositePatch = submaps_->getCachedCompositeSubmapFromMulti(nbrs);
+          mapPatch = scan2MapReg_->cropCloudForRegistration(*compositePatch, registrationCenterPose);
+          if (mapPatch->IsEmpty()) {
+            std::cerr << "[Mapper] Estimated-pose crop for the composite submap was empty. Retrying with the previous refined pose.\n";
+            mapPatch = scan2MapReg_->cropCloudForRegistration(*compositePatch, mapToRangeSensor_);
+          }
+          if (mapPatch->IsEmpty()) {
+            std::cerr << "[Mapper] Composite crop remained empty. Falling back to the uncropped composite submap.\n";
+            mapPatch = compositePatch;
+          }
 
           // std::vector<size_t> nbrs = submaps_->findKMostOverlappingSubmaps(rawScan, mapToRangeSensor_,
           //                                                                  /*k=*/2,  // number of neighbours you want
@@ -490,7 +509,7 @@ bool Mapper::addRangeMeasurement(const Mapper::PointCloud& rawScan, const Time& 
 
       std::lock_guard<std::mutex> lck(mapManipulationMutex_);
       lastReferenceInitializationTimestamp_ = timestamp;
-      lastReferenceInitializationPose_ = mapToRangeSensor_;  // save pose for next time
+      lastReferenceInitializationPose_ = registrationCenterPose;  // Save the pose actually used to build the target patch.
 
       // Experimental.
       // {

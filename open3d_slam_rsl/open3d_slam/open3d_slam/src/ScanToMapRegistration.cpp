@@ -89,13 +89,14 @@ PointCloudPtr ScanToMapIcp::reducedProcessForScanMatchingAndMerging(const PointC
 }
 
 PointCloudPtr ScanToMapIcp::getCroppedCloud(const PointCloudPtr& in) const {
-  PointCloudPtr narrowCropped;
-
-  scanMatcherCropper_->setPose(Transform::Identity());
-  narrowCropped = scanMatcherCropper_->crop(*in);
-
+  PointCloudPtr narrowCropped = cropCloudForRegistration(*in, Transform::Identity());
   assert_gt<int>(narrowCropped->points_.size(), 0, "ScanToMapIcp::narrow cropped size is zero");
   return narrowCropped;
+}
+
+PointCloudPtr ScanToMapIcp::cropCloudForRegistration(const PointCloud& cloud, const Transform& mapToRangeSensor) const {
+  scanMatcherCropper_->setPose(mapToRangeSensor);
+  return scanMatcherCropper_->crop(cloud);
 }
 
 PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transform& mapToRangeSensor, bool passthrough) const {
@@ -103,18 +104,12 @@ PointCloudPtr ScanToMapIcp::cropSubmap(const Submap& activeSubmap, const Transfo
     return std::make_shared<PointCloud>(activeSubmap.getMapPointCloud());
   }
 
-  const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();
-  scanMatcherCropper_->setPose(mapToRangeSensor);
-  PointCloudPtr mapPatch = scanMatcherCropper_->crop(activeSubmapPointCloud);
-  // assert_gt<int>(mapPatch->points_.size(), 0, "map patch size is zero");
-  return mapPatch;
+  return cropCloudForRegistration(activeSubmap.getMapPointCloud(), mapToRangeSensor);
 }
 
 RegistrationResult ScanToMapIcp::scanToMapRegistration(const PointCloud& scan, const Submap& activeSubmap,
                                                        const Transform& mapToRangeSensor, const Transform& initialGuess) const {
-  const PointCloud& activeSubmapPointCloud = activeSubmap.getMapPointCloud();
-  scanMatcherCropper_->setPose(mapToRangeSensor);
-  const PointCloudPtr mapPatch = scanMatcherCropper_->crop(activeSubmapPointCloud);
+  const PointCloudPtr mapPatch = cropCloudForRegistration(activeSubmap.getMapPointCloud(), mapToRangeSensor);
   assert_gt<int>(mapPatch->points_.size(), 0, "map patch size is zero");
   return cloudRegistration->registerClouds(scan, *mapPatch, initialGuess);
 }

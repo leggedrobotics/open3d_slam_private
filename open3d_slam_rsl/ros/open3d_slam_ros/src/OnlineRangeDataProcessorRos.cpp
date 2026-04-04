@@ -6,6 +6,7 @@
  */
 
 #include "open3d_slam_ros/OnlineRangeDataProcessorRos.hpp"
+#include <chrono>
 #include <ros/master.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -118,20 +119,21 @@ void OnlineRangeDataProcessorRos::dynamicPoseDiscoveryCallback(const ros::TimerE
 
   if (topicExists(poseStampedWithCovarianceTopic_)) {
     poseStampedCovarianceSubscriber_ =
-        nh_->subscribe(poseStampedWithCovarianceTopic_, 800, &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this,
-                       ros::TransportHints().tcpNoDelay());
+        nh_->subscribe(poseStampedWithCovarianceTopic_, poseSubscriberQueueSize_,
+                       &OnlineRangeDataProcessorRos::poseStampedWithCovarianceCallback, this, ros::TransportHints().tcpNoDelay());
     poseSubscribed_ = true;
     ROS_INFO_STREAM("\033[92m"
                     << "Dynamically subscribed to poseStampedWithCovariance topic: " << poseStampedWithCovarianceTopic_ << "\033[0m");
   } else if (topicExists(poseStampedTopic_)) {
-    poseStampedSubscriber_ =
-        nh_->subscribe(poseStampedTopic_, 40, &OnlineRangeDataProcessorRos::poseStampedCallback, this, ros::TransportHints().tcpNoDelay());
+    poseStampedSubscriber_ = nh_->subscribe(poseStampedTopic_, poseSubscriberQueueSize_,
+                                            &OnlineRangeDataProcessorRos::poseStampedCallback, this,
+                                            ros::TransportHints().tcpNoDelay());
     poseSubscribed_ = true;
     ROS_INFO_STREAM("\033[92m"
                     << "Dynamically subscribed to poseStamped topic: " << poseStampedTopic_ << "\033[0m");
   } else if (topicExists(odometryTopic_)) {
-    odometrySubscriber_ =
-        nh_->subscribe(odometryTopic_, 40, &OnlineRangeDataProcessorRos::odometryCallback, this, ros::TransportHints().tcpNoDelay());
+    odometrySubscriber_ = nh_->subscribe(odometryTopic_, poseSubscriberQueueSize_, &OnlineRangeDataProcessorRos::odometryCallback, this,
+                                         ros::TransportHints().tcpNoDelay());
     poseSubscribed_ = true;
     ROS_INFO_STREAM("\033[92m"
                     << "Dynamically subscribed to odometry topic: " << odometryTopic_ << "\033[0m");
@@ -141,7 +143,12 @@ void OnlineRangeDataProcessorRos::dynamicPoseDiscoveryCallback(const ros::TimerE
 void OnlineRangeDataProcessorRos::startProcessing() {
   slam_->startWorkers();
 
-  cloudSubscriber_ = nh_->subscribe(cloudTopic_, 20, &OnlineRangeDataProcessorRos::cloudCallback, this, ros::TransportHints().tcpNoDelay());
+  cloudSubscriberQueueSize_ = static_cast<uint32_t>(std::max(1, nh_->param<int>("cloud_subscriber_queue_size", 1)));
+  poseSubscriberQueueSize_ = static_cast<uint32_t>(std::max(1, nh_->param<int>("pose_subscriber_queue_size", 10)));
+
+  cloudSubscriber_ =
+      nh_->subscribe(cloudTopic_, cloudSubscriberQueueSize_, &OnlineRangeDataProcessorRos::cloudCallback, this,
+                     ros::TransportHints().tcpNoDelay());
 
   if (slam_->isIMUattitudeInitializationEnabled()) {
     imuSubscriber_ = nh_->subscribe<sensor_msgs::Imu>(imuTopic_, 40, &OnlineRangeDataProcessorRos::imuCallback, this,
@@ -168,6 +175,8 @@ void OnlineRangeDataProcessorRos::startProcessing() {
 void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
   if (!slam_->isUsingOdometryTopic()) {
     slam_->setExternalOdometryFrameToCloudFrameCalibration(Eigen::Isometry3d::Identity());
+    tryProcessPendingClouds();
+    publishCompletedMappingResultIfAvailable();
     staticTfCallback_.stop();
   }
 
@@ -185,132 +194,29 @@ void OnlineRangeDataProcessorRos::staticTfCallback(const ros::TimerEvent&) {
       }
     }
 
+    tryProcessPendingClouds();
+    publishCompletedMappingResultIfAvailable();
     ROS_INFO("Static TF reader callback is terminated after successfully reading the transform.");
     staticTfCallback_.stop();
   }
 }
 
 void OnlineRangeDataProcessorRos::processMeasurement(const PointCloud& cloud, const Time& timestamp) {
-  if (!slam_->isUseExistingMapEnabled() && slam_->isUsingOdometryTopic()) {
-    if (!slam_->isInitialTransformSet()) {
-      ROS_WARN_THROTTLE(1, "Initial Transform not set yet, skipping the measurement. Throttled 1s");
-      return;
-    }
-  }
+  enqueueMeasurement(cloud, timestamp, std::chrono::steady_clock::now());
+}
 
-  // Add the range scan to the pointcloud processing buffer. This is actually a buffer with size 1, so no queue.
-  // The add range scan comes first since scan2scan odometry would create its own odometry measurements.
-  if (!slam_->addRangeScan(cloud, timestamp)) {
-    ROS_WARN("Failed to add range scan. This is unexpected. Skipping the measurement.");
-    return;
-  }
-
-  if (slam_->isOdometryPoseBufferEmpty()) {
-    ROS_WARN("Odometry Buffer is empty! But a point cloud has arrived and waiting to be processed. Skipping this cloud.");
-    return;
-  }
-
-  if (slam_->isUsingOdometryTopic()) {
-    if (!slam_->doesOdometrybufferHasMeasurement(timestamp)) {
-      ROS_WARN(
-          "Pointcloud is here, pose buffer is not empty but odometry with the right stamp not available yet. Skipping the measurement.");
-
-      return;
-    }
-  }
+void OnlineRangeDataProcessorRos::enqueueMeasurement(const PointCloud& cloud, const Time& timestamp,
+                                                     const std::chrono::steady_clock::time_point& ingressWallTime) {
+  slam_->recordCloudIngressWallTime(timestamp, ingressWallTime);
 
   // Re-publish the raw point cloud for visualization purposes.
   o3d_slam::publishCloud(cloud, slam_->frames_.rangeSensorFrame, toRos(timestamp), rawCloudPub_);
-
-  // TODO(TT) Is this the best place to do this? (ofc its not)
-  // Get the latest registered point cloud and publish it.
-  std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
-
-  if (std::get<0>(cloudTimePair).IsEmpty()) {
-    ROS_WARN("Registered Cloud will not be published. Registration didn't take place yet.");
-    return;
+  {
+    std::lock_guard<std::mutex> lock(pendingCloudsMutex_);
+    pendingClouds_.push_back(PendingCloudMeasurement{cloud, timestamp});
   }
-
-  if (isTimeValid(std::get<1>(cloudTimePair))) {
-    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(std::get<1>(cloudTimePair)),
-                           registeredCloudPub_);
-
-    if (surfaceNormalPub_.getNumSubscribers() > 0u || surfaceNormalPub_.isLatched()) {
-      auto surfaceNormalLineMarker{
-          generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(std::get<1>(cloudTimePair)), colorMap_[ColorKey::kRed])};
-
-      if (surfaceNormalLineMarker != std::nullopt) {
-        surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
-      }
-    }
-
-  } else {
-    ROS_WARN("Registered Cloud will be published with original stamp. Should only happen at start-up.");
-    o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(timestamp), registeredCloudPub_);
-
-    if (surfaceNormalPub_.getNumSubscribers() > 0u || surfaceNormalPub_.isLatched()) {
-      auto surfaceNormalLineMarker{
-          generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(timestamp), colorMap_[ColorKey::kRed])};
-
-      if (surfaceNormalLineMarker != std::nullopt) {
-        // ROS_DEBUG("Publishing point cloud surface normals for publisher '%s'.", parameters_.pointCloudPublisherTopic_.c_str());
-        surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
-      }
-    }
-
-    return;
-  }
-
-  if ((!isTimeValid(std::get<1>(cloudTimePair)))) {
-    ROS_WARN("Transform Time is not valid at processMeasurement level.");
-    return;
-  }
-
-  // TODO [TT]
-  // Functionize this stuff.
-  Transform calculatedTransform = std::get<2>(cloudTimePair);
-
-  geometry_msgs::PoseStamped poseStamped;
-  Eigen::Quaterniond rotation(calculatedTransform.rotation());
-
-  poseStamped.header.stamp = toRos(std::get<1>(cloudTimePair));
-  poseStamped.header.frame_id = "map_o3d";
-  poseStamped.pose.position.x = calculatedTransform.translation().x();
-  poseStamped.pose.position.y = calculatedTransform.translation().y();
-  poseStamped.pose.position.z = calculatedTransform.translation().z();
-  poseStamped.pose.orientation.w = rotation.w();
-  poseStamped.pose.orientation.x = rotation.x();
-  poseStamped.pose.orientation.y = rotation.y();
-  poseStamped.pose.orientation.z = rotation.z();
-
-  slam_->appendPoseToTrackedPath(poseStamped);
-
-  std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
-
-  if ((!isTimeValid(std::get<0>(bestGuessTimePair)))) {
-    ROS_WARN("bestGuessTimePair Transform Time is not valid at processMeasurement level.");
-    return;
-  }
-
-  // Best guess path
-  Transform bestGuessTransform = std::get<1>(bestGuessTimePair);
-
-  geometry_msgs::PoseStamped bestGuessPoseStamped;
-  Eigen::Quaterniond bestGuessRotation(bestGuessTransform.rotation());
-
-  // Until we identify the time issue with best guess use cloud time. These are supposed to be same since they are paired.
-  bestGuessPoseStamped.header.stamp = toRos(std::get<0>(bestGuessTimePair));
-  bestGuessPoseStamped.header.frame_id = "map_o3d";
-  bestGuessPoseStamped.pose.position.x = bestGuessTransform.translation().x();
-  bestGuessPoseStamped.pose.position.y = bestGuessTransform.translation().y();
-  bestGuessPoseStamped.pose.position.z = bestGuessTransform.translation().z();
-  bestGuessPoseStamped.pose.orientation.w = bestGuessRotation.w();
-  bestGuessPoseStamped.pose.orientation.x = bestGuessRotation.x();
-  bestGuessPoseStamped.pose.orientation.y = bestGuessRotation.y();
-  bestGuessPoseStamped.pose.orientation.z = bestGuessRotation.z();
-
-  slam_->appendPoseToBestGuessPath(bestGuessPoseStamped);
-  return;
+  tryProcessPendingClouds();
+  publishCompletedMappingResultIfAvailable();
 }
 
 std::optional<visualization_msgs::Marker> OnlineRangeDataProcessorRos::generateMarkersForSurfaceNormalVectors(
@@ -382,11 +288,15 @@ void OnlineRangeDataProcessorRos::processOdometry(const Transform& transform, co
     return;
   }
 
+  tryProcessPendingClouds();
+  publishCompletedMappingResultIfAvailable();
+
   // ROS_DEBUG_STREAM("Processed odometry at time: " << toString(timestamp));
 }
 
 void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg) {
   ROS_DEBUG_STREAM("A point cloud has arrived.");
+  const auto ingressWallTime = std::chrono::steady_clock::now();
   slam_->frames_.rangeSensorFrame = msg->header.frame_id;
   open3d::geometry::PointCloud cloud;
 
@@ -395,7 +305,7 @@ void OnlineRangeDataProcessorRos::cloudCallback(const sensor_msgs::PointCloud2Co
   }
 
   const Time timestamp = fromRos(msg->header.stamp);
-  accumulateAndProcessRangeData(cloud, timestamp);
+  enqueueMeasurement(cloud, timestamp, ingressWallTime);
 }
 
 void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& imu_ptr) {
@@ -463,6 +373,8 @@ void OnlineRangeDataProcessorRos::imuCallback(const sensor_msgs::Imu::ConstPtr& 
 
   // initialTransform.affine().matrix().block<3, 3>(0, 0) = initAttitudeOfLiDAR.affine().matrix().block<3, 3>(0, 0);
   slam_->setInitialTransform(newTransform.matrix());
+  tryProcessPendingClouds();
+  publishCompletedMappingResultIfAvailable();
 }
 
 void OnlineRangeDataProcessorRos::publishAddedImuMeas_(const Eigen::Matrix<double, 6, 1>& addedImuMeas, const ros::Time& stamp) {
@@ -516,6 +428,83 @@ void OnlineRangeDataProcessorRos::odometryCallback(const nav_msgs::OdometryConst
   odomPose.position = msg->pose.pose.position;
 
   processOdometryData(o3d_slam::getTransform(odomPose), fromRos(msg->header.stamp));
+}
+
+void OnlineRangeDataProcessorRos::tryProcessPendingClouds() {
+  std::lock_guard<std::mutex> lock(pendingCloudsMutex_);
+
+  while (!pendingClouds_.empty()) {
+    const auto& measurement = pendingClouds_.front();
+
+    if (!slam_->isUseExistingMapEnabled() && slam_->isUsingOdometryTopic() && !slam_->isInitialTransformSet()) {
+      return;
+    }
+
+    if (slam_->isUsingOdometryTopic()) {
+      if (slam_->isOdometryPoseBufferEmpty()) {
+        return;
+      }
+
+      if (slam_->isMeasurementOlderThanOdometryBuffer(measurement.timestamp_)) {
+        ROS_WARN_STREAM("Dropping pending cloud older than the available odometry buffer. Stamp: " << measurement.timestamp_);
+        slam_->discardCloudPipelineLatencyMeasurement(measurement.timestamp_);
+        pendingClouds_.pop_front();
+        continue;
+      }
+
+      if (!slam_->doesOdometryBufferBracketMeasurement(measurement.timestamp_)) {
+        return;
+      }
+    }
+
+    slam_->markCloudQueuedForProcessing(measurement.timestamp_, std::chrono::steady_clock::now());
+    if (!slam_->addRangeScan(measurement.cloud_, measurement.timestamp_)) {
+      ROS_WARN_STREAM("Failed to add a ready pending range scan. Dropping the measurement at stamp: " << measurement.timestamp_);
+      slam_->discardCloudPipelineLatencyMeasurement(measurement.timestamp_);
+      pendingClouds_.pop_front();
+      continue;
+    }
+
+    pendingClouds_.pop_front();
+  }
+}
+
+void OnlineRangeDataProcessorRos::publishCompletedMappingResultIfAvailable() {
+  std::lock_guard<std::mutex> lock(completedMappingResultMutex_);
+
+  const std::tuple<PointCloud, Time, Transform> cloudTimePair = slam_->getLatestRegisteredCloudTimestampPair();
+  const std::tuple<Time, Transform> bestGuessTimePair = slam_->getLatestRegistrationBestGuess();
+
+  const Time mappedTime = std::get<1>(cloudTimePair);
+  const Time bestGuessTime = std::get<0>(bestGuessTimePair);
+  if (!isTimeValid(mappedTime) || !isTimeValid(bestGuessTime)) {
+    return;
+  }
+
+  if (std::get<0>(cloudTimePair).IsEmpty()) {
+    return;
+  }
+
+  if (mappedTime != bestGuessTime) {
+    return;
+  }
+
+  if (mappedTime == lastPublishedMappedResultTimestamp_) {
+    return;
+  }
+
+  o3d_slam::publishCloud(std::get<0>(cloudTimePair), slam_->frames_.rangeSensorFrame, toRos(mappedTime), registeredCloudPub_);
+
+  if (surfaceNormalPub_.getNumSubscribers() > 0u || surfaceNormalPub_.isLatched()) {
+    auto surfaceNormalLineMarker{
+        generateMarkersForSurfaceNormalVectors(std::get<0>(cloudTimePair), toRos(mappedTime), colorMap_[ColorKey::kRed])};
+
+    if (surfaceNormalLineMarker != std::nullopt) {
+      surfaceNormalPub_.publish(surfaceNormalLineMarker.value());
+    }
+  }
+
+  lastPublishedMappedResultTimestamp_ = mappedTime;
 }
 
 }  // namespace o3d_slam

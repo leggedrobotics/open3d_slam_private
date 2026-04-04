@@ -194,7 +194,7 @@ OptimizedTransforms OptimizationProblem::getOptimizedTransformIncrements() const
   for (size_t i = 0; i < poseGraph_.nodes_.size(); ++i) {
     const Transform tOld(poseGraphNonOptimized_.nodes_.at(i).pose_);
     const Transform tNew(poseGraphOptimized_.nodes_.at(i).pose_);
-    const auto deltaT = tNew;
+    const Transform deltaT = tNew * tOld.inverse();
     retVal.emplace_back(OptimizedTransform{deltaT, i});
   }
 

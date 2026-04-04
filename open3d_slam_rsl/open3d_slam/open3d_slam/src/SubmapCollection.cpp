@@ -245,7 +245,8 @@ std::vector<size_t> SubmapCollection::selectActiveMostOverlapAndKClosest(const P
 std::vector<size_t> SubmapCollection::findKClosestSubmaps(const Transform& T, size_t k, size_t exclude) const {
   std::vector<size_t> out;
   {
-    ProfilerScopeGuard total("SubmapCollection::insertScan", "/tmp/slam_profile.csv", "submap=" + std::to_string(activeSubmapIdx_));
+    ProfilerScopeGuard total("SubmapCollection::findKClosestSubmaps", "/tmp/slam_profile.csv",
+                             "submap=" + std::to_string(activeSubmapIdx_));
     std::vector<Pair> tmp;
     tmp.reserve(submaps_.size());
     Eigen::Vector3d p0 = T.translation();
@@ -876,6 +877,28 @@ bool SubmapCollection::dumpToFile(const std::string& folderPath, const std::stri
 }
 
 void SubmapCollection::transform(const OptimizedTransforms& transformIncrements) {
+  {
+    std::lock_guard<std::mutex> lk(composite_cache_mutex_);
+    cached_neighbor_idxs_.clear();
+    cached_neighbor_cloud_.reset();
+    cached_active_submap_idx_ = SIZE_MAX;
+    cached_static_neighbors_cloud_.reset();
+    cached_static_neighbor_idxs_.clear();
+    cached_static_cloud_.reset();
+    cached_static_idxs_.clear();
+    cached_static_point_count_ = 0;
+    cached_combined_cloud_.reset();
+    cached_active_point_count_ = 0;
+  }
+  {
+    std::lock_guard<std::mutex> lk(consistency_cache_mtx_);
+    for (auto& cache : consistency_cache_) {
+      cache.valid = false;
+    }
+    lastConsistencyCandidateSubmapIdx_ = std::numeric_limits<size_t>::max();
+    consistencyCheckNeighbourVoxCopy_.clear();
+  }
+
   const size_t nTransforms = transformIncrements.size();
   std::vector<size_t> optimizedIdxs;
   //	std::cout << "Num transforms: " << transformIncrements.size() << std::endl;

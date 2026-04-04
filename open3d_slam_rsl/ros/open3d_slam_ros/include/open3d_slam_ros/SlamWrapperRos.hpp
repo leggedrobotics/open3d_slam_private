@@ -43,8 +43,6 @@ class SlamWrapperRos : public SlamWrapper {
   void loadParametersAndInitialize() override;
   void startWorkers() override;
 
-  bool readLibpointmatcherConfig(const std::string& path);
-
   void offlineTfWorker() override;
   void offlineVisualizationWorker() override;
 
@@ -54,12 +52,30 @@ class SlamWrapperRos : public SlamWrapper {
   bool isStaticTransformAttempted_ = true;
 
  private:
+  struct LatencyStats {
+    double cumulativeMsec_ = 0.0;
+    double maxMsec_ = 0.0;
+    size_t count_ = 0u;
+
+    void add(double msec) {
+      cumulativeMsec_ += msec;
+      if (msec > maxMsec_) {
+        maxMsec_ = msec;
+      }
+      ++count_;
+    }
+
+    double average() const { return count_ == 0u ? 0.0 : cumulativeMsec_ / static_cast<double>(count_); }
+  };
+
   void tfWorker();
   void odomPublisherWorker();
   void visualizationWorker();
   void publishMaps(const Time& time);
   void publishDenseMap(const Time& time);
   void publishMapToOdomTf(const Time& time);
+  void handleCompletedMappingResult(const Time& timestamp, const Transform& correctedTransform,
+                                    const Transform& bestGuessTransform) override;
   bool isPathValid(const nav_msgs::Path& path) const;
 
   ros::NodeHandlePtr nh_;
@@ -73,6 +89,10 @@ class SlamWrapperRos : public SlamWrapper {
   std::thread tfWorker_, visualizationWorker_, odomPublisherWorker_;
   Time prevPublishedTimeScanToScan_, prevPublishedTimeScanToMap_;
   Time prevPublishedTimeScanToScanOdom_, prevPublishedTimeScanToMapOdom_;
+  bool isPrintCloudToPoseLatency_ = false;
+  LatencyStats ingressToSlamEnqueueLatencyStats_;
+  LatencyStats slamEnqueueToPublishLatencyStats_;
+  LatencyStats ingressToPublishLatencyStats_;
 };
 
 }  // namespace o3d_slam

@@ -5,3 +5,4 @@ open3d_slam_rsl/open3d_catkin/tmp/
 open3d_slam_rsl/ros/open3d_slam_ros/data/maps/
 *.pcd
 *.vscode
+.codex

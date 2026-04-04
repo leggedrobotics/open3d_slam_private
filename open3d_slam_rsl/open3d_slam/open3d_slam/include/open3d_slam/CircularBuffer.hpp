@@ -32,8 +32,17 @@ class CircularBuffer {
     cv_.notify_one();
   }
 
-  const T& peek_front() const { return data_.front(); }
-  const T& peek_back() const { return data_.back(); }
+  std::optional<T> try_peek_front() const {
+    std::lock_guard<std::mutex> lck(m_);
+    if (data_.empty()) return std::nullopt;
+    return data_.front();
+  }
+
+  std::optional<T> try_peek_back() const {
+    std::lock_guard<std::mutex> lck(m_);
+    if (data_.empty()) return std::nullopt;
+    return data_.back();
+  }
 
   T pop() {
     std::lock_guard<std::mutex> lck(m_);
@@ -42,9 +51,20 @@ class CircularBuffer {
     return copy;
   }
 
-  bool empty() const { return data_.empty(); }
-  size_t size_limit() const { return bufferSizeLimit_; }
-  size_t size() const { return data_.size(); }
+  bool empty() const {
+    std::lock_guard<std::mutex> lck(m_);
+    return data_.empty();
+  }
+
+  size_t size_limit() const {
+    std::lock_guard<std::mutex> lck(m_);
+    return bufferSizeLimit_;
+  }
+
+  size_t size() const {
+    std::lock_guard<std::mutex> lck(m_);
+    return data_.size();
+  }
 
   void clear() {
     std::lock_guard<std::mutex> lck(m_);
@@ -83,7 +103,10 @@ class CircularBuffer {
     cv_.notify_all();
   }
 
-  bool open() const { return open_; }
+  bool open() const {
+    std::lock_guard<std::mutex> lck(m_);
+    return open_;
+  }
 
  private:
   void trim_unsafe() {

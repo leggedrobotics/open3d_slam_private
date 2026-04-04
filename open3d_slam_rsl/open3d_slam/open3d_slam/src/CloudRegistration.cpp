@@ -20,8 +20,8 @@ RegistrationIcpGeneralized::RegistrationResult RegistrationIcpGeneralized::regis
                                     icpConvergenceCriteria_);
 }
 
-// In the current setup, surface normal calculation is highly tightly coupled to registration. This is not ideal.
-// We are using the surface normal generation function of generalizedICP while we use libpointmatcher for registration.
+// In the current setup, surface normal calculation is still coupled to registration.
+// The generalized ICP implementation is reused here to prepare normals/covariances when needed.
 void RegistrationIcpGeneralized::estimateNormalsOrCovariancesIfNeeded(PointCloud* cloud) const {
   // Particularly for ANYmal, we already have normals. So we skip this step.
   if (cloud->HasNormals()) {

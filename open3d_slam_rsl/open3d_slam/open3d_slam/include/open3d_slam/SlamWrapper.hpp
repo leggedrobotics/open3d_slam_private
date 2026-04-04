@@ -9,8 +9,11 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <Eigen/Dense>
+#include <chrono>
 #include <future>
+#include <mutex>
 #include <thread>
+#include <unordered_map>
 #include "open3d_slam/CircularBuffer.hpp"
 #include "open3d_slam/Constraint.hpp"
 #include "open3d_slam/Parameters.hpp"
@@ -70,6 +73,12 @@ class SlamWrapper {
   virtual void finishProcessing();
   virtual void offlineFinishProcessing();
 
+  struct CloudPipelineLatencyMeasurement {
+    double ingressToSlamEnqueueMsec_ = 0.0;
+    double slamEnqueueToPublishMsec_ = 0.0;
+    double ingressToPublishMsec_ = 0.0;
+  };
+
   // Virtual functions for the offlane single-thread workers.
   virtual void offlineTfWorker();
   virtual void offlineVisualizationWorker();
@@ -86,7 +95,7 @@ class SlamWrapper {
   void setExternalOdometryFrameToCloudFrameCalibration(const Eigen::Isometry3d& transform);
 
   // Add an odometry msg to the pose buffer.
-  bool addOdometryPoseToBuffer(const Transform& transform, const Time& timestamp) const;
+  bool addOdometryPoseToBuffer(const Transform& transform, const Time& timestamp);
 
   // A getter for the IMU based initialization flag.
   bool isIMUattitudeInitializationEnabled();
@@ -124,6 +133,8 @@ class SlamWrapper {
 
   // A simple getter function that check if odometry pose is available for a certain time. Used for replaying.
   bool doesOdometrybufferHasMeasurement(const Time& t);
+  bool doesOdometryBufferBracketMeasurement(const Time& t) const;
+  bool isMeasurementOlderThanOdometryBuffer(const Time& t) const;
 
   // Returns a boolean value whether the static transformation between the odometry and range sensor is set.
   bool isExternalOdometryFrameToCloudFrameCalibrationSet();
@@ -134,6 +145,13 @@ class SlamWrapper {
   Transform getExternalOdometryFrameToCloudFrameCalibration();
   TimestampedTransform getLatestMapToRangeMeasurement() const;
   TimestampedTransform getLatestOdometryPoseMeasurement() const;
+  Time getLatestScanToMapRefinementTimestamp() const;
+  Time getLatestScanToScanRegistrationTimestamp() const;
+  void recordCloudIngressWallTime(const Time& timestamp, const std::chrono::steady_clock::time_point& ingressWallTime);
+  void markCloudQueuedForProcessing(const Time& timestamp, const std::chrono::steady_clock::time_point& enqueueWallTime);
+  bool consumeCloudPipelineLatencyMeasurement(const Time& timestamp, const std::chrono::steady_clock::time_point& publishWallTime,
+                                              CloudPipelineLatencyMeasurement* measurement);
+  void discardCloudPipelineLatencyMeasurement(const Time& timestamp);
 
   std::string mapSavingFolderPath_{""};
   TimestampedTransform latestMapToRangeMeasurement_;
@@ -155,6 +173,8 @@ class SlamWrapper {
   Frames frames_;
 
  private:
+  void setLatestScanToMapRefinementTimestamp(const Time& timestamp);
+  void setLatestScanToScanRegistrationTimestamp(const Time& timestamp);
   void checkIfOptimizedGraphAvailable();
   void odometryWorker();
   void unifiedWorker();
@@ -173,6 +193,9 @@ class SlamWrapper {
   void analyzeBufferedMeasurements();
 
  protected:
+  virtual void handleCompletedMappingResult(const Time& timestamp, const Transform& correctedTransform,
+                                            const Transform& bestGuessTransform);
+
   // buffers
   CircularBuffer<RegisteredPointCloud> registeredCloudBuffer_;
   CircularBuffer<ScanToMapRegistrationBestGuess> registrationBestGuessBuffer_;
@@ -202,8 +225,17 @@ class SlamWrapper {
   Timer mappingStatisticsTimer_, odometryStatisticsTimer_, visualizationUpdateTimer_, denseMapVisualizationUpdateTimer_,
       denseMapStatiscticsTimer_;
   Timer mapperOnlyTimer_;
+  mutable std::mutex latestTimestampMutex_;
+  mutable std::mutex cloudPipelineLatencyMutex_;
   Time latestScanToMapRefinementTimestamp_;
   Time latestScanToScanRegistrationTimestamp_;
+  struct CloudPipelineLatencyState {
+    std::chrono::steady_clock::time_point ingressWallTime_{};
+    std::chrono::steady_clock::time_point slamEnqueueWallTime_{};
+    bool hasIngressWallTime_ = false;
+    bool hasSlamEnqueueWallTime_ = false;
+  };
+  std::unordered_map<int64, CloudPipelineLatencyState> cloudPipelineLatencies_;
 
   // bookkeeping
   bool isOptimizedGraphAvailable_ = false;

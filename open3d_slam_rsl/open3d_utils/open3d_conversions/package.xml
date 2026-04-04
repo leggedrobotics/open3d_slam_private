@@ -18,7 +18,6 @@
   <build_depend>cmake_clang_tools</build_depend>
   <depend>roscpp</depend>
   <depend>sensor_msgs</depend>
-  <depend>pointmatcher_ros</depend>
   <depend>eigen</depend>
   <depend>open3d_catkin</depend>
   <depend>open3d_slam_msgs</depend>

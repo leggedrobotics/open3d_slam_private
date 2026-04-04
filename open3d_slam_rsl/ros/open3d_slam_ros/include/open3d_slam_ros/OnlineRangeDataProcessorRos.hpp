@@ -16,7 +16,10 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <chrono>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include "open3d_slam/SlamWrapper.hpp"
 #include "open3d_slam/output.hpp"
 #include "open3d_slam_ros/DataProcessorRos.hpp"
@@ -50,10 +53,18 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
   void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_ptr);
   void publishAddedImuMeas_(const Eigen::Matrix<double, 6, 1>& addedImuMeas, const ros::Time& stamp);
   void dynamicPoseDiscoveryCallback(const ros::TimerEvent&);
+  void enqueueMeasurement(const PointCloud& cloud, const Time& timestamp, const std::chrono::steady_clock::time_point& ingressWallTime);
+  void tryProcessPendingClouds();
+  void publishCompletedMappingResultIfAvailable();
 
   std::optional<visualization_msgs::Marker> generateMarkersForSurfaceNormalVectors(const open3d::geometry::PointCloud& pointCloud,
                                                                                    const ros::Time& timestamp,
                                                                                    const o3d_slam::RgbaColorMap::Values& color);
+
+  struct PendingCloudMeasurement {
+    PointCloud cloud_;
+    Time timestamp_ = fromUniversal(0);
+  };
 
   // std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
   tf2_ros::Buffer tfBuffer_;
@@ -82,6 +93,12 @@ class OnlineRangeDataProcessorRos : public DataProcessorRos {
 
   ros::Timer dynamicPoseDiscoveryTimer_;
   bool poseSubscribed_ = false;
+  uint32_t cloudSubscriberQueueSize_ = 1u;
+  uint32_t poseSubscriberQueueSize_ = 10u;
+  std::deque<PendingCloudMeasurement> pendingClouds_;
+  std::mutex pendingCloudsMutex_;
+  std::mutex completedMappingResultMutex_;
+  Time lastPublishedMappedResultTimestamp_ = fromUniversal(0);
 
   // tf2_ros::Buffer tfBuffer_;
   // tf2_ros::TransformListener tfListener_;

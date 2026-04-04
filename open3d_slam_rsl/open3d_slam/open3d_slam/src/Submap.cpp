@@ -148,7 +148,8 @@ void Submap::transform(const Transform& T) {
     std::lock_guard<std::mutex> lck(denseMapMutex_);
     denseMap_.transform(T);
   }
-  mapToRangeSensor_ = mapToRangeSensor_ * T;
+  mapToSubmap_ = T * mapToSubmap_;
+  mapToRangeSensor_ = T * mapToRangeSensor_;
   submapCenter_ = T * submapCenter_;
 }
 

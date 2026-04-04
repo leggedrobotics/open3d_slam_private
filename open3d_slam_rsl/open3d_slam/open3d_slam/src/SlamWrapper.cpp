@@ -38,6 +38,7 @@ SlamWrapper::SlamWrapper() {
   motionCompensationMap_ = std::make_shared<MotionCompensation>();
   latestMapToRangeMeasurement_.transform_ = Transform::Identity();
   latestScanToMapRefinementTimestamp_ = fromUniversal(0);
+  latestScanToScanRegistrationTimestamp_ = fromUniversal(0);
 }
 
 SlamWrapper::~SlamWrapper() {
@@ -145,7 +146,7 @@ Transform SlamWrapper::getExternalOdometryFrameToCloudFrameCalibration() {
   return mapper_->calibration_;
 }
 
-bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time& timestamp) const {
+bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time& timestamp) {
   if (!(params_.odometry_.useOdometryTopic_) || odometry_->odomToRangeSensorBuffer_.has(timestamp)) {
     std::cout << "WARNING: you are trying to add an odometry pose to the buffer, but the buffer already has it! \n";
     std::cout << "The timestamp is: " << toSecondsSinceFirstMeasurement(timestamp) << std::endl;
@@ -153,14 +154,6 @@ bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time
   }
 
   updateFirstMeasurementTime(timestamp);
-
-  if (!odometryBuffer_.empty()) {
-    const auto latestTime = odometryBuffer_.peek_back().time_;
-    if (timestamp < latestTime) {
-      std::cerr << "You are trying to add a pose odometry measurement out of order! Its okay at the start. Dropping the measurement! \n";
-      return false;
-    }
-  }
 
   if (!odometry_->odomToRangeSensorBuffer_.empty()) {
     const auto latestAvailableOdometryTime = odometry_->odomToRangeSensorBuffer_.latest_time();
@@ -173,6 +166,7 @@ bool SlamWrapper::addOdometryPoseToBuffer(const Transform& transform, const Time
   }
 
   odometry_->odomToRangeSensorBuffer_.push(timestamp, transform);
+  setLatestScanToScanRegistrationTimestamp(timestamp);
   return true;
 }
 
@@ -201,8 +195,10 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
     }
   }
 
-  if (!odometryBuffer_.empty()) {
-    const auto latestTime = odometryBuffer_.peek_back().time_;
+  const auto latestMeasurement =
+      params_.odometry_.useOdometryTopic_ ? mappingBuffer_.try_peek_back() : odometryBuffer_.try_peek_back();
+  if (latestMeasurement) {
+    const auto latestTime = latestMeasurement->time_;
     if (timestamp < latestTime) {
       std::cerr << "open3d_slam: You are trying to add a range scan out of order! Dropping the measurement! \n";
       return false;
@@ -213,25 +209,31 @@ bool SlamWrapper::addRangeScan(const open3d::geometry::PointCloud cloud, const T
   // auto removedNans = removePointsWithNonFiniteValues(cloud);
   const TimestampedPointCloud timestampedCloud{timestamp, cloud};
 
-  odometryBuffer_.push(timestampedCloud);
+  if (params_.odometry_.useOdometryTopic_) {
+    mappingBuffer_.push(timestampedCloud);
+  } else {
+    odometryBuffer_.push(timestampedCloud);
+  }
   return true;
 }
 
 std::tuple<PointCloud, Time, Transform> SlamWrapper::getLatestRegisteredCloudTimestampPair() const {
-  if (registeredCloudBuffer_.empty()) {
-    return {std::make_tuple(PointCloud(), latestScanToMapRefinementTimestamp_, Transform())};
+  const auto latestRegisteredCloud = registeredCloudBuffer_.try_peek_back();
+  if (!latestRegisteredCloud) {
+    return {std::make_tuple(PointCloud(), getLatestScanToMapRefinementTimestamp(), Transform())};
   }
-  RegisteredPointCloud c = registeredCloudBuffer_.peek_back();
+  const RegisteredPointCloud& c = *latestRegisteredCloud;
   //	c.raw_.cloud_.Transform(c.transform_.matrix());
   return {std::make_tuple(c.raw_.cloud_, c.raw_.time_, c.transform_)};
 }
 
 std::tuple<Time, Transform> SlamWrapper::getLatestRegistrationBestGuess() const {
-  if (registrationBestGuessBuffer_.empty()) {
-    return {std::make_tuple(latestScanToMapRefinementTimestamp_, Transform())};
+  const auto latestBestGuess = registrationBestGuessBuffer_.try_peek_back();
+  if (!latestBestGuess) {
+    return {std::make_tuple(getLatestScanToMapRefinementTimestamp(), Transform())};
   }
 
-  ScanToMapRegistrationBestGuess c = registrationBestGuessBuffer_.peek_back();
+  const ScanToMapRegistrationBestGuess& c = *latestBestGuess;
   return {std::make_tuple(c.time_, c.transform_)};
 }
 
@@ -261,6 +263,87 @@ TimestampedTransform SlamWrapper::getLatestOdometryPoseMeasurement() const {
   auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
   return latestOdomMeasurement;
 }
+
+Time SlamWrapper::getLatestScanToMapRefinementTimestamp() const {
+  std::lock_guard<std::mutex> lock(latestTimestampMutex_);
+  return latestScanToMapRefinementTimestamp_;
+}
+
+Time SlamWrapper::getLatestScanToScanRegistrationTimestamp() const {
+  std::lock_guard<std::mutex> lock(latestTimestampMutex_);
+  return latestScanToScanRegistrationTimestamp_;
+}
+
+void SlamWrapper::recordCloudIngressWallTime(const Time& timestamp, const std::chrono::steady_clock::time_point& ingressWallTime) {
+  if (!isTimeValid(timestamp)) {
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(cloudPipelineLatencyMutex_);
+  auto& state = cloudPipelineLatencies_[toUniversal(timestamp)];
+  state.ingressWallTime_ = ingressWallTime;
+  state.hasIngressWallTime_ = true;
+}
+
+void SlamWrapper::markCloudQueuedForProcessing(const Time& timestamp, const std::chrono::steady_clock::time_point& enqueueWallTime) {
+  if (!isTimeValid(timestamp)) {
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(cloudPipelineLatencyMutex_);
+  auto& state = cloudPipelineLatencies_[toUniversal(timestamp)];
+  state.slamEnqueueWallTime_ = enqueueWallTime;
+  state.hasSlamEnqueueWallTime_ = true;
+}
+
+bool SlamWrapper::consumeCloudPipelineLatencyMeasurement(const Time& timestamp,
+                                                         const std::chrono::steady_clock::time_point& publishWallTime,
+                                                         CloudPipelineLatencyMeasurement* measurement) {
+  if (!measurement || !isTimeValid(timestamp)) {
+    return false;
+  }
+
+  std::lock_guard<std::mutex> lock(cloudPipelineLatencyMutex_);
+  const auto it = cloudPipelineLatencies_.find(toUniversal(timestamp));
+  if (it == cloudPipelineLatencies_.end()) {
+    return false;
+  }
+
+  const CloudPipelineLatencyState state = it->second;
+  cloudPipelineLatencies_.erase(it);
+  if (!state.hasIngressWallTime_ || !state.hasSlamEnqueueWallTime_) {
+    return false;
+  }
+
+  measurement->ingressToSlamEnqueueMsec_ =
+      std::chrono::duration<double, std::milli>(state.slamEnqueueWallTime_ - state.ingressWallTime_).count();
+  measurement->slamEnqueueToPublishMsec_ =
+      std::chrono::duration<double, std::milli>(publishWallTime - state.slamEnqueueWallTime_).count();
+  measurement->ingressToPublishMsec_ =
+      std::chrono::duration<double, std::milli>(publishWallTime - state.ingressWallTime_).count();
+  return true;
+}
+
+void SlamWrapper::discardCloudPipelineLatencyMeasurement(const Time& timestamp) {
+  if (!isTimeValid(timestamp)) {
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(cloudPipelineLatencyMutex_);
+  cloudPipelineLatencies_.erase(toUniversal(timestamp));
+}
+
+void SlamWrapper::setLatestScanToMapRefinementTimestamp(const Time& timestamp) {
+  std::lock_guard<std::mutex> lock(latestTimestampMutex_);
+  latestScanToMapRefinementTimestamp_ = timestamp;
+}
+
+void SlamWrapper::setLatestScanToScanRegistrationTimestamp(const Time& timestamp) {
+  std::lock_guard<std::mutex> lock(latestTimestampMutex_);
+  latestScanToScanRegistrationTimestamp_ = timestamp;
+}
+
+void SlamWrapper::handleCompletedMappingResult(const Time&, const Transform&, const Transform&) {}
 
 void SlamWrapper::finishProcessing() {
   while (isRunWorkers_) {
@@ -360,7 +443,7 @@ void SlamWrapper::offlineTfWorker() {
 void SlamWrapper::offlineVisualizationWorker() {
   std::cout << "Starting offline visualization worker! \n";
 
-  const Time scanToMapTimestamp = latestScanToMapRefinementTimestamp_;
+  const Time scanToMapTimestamp = getLatestScanToMapRefinementTimestamp();
   if (isTimeValid(scanToMapTimestamp)) {
     offlinePublishMaps(scanToMapTimestamp);
   }
@@ -480,8 +563,10 @@ void SlamWrapper::usePairForRegistration() {
 
 void SlamWrapper::startWorkers() {
   // This is the new-multi threaded.
-  unifiedWorkerOdom_ = std::thread([this]() { unifiedWorkerOdom(); });
   unifiedWorkerMap_ = std::thread([this]() { unifiedWorkerMap(); });
+  if (!params_.odometry_.useOdometryTopic_) {
+    unifiedWorkerOdom_ = std::thread([this]() { unifiedWorkerOdom(); });
+  }
 
   // // This is single threaded.
   // unifiedWorker_ = std::thread([this]() { unifiedWorker(); });
@@ -541,10 +626,18 @@ bool SlamWrapper::isOdometryPoseBufferEmpty() {
   return odometry_->getBuffer().empty();
 }
 
+bool SlamWrapper::doesOdometryBufferBracketMeasurement(const Time& t) const {
+  return !odometry_->getBuffer().empty() && odometry_->getBuffer().has(t);
+}
+
+bool SlamWrapper::isMeasurementOlderThanOdometryBuffer(const Time& t) const {
+  return !odometry_->getBuffer().empty() && t < odometry_->getBuffer().earliest_time();
+}
+
 void SlamWrapper::offlineOdometryWorker() {
   if (!odometry_->getBuffer().empty()) {
     const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
-    latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
+    setLatestScanToScanRegistrationTimestamp(latestOdomMeasurement.time_);
   }
 
   if (odometryBuffer_.empty()) {
@@ -560,6 +653,7 @@ void SlamWrapper::offlineOdometryWorker() {
 
   if (!isOdomOkay) {
     std::cerr << "WARNING: odometry has failed!!!! \n";
+    discardCloudPipelineLatencyMeasurement(measurement.time_);
     return;
   }
 
@@ -568,7 +662,7 @@ void SlamWrapper::offlineOdometryWorker() {
   // This is the limitting factor in odometry publishing, currently limits the odom -> range sensor tf transform publishing to the rate of
   // the lidar.
   const auto latestOdomMeasurement = odometry_->getBuffer().latest_measurement();
-  latestScanToScanRegistrationTimestamp_ = latestOdomMeasurement.time_;
+  setLatestScanToScanRegistrationTimestamp(latestOdomMeasurement.time_);
   return;
 }
 
@@ -577,13 +671,14 @@ void SlamWrapper::unifiedWorkerOdom() {
     while (isRunWorkers_) {
       if (!odometry_->getBuffer().empty()) {
         auto m = odometry_->getBuffer().latest_measurement(0);
-        latestScanToScanRegistrationTimestamp_ = m.time_;
+        setLatestScanToScanRegistrationTimestamp(m.time_);
       }
 
       TimestampedPointCloud meas = odometryBuffer_.wait_and_pop();
 
       if (!odometry_->addRangeScan(meas.cloud_, meas.time_)) {
         std::cerr << "WARNING: odometry has failed!\n";
+        discardCloudPipelineLatencyMeasurement(meas.time_);
         continue;
       }
 
@@ -591,7 +686,7 @@ void SlamWrapper::unifiedWorkerOdom() {
 
       if (!odometry_->getBuffer().empty()) {
         const auto latest = odometry_->getBuffer().latest_measurement();
-        latestScanToScanRegistrationTimestamp_ = latest.time_;
+        setLatestScanToScanRegistrationTimestamp(latest.time_);
       }
     }
   } catch (const std::runtime_error& e) {
@@ -626,7 +721,7 @@ void SlamWrapper::unifiedWorkerMap() {
         reg.targetFrame_ = frames_.mapFrame;
         registeredCloudBuffer_.push(reg);
 
-        latestScanToMapRefinementTimestamp_ = meas.time_;
+        setLatestScanToMapRefinementTimestamp(meas.time_);
 
         ScanToMapRegistrationBestGuess guess;
         guess.time_ = meas.time_;
@@ -634,6 +729,10 @@ void SlamWrapper::unifiedWorkerMap() {
         guess.sourceFrame_ = frames_.rangeSensorFrame;
         guess.targetFrame_ = frames_.mapFrame;
         registrationBestGuessBuffer_.push(guess);
+
+        handleCompletedMappingResult(meas.time_, reg.transform_, guess.transform_);
+      } else {
+        discardCloudPipelineLatencyMeasurement(meas.time_);
       }
       computeFeaturesIfReady();
       if (params_.mapper_.isAttemptLoopClosures_) {
@@ -656,13 +755,14 @@ void SlamWrapper::unifiedWorker() {
       // 2. Odometry step
       if (!odometry_->addRangeScan(meas.cloud_, meas.time_)) {
         std::cerr << "WARNING: odometry has failed!\n";
+        discardCloudPipelineLatencyMeasurement(meas.time_);
         continue;
       }
 
       // 3. Bookkeeping: update latest odometry timestamp if available
       if (!odometry_->getBuffer().empty()) {
         auto m = odometry_->getBuffer().latest_measurement(0);
-        latestScanToScanRegistrationTimestamp_ = m.time_;
+        setLatestScanToScanRegistrationTimestamp(m.time_);
       } else {
         std::cerr << "WARNING: odometry buffer is empty when updating latestScanToScanRegistrationTimestamp_!\n";
       }
@@ -690,7 +790,7 @@ void SlamWrapper::unifiedWorker() {
         reg.targetFrame_ = frames_.mapFrame;
         registeredCloudBuffer_.push(reg);
 
-        latestScanToMapRefinementTimestamp_ = meas.time_;
+        setLatestScanToMapRefinementTimestamp(meas.time_);
 
         ScanToMapRegistrationBestGuess guess;
         guess.time_ = meas.time_;
@@ -698,6 +798,10 @@ void SlamWrapper::unifiedWorker() {
         guess.sourceFrame_ = frames_.rangeSensorFrame;
         guess.targetFrame_ = frames_.mapFrame;
         registrationBestGuessBuffer_.push(guess);
+
+        handleCompletedMappingResult(meas.time_, reg.transform_, guess.transform_);
+      } else {
+        discardCloudPipelineLatencyMeasurement(meas.time_);
       }
 
       computeFeaturesIfReady();
@@ -770,7 +874,7 @@ void SlamWrapper::offlineMappingWorker() {
     registeredCloud.sourceFrame_ = frames_.rangeSensorFrame;
     registeredCloud.targetFrame_ = frames_.mapFrame;
     registeredCloudBuffer_.push(registeredCloud);
-    latestScanToMapRefinementTimestamp_ = measurement.time_;
+    setLatestScanToMapRefinementTimestamp(measurement.time_);
 
     if ((!mapper_->isRegistrationBestGuessBufferEmpty())) {
       ScanToMapRegistrationBestGuess bestGuess;
@@ -779,7 +883,11 @@ void SlamWrapper::offlineMappingWorker() {
       bestGuess.sourceFrame_ = frames_.rangeSensorFrame;
       bestGuess.targetFrame_ = frames_.mapFrame;
       registrationBestGuessBuffer_.push(bestGuess);
+
+      handleCompletedMappingResult(measurement.time_, registeredCloud.transform_, bestGuess.transform_);
     }
+  } else {
+    discardCloudPipelineLatencyMeasurement(measurement.time_);
   }
 
   computeFeaturesIfReady();
@@ -794,15 +902,19 @@ void SlamWrapper::offlineMappingWorker() {
 }
 
 void SlamWrapper::offlineLoopClosureWorker() {
-  if (loopClosureCandidates_.empty() || isOptimizedGraphAvailable_) {
+  if (isOptimizedGraphAvailable_) {
+    return;
+  }
+
+  const auto pendingCandidates = loopClosureCandidates_.tryPopAllElements();
+  if (!pendingCandidates) {
     return;
   }
 
   Constraints loopClosureConstraints;
   {
     //			Timer t("loop_closing_attempt");
-    const auto lcc = loopClosureCandidates_.popAllElements();
-    loopClosureConstraints = submaps_->buildLoopClosureConstraints(lcc);
+    loopClosureConstraints = submaps_->buildLoopClosureConstraints(*pendingCandidates);
     numLatesLoopClosureConstraints_ = loopClosureConstraints.size();
   }
 
@@ -898,7 +1010,13 @@ void SlamWrapper::attemptLoopClosuresIfReady() {
 
 void SlamWrapper::loopClosureWorker() {
   while (isRunWorkers_) {
-    if (loopClosureCandidates_.empty() || isOptimizedGraphAvailable_) {
+    if (isOptimizedGraphAvailable_) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      continue;
+    }
+
+    const auto pendingCandidates = loopClosureCandidates_.tryPopAllElements();
+    if (!pendingCandidates) {
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       continue;
     }
@@ -906,8 +1024,7 @@ void SlamWrapper::loopClosureWorker() {
     Constraints loopClosureConstraints;
     {
       //			Timer t("loop_closing_attempt");
-      const auto lcc = loopClosureCandidates_.popAllElements();
-      loopClosureConstraints = submaps_->buildLoopClosureConstraints(lcc);
+      loopClosureConstraints = submaps_->buildLoopClosureConstraints(*pendingCandidates);
       numLatesLoopClosureConstraints_ = loopClosureConstraints.size();
     }
 

@@ -11,22 +11,8 @@ if(ENABLE_PROFILING)
   add_definitions(-DENABLE_PROFILING)
 endif()
 
-option(ENABLE_LIBPOINTMATCHER "Enable reghistration with LIBPOINTMATCHER" OFF)
-
-if(ENABLE_LIBPOINTMATCHER)
-  add_definitions(-DENABLE_LIBPOINTMATCHER)
-  message(STATUS "Building with libpointmatcher registration support")
-  set(SRC_FILES
-    src/Mapper_libpointmatcher.cpp
-  )
-else()
-  message(STATUS "Building WITHOUT libpointmatcher registration support")
-  set(SRC_FILES
-    src/Mapper.cpp
-  )
-endif()
-
-set(SRC_FILES ${SRC_FILES}
+set(SRC_FILES
+  src/Mapper.cpp
   src/helpers.cpp
   src/time.cpp
   src/math.cpp
