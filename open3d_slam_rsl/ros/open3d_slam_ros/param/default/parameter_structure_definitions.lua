@@ -37,9 +37,9 @@ MOTION_COMPENSATION_PARAMETERS = {
 }
 
 VISUALIZATION_PARAMETERS = {
-  assembled_map_voxel_size = 0.05,
+  assembled_map_voxel_size = 0.1,
   submaps_voxel_size = 0.05,
-  visualize_every_n_msec = 250.0,
+  visualize_every_n_msec = 5000.0,
 }
 
 GLOBAL_OPTIMIZATION_PARAMETERS = {
