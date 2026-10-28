@@ -13,7 +13,12 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 # Check whether open3d can be found
-find_package(Open3D QUIET)
+if(DEFINED ENV{Open3D_DIR})
+  set(Open3D_DIR "$ENV{Open3D_DIR}" CACHE PATH "Open3D CMake configuration directory" FORCE)
+  find_package(Open3D CONFIG REQUIRED)
+else()
+  find_package(Open3D QUIET)
+endif()
 
 # Color
 if(NOT WIN32)
@@ -23,27 +28,8 @@ if(NOT WIN32)
   set(Magenta     "${Esc}[35m")
 endif()
 
-# 1 - Check whether variable is set -----------------------------------------------------------
-if(DEFINED ENV{Open3D_DIR})
-  set(Open3D_DIR ENV{Open3D_DIR})
-  find_package(Open3D CONFIG REQUIRED)
-  message("${BoldMagenta}INFO: Found manually set path to Open3D. Using version located at $ENV{Open3D_DIR}.${ColourReset}")
-  set(Open3D_INCLUDE_DIR_MAN "${Open3D_DIR}/../../../include/")
-  message("Open3D include path: ${Open3D_INCLUDE_DIRS} , ${Open3D_INCLUDE_DIR_MAN}")
-  message("Open3D libs: ${Open3D_LIBRARIES}")
-  catkin_package(
-  INCLUDE_DIRS 
-    ${Open3D_INCLUDE_DIRS}
-    ${Open3D_INCLUDE_DIR_MAN}
-  LIBRARIES 
-    ${Open3D_LIBRARIES} 
-  CATKIN_DEPENDS
-    ${CATKIN_PACKAGE_DEPENDENCIES}
-  DEPENDS
-    Open3D 
-  )
-# 2 - Check whether open3d is installed -------------------------------------------------------
-elseif(Open3D_FOUND)
+# Installed Open3D (including an explicit Open3D_DIR).
+if(Open3D_FOUND)
   message("${BoldMagenta}INFO: Found Open3D.${ColourReset}")
   
   # Path differs whether installed from PPA or (locally) from source
@@ -55,36 +41,56 @@ elseif(Open3D_FOUND)
   
   message("Open3D libraries: ${Open3D_LIBRARIES}")
   message("Open3D include path: ${Open3D_INCLUDE_DIRS} , ${Open3D_INCLUDE_DIR_MAN}")
-  
-  
-  find_package(fmt QUIET)
-  if(fmt_FOUND)
-  	message("Linking fmt into open3d_catkin")
-  	catkin_package(
-      INCLUDE_DIRS 
+
+  # Prefer fmt co-located with Open3D (e.g. built from source in this workspace)
+  # to avoid ABI mismatches with the system-installed fmt which may be a different version.
+  get_filename_component(Open3D_INSTALL_PREFIX "${Open3D_DIR}/../../.." ABSOLUTE)
+  find_library(FMT_LIBRARY_COLOCATED NAMES fmt PATHS "${Open3D_INSTALL_PREFIX}/lib" "${Open3D_INSTALL_PREFIX}/lib64" NO_DEFAULT_PATH)
+
+  if(FMT_LIBRARY_COLOCATED)
+    message("${BoldMagenta}INFO: Using fmt co-located with Open3D: ${FMT_LIBRARY_COLOCATED}${ColourReset}")
+    catkin_package(
+      INCLUDE_DIRS
         ${Open3D_INCLUDE_DIRS}
         ${Open3D_INCLUDE_DIR_MAN}
-      LIBRARIES 
+      LIBRARIES
         ${Open3D_LIBRARIES}
-        fmt::fmt
+        ${FMT_LIBRARY_COLOCATED}
       CATKIN_DEPENDS
         ${CATKIN_PACKAGE_DEPENDENCIES}
       DEPENDS
-        Open3D 
+        Open3D
     )
   else()
-  	message("fmt not found. If you get linking errors try installing libfmt with sudo apt install libfmt-dev")
-  	catkin_package(
-      INCLUDE_DIRS 
-        ${Open3D_INCLUDE_DIRS}
-        ${Open3D_INCLUDE_DIR_MAN}
-      LIBRARIES 
-        ${Open3D_LIBRARIES}
-      CATKIN_DEPENDS
-        ${CATKIN_PACKAGE_DEPENDENCIES}
-      DEPENDS
-        Open3D 
-    )  	 
+    find_package(fmt QUIET)
+    if(fmt_FOUND)
+      message("Linking fmt into open3d_catkin")
+      catkin_package(
+        INCLUDE_DIRS
+          ${Open3D_INCLUDE_DIRS}
+          ${Open3D_INCLUDE_DIR_MAN}
+        LIBRARIES
+          ${Open3D_LIBRARIES}
+          fmt::fmt
+        CATKIN_DEPENDS
+          ${CATKIN_PACKAGE_DEPENDENCIES}
+        DEPENDS
+          Open3D
+      )
+    else()
+      message("fmt not found. If you get linking errors try installing libfmt with sudo apt install libfmt-dev")
+      catkin_package(
+        INCLUDE_DIRS
+          ${Open3D_INCLUDE_DIRS}
+          ${Open3D_INCLUDE_DIR_MAN}
+        LIBRARIES
+          ${Open3D_LIBRARIES}
+        CATKIN_DEPENDS
+          ${CATKIN_PACKAGE_DEPENDENCIES}
+        DEPENDS
+          Open3D
+      )
+    endif()
   endif()
 
 
